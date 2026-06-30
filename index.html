@@ -32,47 +32,50 @@
         .scroll-card { background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:135px; min-width:135px; max-width:135px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-sizing:border-box; }
         .scroll-poster { width:100%; height:195px; min-height:195px; background:#1e293b; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; }
         .rating-badge { position:absolute; bottom:8px; right:8px; background:#020617; border:1px solid #1e293b; color:#34d399; font-weight:bold; font-size:9px; padding:2px 6px; border-radius:4px; }
-        .card-details { padding:10px; background:#0f172a; text-align:left; box-sizing:border-box; }
-        .card-title { font-weight:bold; font-size:11px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .card-meta { font-size:9px; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px 0; width:100%; box-sizing:border-box; }
-        .form-group { display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box; }
-        .form-group label { font-size:11px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; }
-        .form-group input, .form-group textarea { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:14px; color:#f8fafc; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
-        .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
-        .btn-action { width:100%; padding:15px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; margin-top:8px; }
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:76px; background:#0f172a; border-top:1px solid #1e293b; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:env(safe-area-inset-bottom); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:900; font-size:12px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:6px; flex:1; height:100%; }
-        .nav-btn.active { color:#f97316; }
-        .nav-icon { font-size: 20px; }
-        .modal-overlay { position:fixed; inset:0; background:#020617; z-index:100; box-sizing:border-box; overflow-y:auto; display:flex; flex-direction:column; }
-        .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
-        .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 30%, #020617 100%); }
-        .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(15,23,42,0.8); border:1px solid #1e293b; color:#f8fafc; font-size:18px; font-weight:bold; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; }
-        .detail-content-frame { padding:0 20px 40px 20px; margin-top:-80px; position:relative; z-index:105; display:flex; flex-direction:column; gap:20px; }
-        .detail-main-row { display:flex; gap:16px; align-items:flex-end; }
-        .detail-poster-wrapper { width:110px; height:165px; border-radius:8px; overflow:hidden; border:2px solid #1e293b; background:#0f172a; flex-shrink:0; }
-        .detail-poster-img { width:100%; height:100%; object-fit:cover; }
-        .detail-meta-block { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
-        .detail-heading-title { font-size:22px; font-weight:900; color:#ffffff; line-height:1.2; }
-        .detail-sub-specs { font-size:11px; color:#94a3b8; font-weight:600; }
-        .detail-metrics-rack { display:grid; grid-template-cols:1fr 1fr; gap:10px; background:#0f172a; border:1px solid #1e293b; padding:12px; border-radius:12px; }
-        .metric-pill { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:bold; color:#cbd5e1; }
-        .metric-txt span { color:#f97316; font-weight:900; }
-        .detail-synopsis-box { font-size:13px; color:#cbd5e1; line-height:1.6; }
-        .detail-synopsis-box h4 { font-size:10px; text-transform:uppercase; color:#64748b; letter-spacing:1px; margin-bottom:6px; }
-        .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
-        .btn-panel-primary { width:100%; padding:14px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; }
-        .btn-panel-disabled { width:100%; padding:14px; background:#334155; color:#64748b; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:not-allowed; }
-        .btn-unwatch-action { position:absolute; top:20px; left:20px; background:rgba(239,68,68,0.85); border:1px solid #ef4444; color:#ffffff; font-size:10px; font-weight:900; text-transform:uppercase; padding:10px 14px; border-radius:20px; cursor:pointer; z-index:115; letter-spacing:0.5px; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
-        .trailer-btn { background:#1e293b; color:#cbd5e1; border:1px solid #334155; font-size:10px; font-weight:900; text-transform:uppercase; padding:6px 10px; border-radius:6px; cursor:pointer; width:fit-content; margin-top:4px; display:none; }
-        .trailer-video-box { width:100%; height:200px; border-radius:12px; overflow:hidden; border:1px solid #1e293b; background:#000000; display:none; }
+        .card-details { padding:10px; background:#0f172a; text-align:left; box-sizing:border-box; border-top:1px solid rgba(255,255,255,0.03); }
+        .card-title { font-weight:700; font-size:12px; color:#f1f5f9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .card-meta { font-size:10px; color:#64748b; margin-top:4px; font-weight:600; }
+        .settings-container { display: flex; flex-direction: column; gap: 18px; padding: 4px 0; width: 100%; box-sizing: border-box; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; }
+        .form-group label { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .form-group input, .form-group textarea { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 14px; color: #f8fafc; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; backdrop-filter: blur(8px); transition: all 0.2s; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #f97316; background: #0f172a; }
+        .btn-action { width: 100%; padding: 16px; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #020617; border: none; border-radius: 14px; font-weight: 900; text-transform: uppercase; font-size: 12px; cursor: pointer; margin-top: 12px; letter-spacing: 1px; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.2); }
+        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 84px; background: rgba(15, 23, 42, 0.85); border-top: 1px solid rgba(255, 255, 255, 0.03); display: flex; justify-content: space-around; align-items: center; z-index: 40; box-sizing: border-box; padding-bottom: calc(8px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; gap: 6px; flex: 1; height: 100%; transition: color 0.2s ease; }
+        .nav-btn.active { color: #f97316; }
+        .nav-icon { font-size: 22px; transition: transform 0.2s ease; }
+        .nav-btn:active .nav-icon { transform: scale(0.85); }
+        .modal-overlay { position: fixed; inset: 0; background: #020617; z-index: 100; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; }
+        .detail-hero-backdrop { width: 100%; height: 280px; background-size: cover; background-position: center; position: relative; }
+        .detail-hero-backdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 20%, #020617 100%); }
+        .detail-close-trigger { position: absolute; top: 24px; right: 24px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); color: #f8fafc; font-size: 20px; font-weight: bold; width: 40px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 110; backdrop-filter: blur(8px); }
+        .detail-content-frame { padding: 0 24px 48px 24px; margin-top: -100px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 24px; }
+        .detail-main-row { display: flex; gap: 20px; align-items: flex-end; }
+        .detail-poster-wrapper { width: 120px; height: 180px; border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #0f172a; flex-shrink: 0; box-shadow: 0 12px 28px rgba(0,0,0,0.4); }
+        .detail-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .detail-meta-block { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+        .detail-heading-title { font-size: 24px; font-weight: 900; color: #ffffff; line-height: 1.2; letter-spacing: -0.5px; }
+        .detail-sub-specs { font-size: 12px; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; }
+        .detail-metrics-rack { display: grid; grid-template-cols: 1fr; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.03); padding: 14px 18px; border-radius: 16px; backdrop-filter: blur(8px); }
+        .metric-pill { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #cbd5e1; }
+        .metric-txt span { color: #f97316; font-weight: 900; }
+        .detail-synopsis-box { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+        .detail-synopsis-box h4 { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 1px; margin-bottom: 8px; font-weight: 800; }
+        .detail-footer-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+        .btn-panel-primary { width: 100%; padding: 16px; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #020617; border: none; border-radius: 14px; font-weight: 900; text-transform: uppercase; font-size: 12px; cursor: pointer; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.2); letter-spacing: 0.5px; }
+        .btn-panel-disabled { width: 100%; padding: 16px; background: #1e293b; color: #475569; border: 1px solid rgba(255,255,255,0.02); border-radius: 14px; font-weight: 900; text-transform: uppercase; font-size: 12px; cursor: not-allowed; letter-spacing: 0.5px; }
+        .btn-unwatch-action { position: absolute; top: 24px; left: 24px; background: rgba(239, 68, 68, 0.9); border: none; color: #ffffff; font-size: 11px; font-weight: 900; text-transform: uppercase; padding: 12px 18px; border-radius: 24px; cursor: pointer; z-index: 115; letter-spacing: 0.5px; box-shadow: 0 6px 16px rgba(239, 68, 68, 0.25); transition: transform 0.2s; }
+        .btn-unwatch-action:active { transform: scale(0.93); }
+        .trailer-btn { background: rgba(255,255,255,0.07); color: #f1f5f9; border: 1px solid rgba(255,255,255,0.05); font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 8px 14px; border-radius: 8px; cursor: pointer; width: fit-content; margin-top: 6px; letter-spacing: 0.5px; backdrop-filter: blur(4px); transition: all 0.2s; }
+        .trailer-btn:active { background: #f97316; color: #020617; }
+        .trailer-video-box { width: 100%; height: 210px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); background: #000000; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-     <script>
+       <script>
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
@@ -94,16 +97,18 @@
                 else if (poolType === 'friend') {
                     let filteredFriends = friendRowData.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
                     targetObject = filteredFriends[parseInt(targetKey)];
-                } else if (poolType === 'discover') {
-                    let filteredDiscover = (tracks[trackName] || []).filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
-                    targetObject = filteredDiscover[parseInt(targetKey)];
-                } else if (poolType === 'library') {
-                    let watchedMovies = myCollection.filter(m => m.played === true || localWatchedCache.includes(String(m.tmdbId)) || localWatchedCache.includes(String(m.title).toLowerCase().trim()));
-                    let downloadedMovies = myCollection.filter(m => m.hasFile === true);
-                    let comingSoonMovies = myCollection.filter(m => !m.hasFile && !m.played);
-                    if (currentSubTab === 'watched') targetObject = watchedMovies.find(m => String(m.id).trim() === String(targetKey).trim());
-                    else if (currentSubTab === 'downloaded') targetObject = downloadedMovies.find(m => String(m.id).trim() === String(targetKey).trim());
-                    else if (currentSubTab === 'comingsoon') targetObject = comingSoonMovies.find(m => String(m.id).trim() === String(targetKey).trim());
+                } {
+                    if (poolType === 'discover') {
+                        let filteredDiscover = (tracks[trackName] || []).filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+                        targetObject = filteredDiscover[parseInt(targetKey)];
+                    } else if (poolType === 'library') {
+                        let watchedMovies = myCollection.filter(m => m.played === true || localWatchedCache.includes(String(m.tmdbId)) || localWatchedCache.includes(String(m.title).toLowerCase().trim()));
+                        let downloadedMovies = myCollection.filter(m => m.hasFile === true);
+                        let comingSoonMovies = myCollection.filter(m => !m.hasFile && !m.played);
+                        if (currentSubTab === 'watched') targetObject = watchedMovies.find(m => String(m.id).trim() === String(targetKey).trim());
+                        else if (currentSubTab === 'downloaded') targetObject = downloadedMovies.find(m => String(m.id).trim() === String(targetKey).trim());
+                        else if (currentSubTab === 'comingsoon') targetObject = comingSoonMovies.find(m => String(m.id).trim() === String(targetKey).trim());
+                    }
                 }
                 if (!targetObject) return;
                 activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; modalOpen = true; render();
@@ -129,7 +134,7 @@
                 }
             } catch (e) { console.error(e); }
         }
-            function executeToggleWatched() {
+           function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
@@ -180,8 +185,23 @@
             let trigger = document.getElementById("modal-trailer-trigger"); let frameBox = document.getElementById("modal-trailer-frame-box");
             if (trigger && frameBox && activeItem && activeItem.trailerKey) { trigger.style.display = "none"; frameBox.style.display = "block"; frameBox.innerHTML = `<iframe src="https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1&modestbranding=1&rel=0" style="width:100%; height:100%; border:none;" allow="autoplay; encrypted-media" allowfullscreen></iframe>`; }
         }
-           // UNIFIED HISTORIC BACKEND BINDER: Resolves duplicate caching by checking structured records directly
-        async function syncRadarrLibrary() {
+
+        async function sendToRadarr() {
+            if (!activeItem) return;
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return alert("Configure Settings!");
+            try {
+                let f = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/rootfolder?apiKey=${k}`)).json();
+                let profiles = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/qualityprofile?apiKey=${k}`)).json();
+                let l = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/movie/lookup?term=tmdb:${activeItem.tmdbId || 238}&apiKey=${k}`)).json();
+                let movieData = Array.isArray(l) ? l[0] : l; if (!movieData) return alert("Missing metadata.");
+                movieData.rootFolderPath = f[0].path; movieData.qualityProfileId = profiles[0].id; movieData.monitored = true; movieData.addOptions = { searchForMovie: true };
+                let postRes = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(movieData) });
+                if (postRes.status === 201 || postRes.status === 200) { alert(`Added to queue!`); modalOpen = false; await syncRadarrLibrary(); }
+                else { alert("Exists or Rejected."); }
+            } catch(err) { alert("Connection Timeout."); }
+            render();
+        }
+            async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
             try {
@@ -195,7 +215,6 @@
                         return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
                     });
                     
-                    // Appends custom logged records safely without causing key collision duplicates
                     let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
                     customHistory.forEach(historicMatch => {
                         let tmdbIdStr = historicMatch.tmdbId ? String(historicMatch.tmdbId) : null;
