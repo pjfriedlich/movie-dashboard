@@ -155,6 +155,7 @@
             render();
         }
 
+        // LOOKUP ROUTER ENGINE: Resolves objects accurately by filtering directly out of context track memory indexes
         function launchModalFromAttributes(poolType, targetKey, trackName = null) {
             try {
                 let targetObject = null;
@@ -162,9 +163,20 @@
                 if (poolType === 'search') {
                     targetObject = searchResultsData[parseInt(targetKey)];
                 } else if (poolType === 'friend') {
-                    targetObject = friendRowData[parseInt(targetKey)];
+                    // RESOLUTION SWEEP: Resolves item using post-filtered subset indices from the live view tier
+                    let filteredFriends = friendRowData.filter(m => {
+                        let titleLower = String(m.title).toLowerCase().trim();
+                        let tmdbStr = m.tmdbId ? String(m.tmdbId) : null;
+                        return !localWatchedCache.includes(titleLower) && (!tmdbStr || !localWatchedCache.includes(tmdbStr));
+                    });
+                    targetObject = filteredFriends[parseInt(targetKey)];
                 } else if (poolType === 'discover') {
-                    targetObject = tracks[trackName]?.[parseInt(targetKey)];
+                    let filteredDiscover = (tracks[trackName] || []).filter(m => {
+                        let titleLower = String(m.title).toLowerCase().trim();
+                        let tmdbStr = m.tmdbId ? String(m.tmdbId) : null;
+                        return !localWatchedCache.includes(titleLower) && (!tmdbStr || !localWatchedCache.includes(tmdbStr));
+                    });
+                    targetObject = filteredDiscover[parseInt(targetKey)];
                 } else if (poolType === 'library') {
                     targetObject = myCollection.find(m => String(m.id).trim() === String(targetKey).trim());
                 }
@@ -187,16 +199,17 @@
                                 activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                                 render();
                             }
-                        }).catch(() => console.log("Pre-cached local properties used."));
+                        }).catch(() => console.log("Pre-cached properties utilized."));
                 }
             } catch (e) {
-                console.error("Delegated selection structural exception caught cleanly: ", e);
+                console.error("Selection exception captured cleanly: ", e);
             }
         }
 
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title);
+            let titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
             let internalIdStr = activeItem.id ? String(activeItem.id) : null;
             
@@ -204,24 +217,25 @@
             
             if (tmdbIdStr && !localWatchedCache.includes(tmdbIdStr)) localWatchedCache.push(tmdbIdStr);
             if (internalIdStr && !localWatchedCache.includes(internalIdStr)) localWatchedCache.push(internalIdStr);
+            if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
             if (!localWatchedCache.includes(titleStr)) localWatchedCache.push(titleStr);
             
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
             myCollection.forEach(m => {
-                if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title) === titleStr) {
+                if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) {
                     m.played = true;
                 }
             });
             
-            let existsInCollection = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title) === titleStr);
+            let existsInCollection = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
             
             if (!existsInCollection) {
                 let customItem = {
                     id: internalIdStr || 'cust_' + Date.now(),
                     title: activeItem.title,
                     year: activeItem.year || 'N/A',
-                    overview: activeItem.overview || 'Manually logged discovered watchlist entry.',
+                    overview: activeItem.overview || 'Manually logged watchlist entry.',
                     rating: activeItem.rating || '7.5',
                     tmdbId: activeItem.tmdbId || null,
                     played: true,
@@ -230,7 +244,7 @@
                 };
                 myCollection.unshift(customItem);
                 
-                if (!customHistory.some(h => h.title === customItem.title)) {
+                if (!customHistory.some(h => String(h.title).toLowerCase().trim() === titleLower)) {
                     customHistory.push(customItem);
                     localStorage.setItem('custom_watched_history', JSON.stringify(customHistory));
                 }
@@ -271,7 +285,7 @@
         }
 
         function closeM() { modalOpen = false; activeItem = null; render(); }
-            async function syncRadarrLibrary() {
+                async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
             try {
@@ -281,10 +295,11 @@
                     let serverItems = items.map((item) => {
                         let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
                         let titleStr = String(item.title);
+                        let titleLower = titleStr.toLowerCase().trim();
                         
                         let matchPlayed = localWatchedCache.includes(tmdbIdStr) || 
                                           localWatchedCache.includes(titleStr) || 
-                                          localWatchedCache.includes(titleStr.toLowerCase().trim());
+                                          localWatchedCache.includes(titleLower);
                         
                         let poster = '';
                         let posterObj = item.images?.find(i => i.coverType === 'poster');
@@ -365,7 +380,7 @@
                 if (currentTab === 'foryou') render();
             } catch(e) {}
         }
-             async function syncFeeds() {
+                async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
             for (let l of arr) {
@@ -406,17 +421,28 @@
             friendRowData = blended; render();
         }
 
+        // RECOMMENDATION SHIELD FILTER: Dynamically drops matching assets from the horizontal rows in real-time
         function renderRow(title, movies, isFriend = false) {
             let rowType = isFriend ? 'friend' : 'discover';
-            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">
-                ${movies.length === 0 ? `<div style="font-size:11px; color:#64748b; padding:12px;">Loading track entries...</div>` : movies.map((m, idx) => {
+            
+            // FILTER COMPILER: Strips any item whose Title or TMDB ID appears inside local watch arrays
+            let displayList = movies.filter(m => {
+                let titleLower = String(m.title).toLowerCase().trim();
+                let tmdbStr = m.tmdbId ? String(m.tmdbId) : null;
+                return !localWatchedCache.includes(titleLower) && (!tmdbStr || !localWatchedCache.includes(tmdbStr));
+            });
+
+            if (displayList.length === 0) return ''; // Safely tucks away empty recommendation tracks entirely
+
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + 
+                displayList.map((m, idx) => {
                     return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-key="${idx}" data-track="${title}">
                         <div class="scroll-poster" style="${m.posterPath ? `background:url('${m.posterPath}') center/cover no-repeat;` : ''}">
                             ${m.posterPath ? '' : `<div style="font-weight:bold; font-size:10px; padding:12px; text-align:center; box-sizing:border-box; width:100%;">${m.title}</div>`}
                             <span class="rating-badge">${m.rating}</span>
                         </div>
-                        <div class="card-details"><div class="card-title">${m.title}${m.played ? '<span>✓</span>' : ''}</div><div class="card-meta">${m.year}</div></div>
-                    </div>`}).join('')}</div></div>`;
+                        <div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div>
+                    </div>`}).join('') + `</div></div>`;
         }
 
         function render() {
