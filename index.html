@@ -14,22 +14,18 @@
         body { background:#020617; color:#f8fafc; font-family:sans-serif; margin:0; padding:16px 16px 110px 16px; box-sizing:border-box; overscroll-behavior-y: contain; }
         .header { display:flex; width:100%; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:14px; margin-bottom:20px; box-sizing:border-box; }
         .search-wrapper { position:relative; width:100%; display:flex; gap:10px; }
-        .search-input-field { width:100%; background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:14px; color:#f8fafc; box-sizing:border-box; outline:none; font-size:15px; transition: border-color 0.2s; }
-        .search-input-field:focus { border-color: #f97316; }
+        .search-input-field { width:100%; background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:14px; color:#f8fafc; box-sizing:border-box; outline:none; font-size:15px; }
         #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #0f172a; color: #f97316; font-size: 11px; font-weight: bold; text-transform: uppercase; line-height: 40px; border-radius: 12px; transition: height 0.1s ease-out; }
-        
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; margin-bottom: 24px !important; width: 100% !important; box-sizing: border-box !important; }
         .stat-card { flex: 1 !important; background: #0f172a; border: 1px solid #1e293b; padding: 14px 4px; border-radius: 12px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #1e1b4b !important; }
         .stat-num { font-size: 22px; font-weight: 900; line-height: 1.2; }
         .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-top: 4px; letter-spacing: 0.5px; }
-        
         .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
         .movie-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; box-sizing: border-box !important; width: calc(50% - 6px) !important; }
         .poster-slot { width:100% !important; height:185px !important; background:linear-gradient(to bottom, #1e293b, #0f172a); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0; box-sizing:border-box; position:relative; overflow:hidden; }
         .grid-poster-img { width:100% !important; height:100% !important; object-fit:cover !important; display:block !important; }
         .grid-card-details { padding:12px; font-size:12px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#0f172a; border-top:1px solid #1e293b; box-sizing:border-box; text-align:left; }
-        
         .row-container { margin-bottom:24px; width:100%; display:block; }
         .row-title { font-size:13px; font-weight:900; color:#cbd5e1; text-transform:uppercase; margin-bottom:12px; margin-top:0; }
         .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:14px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
@@ -39,20 +35,16 @@
         .card-details { padding:10px; background:#0f172a; text-align:left; box-sizing:border-box; }
         .card-title { font-weight:bold; font-size:11px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .card-meta { font-size:9px; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        
         .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px 0; width:100%; box-sizing:border-box; }
         .form-group { display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box; }
         .form-group label { font-size:11px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; }
         .form-group input, .form-group textarea { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:14px; color:#f8fafc; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
         .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
         .btn-action { width:100%; padding:15px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; margin-top:8px; }
-        
-        /* PREMIUM THICK BOTTOM NAVIGATION RACK */
         .nav-footer { position:fixed; bottom:0; left:0; right:0; height:76px; background:#0f172a; border-top:1px solid #1e293b; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:env(safe-area-inset-bottom); }
         .nav-btn { background:none; border:none; color:#64748b; font-weight:900; font-size:12px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:6px; flex:1; height:100%; }
         .nav-btn.active { color:#f97316; }
         .nav-icon { font-size: 20px; }
-
         .modal-overlay { position:fixed; inset:0; background:#020617; z-index:100; box-sizing:border-box; overflow-y:auto; display:flex; flex-direction:column; }
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 30%, #020617 100%); }
@@ -78,10 +70,8 @@
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
         <script>
-        // PERSISTENT TAB ROUTING ENGINE: Prevents layout resets on web view pull reloads
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
-        
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
         let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
@@ -89,18 +79,8 @@
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
         let startY = 0, isPulling = false;
 
-        function switchTab(targetTab) {
-            currentTab = targetTab;
-            localStorage.setItem('app_current_tab', targetTab);
-            render();
-        }
-
-        function switchSubTab(targetSub) { 
-            currentSubTab = targetSub; 
-            localStorage.setItem('app_current_sub_tab', targetSub);
-            render(); 
-        }
-        
+        function switchTab(targetTab) { currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); }
+        function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function clearGlobalSearch() { let inputField = document.getElementById('search-input'); if (inputField) inputField.value = ''; searchResultsData = []; render(); }
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
@@ -135,11 +115,11 @@
                                 activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                                 render();
                             }
-                        }).catch(() => console.log("Cache loaded."));
+                        }).catch(() => {});
                 }
             } catch (e) { console.error(e); }
         }
-                    function executeToggleWatched() {
+          function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
@@ -198,7 +178,7 @@
             } catch(err) { alert("Connection Timeout."); }
             render();
         }
-           async function loadDiscoverTracks() {
+                  async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
             let decades = { "1960s": [1960, 1969], "1970s": [1970, 1979], "1980s": [1980, 1989], "1990s": [1990, 1999], "2000s": [2000, 2009] };
@@ -215,7 +195,7 @@
             } catch(e) {}
         }
 
-        // NON-BLOCKING RSS FEED PARSER: Populates text frameworks instantly to stop carrier timeout crashes
+        // UPGRADED FAILSAPE RSS COMPILER: Dynamically normalizes nested content strings returned from proxy pools
         async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
@@ -225,14 +205,18 @@
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
                 try {
                     let res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://letterboxd.com/' + user + '/rss/?_cb=' + new Date().getTime())}`);
-                    let json = await res.json(); if (!json || !json.contents) continue;
-                    let items = new DOMParser().parseFromString(json.contents, "text/xml").getElementsByTagName("item");
+                    let json = await res.json(); if (!json) continue;
+                    
+                    // Unwraps string configurations if proxy returns standard objects instead of raw string definitions
+                    let rawXml = typeof json.contents === 'string' ? json.contents : (json.contents?.toString() || '');
+                    if (!rawXml || rawXml.trim() === '') continue;
+                    
+                    let items = new DOMParser().parseFromString(rawXml, "text/xml").getElementsByTagName("item");
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
                             let itemObj = { id: 'lb_'+user+'_'+i, title: t, year: '@'+user, rating: 'Pick', tmdbId: 238, posterPath: '', overview: '' };
                             blended.push(itemObj);
-                            // Asynchronous background hydration loop to prevent thread locking
                             if (tk) {
                                 let cleanQuery = t.match(/^(.+?),\s*(\d{4})$/) ? t.match(/^(.+?),\s*(\d{4})$/)[1].trim() : t;
                                 fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(cleanQuery)}`)
@@ -270,15 +254,14 @@
             } else if (currentTab === 'foryou') {
                 body = `${searchRowHtml}${renderRow("Friends' Watchlist Picks", friendRowData, true)}<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px;">Curation Tracks</h2>${Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('')}`;
             } else if (currentTab === 'settings') {
-                body = `<div class="settings-container"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks();" class="btn-action">Save & Sync</button></div>`;
+                body = `<div class="settings-container"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}" style="font-size:11px;"></div><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks();" class="btn-action">Save & Sync</button></div>`;
             }
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
                 let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId)) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#1e293b;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div></div></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>${radarrButtonHtml}</div></div></div>`;
             }
-            let savedSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
-            out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${savedSearchVal}"></div></div>${body}${modal}<div class="nav-footer"><button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span class="nav-icon">📁</span>Movies</button><button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span class="nav-icon">✨</span>For You</button><button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span class="nav-icon">⚙️</span>Settings</button></div>`;
+            out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}<div class="nav-footer"><button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span class="nav-icon">📁</span>Movies</button><button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span class="nav-icon">✨</span>For You</button><button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span class="nav-icon">⚙️</span>Settings</button></div>`;
         }
 
         document.addEventListener('click', function (e) {
