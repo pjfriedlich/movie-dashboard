@@ -116,6 +116,7 @@
         function clearGlobalSearch() { let inputField = document.getElementById('search-input'); if (inputField) inputField.value = ''; searchResultsData = []; render(); }
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
+        // INSULATED POLLING FILTER: Prevents background tasks rewriting HTML while you scroll the For You streams
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
@@ -134,21 +135,22 @@
                         status: remainingMin > 0 ? `${remainingMin}m remaining` : "Processing"
                     };
                 });
-                render();
+                if (currentTab === 'downloads') render();
             } catch(e) {}
         }
 
+        // UNIFIED SELECTION MAPPING: Scans across exact matching IDs, Titles, and Letterboxd local hashes seamlessly
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null;
                 let cleanId = String(identifier).toLowerCase().trim();
                 
                 if (poolType === 'search') {
-                    targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                    targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
                 } else if (poolType === 'friend') {
-                    targetObject = friendRowData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                    targetObject = friendRowData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
                 } else if (poolType === 'discover') {
-                    targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                    targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
                 } else if (poolType === 'library') {
                     targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 }
@@ -218,7 +220,7 @@
             try {
                 let url = `https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(queryText.trim())}&with_original_language=en`;
                 let data = await (await fetch(url)).json();
-                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' })); }
+                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' })); }
             } catch (e) { console.error(e); }
             render();
         }
@@ -267,7 +269,7 @@
                 }
             } catch(e) { alert("Sync Failed: " + e.message); }
             isRadarrLoading = false; render();
-        }
+                                                                                }
         async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
@@ -317,7 +319,7 @@
 
         function renderRow(title, movies, isFriend = false) {
             let rowType = isFriend ? 'friend' : 'discover';
-            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.title).toLowerCase().trim())));
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
             if (displayList.length === 0) return '';
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
                 let lookupKey = m.id || m.tmdbId || m.title;
@@ -370,7 +372,6 @@
             </div>`;
         }
 
-        // UPGRADED TOUCHE INTERCEPTOR MAPS: Bubbles up to ensure absolute targeting safety on card slides
         window.addEventListener('touchstart', (e) => { 
             let targetCard = e.target.closest('.movie-trigger');
             if (e.target.closest('.scroll-row') || targetCard) {
