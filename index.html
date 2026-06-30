@@ -64,8 +64,6 @@
         .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
         .btn-panel-primary { width:100%; padding:14px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; }
         .btn-panel-disabled { width:100%; padding:14px; background:#334155; color:#64748b; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:not-allowed; }
-        
-        /* DYNAMIC REMOVE WATCHED FLOATING LINK STYLING */
         .btn-unwatch-action { position:absolute; top:20px; left:20px; background:rgba(239,68,68,0.85); border:1px solid #ef4444; color:#ffffff; font-size:10px; font-weight:900; text-transform:uppercase; padding:10px 14px; border-radius:20px; cursor:pointer; z-index:115; letter-spacing:0.5px; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
     </style>
 </head>
@@ -122,37 +120,47 @@
                 }
             } catch (e) { console.error(e); }
         }
-            function executeToggleWatched() {
+                 // FIXED LOG LIBRARIAN CODE: Adds external tracking items to your watched library card layout instantly
+        function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
+            
             if (tmdbIdStr && !localWatchedCache.includes(tmdbIdStr)) localWatchedCache.push(tmdbIdStr);
             if (internalIdStr && !localWatchedCache.includes(internalIdStr)) localWatchedCache.push(internalIdStr);
             if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
-            myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = true; });
+            
+            let exists = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
+            
+            if (exists) {
+                myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = true; });
+            } else {
+                myCollection.unshift({
+                    id: internalIdStr || 'cust_' + Date.now(),
+                    title: activeItem.title,
+                    year: activeItem.year || '2026',
+                    overview: activeItem.overview || '',
+                    rating: activeItem.rating || '7.5',
+                    tmdbId: activeItem.tmdbId || null,
+                    played: true,
+                    hasFile: false,
+                    posterPath: activeItem.posterPath || ''
+                });
+            }
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
             modalOpen = false; render();
         }
 
-        // REVOLUTIONARY LIBRARY CLEANER RULE: Completely deletes mistakes from local cache storage arrays
         function executeRemoveFromWatched() {
             if (!activeItem) return;
             let titleLower = String(activeItem.title).toLowerCase().trim();
-            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
-            let internalIdStr = activeItem.id ? String(activeItem.id) : null;
+            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
             
-            localWatchedCache = localWatchedCache.filter(item => {
-                let match = String(item).toLowerCase().trim();
-                return match !== titleLower && match !== tmdbIdStr && match !== internalIdStr;
-            });
+            localWatchedCache = localWatchedCache.filter(item => { let m = String(item).toLowerCase().trim(); return m !== titleLower && m !== tmdbIdStr && m !== internalIdStr; });
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
-            myCollection.forEach(m => {
-                if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) {
-                    m.played = false;
-                }
-            });
+            myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = false; });
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
             modalOpen = false; render();
         }
@@ -203,7 +211,7 @@
             } catch(err) { alert("Connection Timeout."); }
             render();
         }
-         async function loadDiscoverTracks() {
+                   async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
             let decades = { "1960s": [1960, 1969], "1970s": [1970, 1979], "1980s": [1980, 1989], "1990s": [1990, 1999], "2000s": [2000, 2009] };
@@ -214,13 +222,13 @@
                 }
                 for (let [title, range] of Object.entries(decades)) {
                     let res1 = await (await fetch("https://api.themoviedb.org/3/discover/movie?api_key=" + tk + "&primary_release_date.gte=" + range[0] + "-01-01&primary_release_date.lte=" + range[1] + "-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=1")).json();
-                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.themoviedb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
                 }
                 if (currentTab === 'foryou') render();
             } catch(e) {}
         }
 
-        // HIGH-SPEED RSS CHANNEL UNWRAPPER: Standardizes proxy returns to paint the friends row flawlessly
+        // UPGRADED RAW FEEDS ENGINE: Directly targets corsproxy.io to bypass carrier routing firewalls completely
         async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
@@ -229,8 +237,10 @@
                 if (user.includes('letterboxd.com/')) user = user.split('letterboxd.com/')[1];
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
                 try {
-                    let res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://letterboxd.com/" + user + "/rss/?_cb=" + new Date().getTime()));
+                    let targetUrl = "https://letterboxd.com/" + user + "/rss/?_cb=" + new Date().getTime();
+                    let res = await fetch("https://corsproxy.io/?" + encodeURIComponent(targetUrl));
                     let textXml = await res.text(); if (!textXml || textXml.trim() === '') continue;
+                    
                     let items = new DOMParser().parseFromString(textXml, "text/xml").getElementsByTagName("item");
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
@@ -241,7 +251,7 @@
                                 let cleanQuery = t.match(/^(.+?),\s*(\d{4})$/) ? t.match(/^(.+?),\s*(\d{4})$/)[1].trim() : t;
                                 fetch("https://api.themoviedb.org/3/search/movie?api_key=" + tk + "&query=" + encodeURIComponent(cleanQuery))
                                     .then(r => r.json()).then(s => {
-                                        if (s.results?.[0]) { itemObj.tmdbId = s.results[0].id; itemObj.posterPath = s.results[0].poster_path ? "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path : ''; itemObj.overview = s.results[0].overview || ''; render(); }
+                                        if (s.results?.[0]) { itemObj.tmdbId = s.results[0].id; itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; itemObj.overview = s.results[0].overview || ''; render(); }
                                     }).catch(()=>{});
                             }
                         }
@@ -279,8 +289,6 @@
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
                 let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId)) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
-                
-                // INTEGRATES THE DYNAMIC UNWATCH ACTION DETECTOR
                 modal = `<div class="modal-overlay"><div class="btn-unwatch-action" onclick="executeRemoveFromWatched()">✕ Unwatch</div><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#1e293b;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div></div></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>${radarrButtonHtml}</div></div></div>`;
             }
             out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}<div class="nav-footer"><button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span class="nav-icon">📁</span>Movies</button><button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span class="nav-icon">✨</span>For You</button><button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span class="nav-icon">⚙️</span>Settings</button></div>`;
