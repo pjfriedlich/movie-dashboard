@@ -120,7 +120,7 @@
                 }
             } catch (e) { console.error(e); }
         }
-                 // FIXED LOG LIBRARIAN CODE: Adds external tracking items to your watched library card layout instantly
+                  // SECURE ARCHIVE LOOPS: Protects your custom watched entries from getting deleted during server syncs
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
@@ -131,22 +131,29 @@
             if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
-            let exists = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
+            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
+            let customEntry = {
+                id: internalIdStr || 'cust_' + Date.now(),
+                title: activeItem.title,
+                year: activeItem.year || '2026',
+                overview: activeItem.overview || '',
+                rating: activeItem.rating || '7.5',
+                tmdbId: activeItem.tmdbId ? parseInt(activeItem.tmdbId) : null,
+                played: true,
+                hasFile: false,
+                posterPath: activeItem.posterPath || ''
+            };
             
-            if (exists) {
+            if (!customHistory.some(h => String(h.title).toLowerCase().trim() === titleLower || (tmdbIdStr && String(h.tmdbId) === tmdbIdStr))) {
+                customHistory.push(customEntry);
+                localStorage.setItem('custom_watched_history', JSON.stringify(customHistory));
+            }
+
+            let existsInCollection = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
+            if (existsInCollection) {
                 myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = true; });
             } else {
-                myCollection.unshift({
-                    id: internalIdStr || 'cust_' + Date.now(),
-                    title: activeItem.title,
-                    year: activeItem.year || '2026',
-                    overview: activeItem.overview || '',
-                    rating: activeItem.rating || '7.5',
-                    tmdbId: activeItem.tmdbId || null,
-                    played: true,
-                    hasFile: false,
-                    posterPath: activeItem.posterPath || ''
-                });
+                myCollection.unshift(customEntry);
             }
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
             modalOpen = false; render();
@@ -160,6 +167,11 @@
             localWatchedCache = localWatchedCache.filter(item => { let m = String(item).toLowerCase().trim(); return m !== titleLower && m !== tmdbIdStr && m !== internalIdStr; });
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
+            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
+            customHistory = customHistory.filter(h => String(h.title).toLowerCase().trim() !== titleLower && (!tmdbIdStr || String(h.tmdbId) !== tmdbIdStr));
+            localStorage.setItem('custom_watched_history', JSON.stringify(customHistory));
+            
+            myCollection = myCollection.filter(m => String(m.id) !== internalIdStr && (!internalIdStr || !String(m.id).startsWith('cust_')));
             myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = false; });
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
             modalOpen = false; render();
@@ -177,25 +189,6 @@
             render();
         }
 
-        async function syncRadarrLibrary() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
-            isRadarrLoading = true; render();
-            try {
-                let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}`);
-                let items = await response.json();
-                if (Array.isArray(items)) {
-                    myCollection = items.map((item) => {
-                        let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
-                        let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
-                        let posterObj = item.images?.find(i => i.coverType === 'poster');
-                        return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
-                    });
-                    localStorage.setItem('local_collection', JSON.stringify(myCollection));
-                }
-            } catch(e) { alert("Sync Failed: " + e.message); }
-            isRadarrLoading = false; render();
-        }
-
         async function sendToRadarr() {
             if (!activeItem) return;
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return alert("Configure Settings!");
@@ -211,7 +204,35 @@
             } catch(err) { alert("Connection Timeout."); }
             render();
         }
-                   async function loadDiscoverTracks() {
+                    async function syncRadarrLibrary() {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+            isRadarrLoading = true; render();
+            try {
+                let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}`);
+                let items = await response.json();
+                if (Array.isArray(items)) {
+                    let serverItems = items.map((item) => {
+                        let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
+                        let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
+                        let posterObj = item.images?.find(i => i.coverType === 'poster');
+                        return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
+                    });
+                    
+                    // HISTORIC MERGING ENGINE: Blends custom histories directly into your active collection
+                    let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
+                    customHistory.forEach(h => {
+                        if (!serverItems.some(s => s.title.toLowerCase().trim() === h.title.toLowerCase().trim() || (s.tmdbId && String(s.tmdbId) === String(h.tmdbId)))) {
+                            serverItems.unshift(h);
+                        }
+                    });
+                    myCollection = serverItems;
+                    localStorage.setItem('local_collection', JSON.stringify(myCollection));
+                }
+            } catch(e) { alert("Sync Failed: " + e.message); }
+            isRadarrLoading = false; render();
+        }
+
+        async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
             let decades = { "1960s": [1960, 1969], "1970s": [1970, 1979], "1980s": [1980, 1989], "1990s": [1990, 1999], "2000s": [2000, 2009] };
@@ -222,13 +243,13 @@
                 }
                 for (let [title, range] of Object.entries(decades)) {
                     let res1 = await (await fetch("https://api.themoviedb.org/3/discover/movie?api_key=" + tk + "&primary_release_date.gte=" + range[0] + "-01-01&primary_release_date.lte=" + range[1] + "-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=1")).json();
-                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.themoviedb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
                 }
                 if (currentTab === 'foryou') render();
             } catch(e) {}
         }
 
-        // UPGRADED RAW FEEDS ENGINE: Directly targets corsproxy.io to bypass carrier routing firewalls completely
+        // FAST CORSPROXY FEED COMPILER: Bypasses carrier routing traffic caps entirely
         async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
