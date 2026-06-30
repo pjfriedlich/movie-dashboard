@@ -11,12 +11,13 @@
       }
     </script>
     <style>
+        /* DROPPED GLOBAL PADDING FROM 16PX TO 8PX TO REMOVE BLANK EDGE SPACE */
         html, body { 
             background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); 
             color: #0f172a; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             margin: 0; 
-            padding: 16px 16px 125px 16px; 
+            padding: 12px 8px 125px 8px; 
             box-sizing: border-box; 
             overscroll-behavior-y: contain !important;
             -webkit-overscroll-behavior-y: contain !important;
@@ -33,18 +34,22 @@
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
         .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
         .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
-        .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 14px !important; width: 100% !important; box-sizing: border-box !important; }
-        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; box-sizing: border-box !important; width: calc(50% - 7px) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; }
+        .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
+        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; box-sizing: border-box !important; width: calc(50% - 6px) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; }
         .poster-slot { width:100% !important; height:230px !important; background:#e2e8f0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; overflow:hidden; }
         .grid-poster-img { width:100% !important; height:100% !important; object-fit:cover !important; display:block !important; }
         .grid-card-details { padding:12px; font-size:13px; font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#ffffff; border-top:1px solid #e2e8f0; box-sizing:border-box; text-align:left; color:#0f172a; }
         .downloading-badge { position: absolute; top: 10px; left: 10px; background: rgba(249, 115, 22, 0.95); color: white; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 5; letter-spacing: 0.5px; }
         .row-container { margin-bottom:26px; width:100%; display:block; }
-        .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; margin-top:0; letter-spacing: 0.5px; }
-        .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:14px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
+        .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; margin-top:0; padding-left: 4px; letter-spacing: 0.5px; }
+        .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:12px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
         .scroll-row::-webkit-scrollbar { display: none; }
-        .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:135px; min-width:135px; max-width:135px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-sizing:border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
-        .scroll-poster { width:100%; height:200px; background:#e2e8f0; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; }
+        
+        /* ADJUSTED WIDTH AND ASPECT RATIO TO COMPLETELY FIX MOVIE POSTER CLIPPING */
+        .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; max-width:145px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-sizing:border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+        .scroll-poster { width:100%; height:215px; background:#e2e8f0; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; overflow:hidden; }
+        .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        
         .rating-badge { position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.9); color:#34d399; font-weight:800; font-size:10px; padding:3px 7px; border-radius:6px; }
         .card-details { padding:10px; background:#ffffff; text-align:left; box-sizing:border-box; border-top:1px solid #e2e8f0; }
         .scroll-card .card-title { font-weight:700; font-size:12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -60,17 +65,14 @@
         .form-group input, .form-group textarea { background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:14px; color:#0f172a; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
         .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
         .btn-action { width:100%; padding:16px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:14px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; margin-top:8px; box-shadow: 0 4px 12px rgba(234,88,12,0.15); }
+        .btn-sync-pill { display: flex; align-items: center; gap: 6px; background: #ffffff; color: #ea580c; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease; letter-spacing: 0.5px; margin-right: 4px; }
+        .btn-sync-pill:active { background: #fff7ed; border-color: #f97316; transform: scale(0.95); }
+        .sync-icon-svg { width: 13px; height: 13px; fill: currentColor; }
         .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:calc(10px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
         .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:4px; flex:1; height:100%; }
         .nav-btn.active { color:#f97316; }
         .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
         .nav-svg-icon { width: 28px; height: 28px; fill: currentColor; }
-        
-        /* MODERN GLASS-SLATE PILL OVERHAUL FOR MANUAL REFRESH EVENTS */
-        .btn-sync-action { display: flex; align-items: center; gap: 6px; background: #ffffff; color: #ea580c; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease; letter-spacing: 0.5px; }
-        .btn-sync-action:active { background: #fff7ed; border-color: #f97316; transform: scale(0.95); }
-        .sync-icon-svg { width: 13px; height: 13px; fill: currentColor; }
-        
         .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; box-sizing:border-box; overflow-y:auto; display:flex; flex-direction:column; }
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 20%, #f1f5f9 100%); }
@@ -98,7 +100,7 @@
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-      <script>
+    <script>
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
@@ -118,7 +120,6 @@
         function clearGlobalSearch() { let inputField = document.getElementById('search-input'); if (inputField) inputField.value = ''; searchResultsData = []; render(); }
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
-        // REMOVED TAB FLAGS FROM POLLING LOOP: Ticks the background fetch strictly on an uncached clock
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
@@ -138,7 +139,7 @@
                     };
                 });
                 render();
-            } catch(e) { console.log("Radarr queue polling error."); }
+            } catch(e) {}
         }
 
         function launchModalFromAttributes(poolType, targetKey, trackName = null) {
@@ -183,11 +184,10 @@
                 }
             } catch (e) { console.error(e); }
         }
-                  function executeToggleWatched() {
+               function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
-            
             if (tmdbIdStr && !localWatchedCache.includes(tmdbIdStr)) localWatchedCache.push(tmdbIdStr);
             if (internalIdStr && !localWatchedCache.includes(internalIdStr)) localWatchedCache.push(internalIdStr);
             if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
@@ -207,7 +207,6 @@
             if (!activeItem) return;
             let titleLower = String(activeItem.title).toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
-            
             localWatchedCache = localWatchedCache.filter(item => { let m = String(item).toLowerCase().trim(); return m !== titleLower && m !== tmdbIdStr && m !== internalIdStr; });
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
@@ -274,8 +273,8 @@
                 }
             } catch(e) { alert("Sync Failed: " + e.message); }
             isRadarrLoading = false; render();
-        }
-               async function loadDiscoverTracks() {
+                }
+        async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
             let decades = { "1960s": [1960, 1969], "1970s": [1970, 1979], "1980s": [1980, 1989], "1990s": [1990, 1999], "2000s": [2000, 2009] };
@@ -326,28 +325,29 @@
             let rowType = isFriend ? 'friend' : 'discover';
             let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.title).toLowerCase().trim())));
             if (displayList.length === 0) return '';
-            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m, idx) => `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-key="${idx}" data-track="${title}"><div class="scroll-poster" style="${m.posterPath ? `background:url('${m.posterPath}') center/cover no-repeat;` : ''}">${m.posterPath ? '' : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>`;
+            
+            // RENDERS RESPONSIVE HARD-INSULATED MOVIE POSTERS TO PREVENT SCREEN-BOUND ASPECT RATIO CRUSHING
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m, idx) => `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-key="${idx}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>`;
         }
 
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
-            let searchRowHtml = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m, idx) => `<div class="scroll-card movie-trigger" data-pool="search" data-key="${idx}"><div class="scroll-poster" style="${m.posterPath ? `background:url('${m.posterPath}') center/cover no-repeat;` : ''}"></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>` : '';
+            let searchRowHtml = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m, idx) => `<div class="scroll-card movie-trigger" data-pool="search" data-key="${idx}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>` : '';
             if (currentTab === 'collection') {
                 let watchedMovies = myCollection.filter(m => m.played === true || localWatchedCache.includes(String(m.tmdbId)) || localWatchedCache.includes(String(m.title).toLowerCase().trim()));
                 let downloadedMovies = myCollection.filter(m => m.hasFile === true);
                 let comingSoonMovies = myCollection.filter(m => !m.hasFile && !m.played);
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
-                body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider"><div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider"><div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                     let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
                     return `<div class="movie-card movie-trigger" data-pool="library" data-key="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}</div></div>`;
                 }).join('')}</div>`);
             } else if (currentTab === 'foryou') {
-                body = searchRowHtml + renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
+                body = searchRowHtml + renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
             } else if (currentTab === 'downloads') {
-                // REDESIGNS THE REFRESH SLOT INTO A MATCHING METALLIC INLINE GLASS PILL BUTTON
-                body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map(t => `<div class="torrent-card"><div class="torrent-title">${t.name}</div><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div><div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div></div>`).join(''));
+                body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map(t => `<div class="torrent-card"><div class="torrent-title">${t.name}</div><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div><div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div></div>`).join(''));
             } else if (currentTab === 'settings') {
-                body = `<div class="settings-container"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
+                body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
@@ -390,8 +390,6 @@
             } 
             el.style.height = '0px'; 
         });
-        
-        // RESTRUCTURED AUTOMATIC POLLING HEARTBEAT LOOP: Ticks every 5 seconds uncached
         setInterval(syncQBittorrentList, 5000);
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
