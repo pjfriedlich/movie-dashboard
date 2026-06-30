@@ -139,7 +139,7 @@
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-        <script>
+    <script>
         let currentTab = 'collection', modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
         let currentSubTab = 'downloaded'; 
         let searchResultsData = []; 
@@ -155,7 +155,6 @@
             render();
         }
 
-        // LOOKUP ROUTER ENGINE: Resolves objects accurately by filtering directly out of context track memory indexes
         function launchModalFromAttributes(poolType, targetKey, trackName = null) {
             try {
                 let targetObject = null;
@@ -163,7 +162,6 @@
                 if (poolType === 'search') {
                     targetObject = searchResultsData[parseInt(targetKey)];
                 } else if (poolType === 'friend') {
-                    // RESOLUTION SWEEP: Resolves item using post-filtered subset indices from the live view tier
                     let filteredFriends = friendRowData.filter(m => {
                         let titleLower = String(m.title).toLowerCase().trim();
                         let tmdbStr = m.tmdbId ? String(m.tmdbId) : null;
@@ -199,13 +197,14 @@
                                 activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                                 render();
                             }
-                        }).catch(() => console.log("Pre-cached properties utilized."));
+                        }).catch(() => console.log("Pre-cached local properties used."));
                 }
             } catch (e) {
-                console.error("Selection exception captured cleanly: ", e);
+                console.error("Delegated selection structural exception caught cleanly: ", e);
             }
         }
 
+        // PRESERVATION ENGINE: Updates storage parameters but keeps you locked on the same view panel context
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title);
@@ -251,9 +250,9 @@
             }
             
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
-            modalOpen = false;
-            currentTab = 'collection';
-            currentSubTab = 'watched';
+            modalOpen = false; // Safely drops modal overlay
+            
+            // REMOVED TAB SWITCH OVERRIDES: Stays on 'foryou' or 'collection' naturally
             render();
         }
 
@@ -421,18 +420,16 @@
             friendRowData = blended; render();
         }
 
-        // RECOMMENDATION SHIELD FILTER: Dynamically drops matching assets from the horizontal rows in real-time
         function renderRow(title, movies, isFriend = false) {
             let rowType = isFriend ? 'friend' : 'discover';
             
-            // FILTER COMPILER: Strips any item whose Title or TMDB ID appears inside local watch arrays
             let displayList = movies.filter(m => {
                 let titleLower = String(m.title).toLowerCase().trim();
                 let tmdbStr = m.tmdbId ? String(m.tmdbId) : null;
                 return !localWatchedCache.includes(titleLower) && (!tmdbStr || !localWatchedCache.includes(tmdbStr));
             });
 
-            if (displayList.length === 0) return ''; // Safely tucks away empty recommendation tracks entirely
+            if (displayList.length === 0) return ''; 
 
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + 
                 displayList.map((m, idx) => {
