@@ -70,7 +70,7 @@
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-        <script>
+       <script>
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
@@ -120,7 +120,6 @@
                 }
             } catch (e) { console.error(e); }
         }
-                  // SECURE ARCHIVE LOOPS: Protects your custom watched entries from getting deleted during server syncs
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
@@ -204,7 +203,8 @@
             } catch(err) { alert("Connection Timeout."); }
             render();
         }
-                    async function syncRadarrLibrary() {
+               // ADVANCED MULTI-POOL BINDER: Preserves local records regardless of their current status on the remote Radarr server
+        async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
             try {
@@ -218,13 +218,34 @@
                         return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
                     });
                     
-                    // HISTORIC MERGING ENGINE: Blends custom histories directly into your active collection
-                    let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-                    customHistory.forEach(h => {
-                        if (!serverItems.some(s => s.title.toLowerCase().trim() === h.title.toLowerCase().trim() || (s.tmdbId && String(s.tmdbId) === String(h.tmdbId)))) {
-                            serverItems.unshift(h);
+                    // DEEP COMPILER HOOK: Validates watched movie cache records against incoming server data arrays
+                    localWatchedCache.forEach(cacheItem => {
+                        let cacheStr = String(cacheItem).toLowerCase().trim();
+                        let isId = !isNaN(cacheStr);
+                        
+                        let foundOnServer = serverItems.some(s => {
+                            if (isId) return String(s.tmdbId) === cacheStr || String(s.id) === cacheStr;
+                            return s.title.toLowerCase().trim() === cacheStr;
+                        });
+                        
+                        // Permanent insulation layer for items missing from the backend server database
+                        if (!foundOnServer) {
+                            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
+                            let historicMatch = customHistory.find(h => {
+                                if (isId) return String(h.tmdbId) === cacheStr || String(h.id) === cacheStr;
+                                return h.title.toLowerCase().trim() === cacheStr;
+                            });
+                            
+                            serverItems.unshift(historicMatch || {
+                                id: isId ? 'cust_' + cacheStr : 'cust_' + Date.now(),
+                                title: isId ? 'Cached Movie Entry' : cacheItem,
+                                year: '2026', overview: 'Logged custom record.', rating: '7.5',
+                                tmdbId: isId ? parseInt(cacheStr) : null,
+                                played: true, hasFile: false, posterPath: ''
+                            });
                         }
                     });
+
                     myCollection = serverItems;
                     localStorage.setItem('local_collection', JSON.stringify(myCollection));
                 }
@@ -249,7 +270,6 @@
             } catch(e) {}
         }
 
-        // FAST CORSPROXY FEED COMPILER: Bypasses carrier routing traffic caps entirely
         async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
@@ -312,7 +332,8 @@
                 let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId)) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
                 modal = `<div class="modal-overlay"><div class="btn-unwatch-action" onclick="executeRemoveFromWatched()">✕ Unwatch</div><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#1e293b;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div></div></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>${radarrButtonHtml}</div></div></div>`;
             }
-            out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}<div class="nav-footer"><button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span class="nav-icon">📁</span>Movies</button><button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span class="nav-icon">✨</span>For You</button><button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span class="nav-icon">⚙️</span>Settings</button></div>`;
+            let savedSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
+            out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${savedSearchVal}"></div></div>${body}${modal}<div class="nav-footer"><button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span class="nav-icon">📁</span>Movies</button><button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span class="nav-icon">✨</span>For You</button><button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span class="nav-icon">⚙️</span>Settings</button></div>`;
         }
 
         document.addEventListener('click', function (e) {
