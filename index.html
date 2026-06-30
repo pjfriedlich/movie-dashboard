@@ -11,7 +11,15 @@
       }
     </script>
     <style>
-        body { background:#020617; color:#f8fafc; font-family:sans-serif; margin:0; padding:16px 16px 95px 16px; box-sizing:border-box; }
+        body { 
+            background:#020617; 
+            color:#f8fafc; 
+            font-family:sans-serif; 
+            margin:0; 
+            padding:16px 16px 95px 16px; 
+            box-sizing:border-box; 
+            overscroll-behavior-y: contain; /* Prevents native browser reload tab hijacking */
+        }
         
         .header { display:flex; width:100%; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:14px; margin-bottom:20px; box-sizing:border-box; }
         .search-wrapper { position:relative; width:100%; display:flex; gap:10px; }
@@ -95,6 +103,9 @@
         .scroll-poster { width:100%; height:195px; min-height:195px; background:#1e293b; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; }
         .rating-badge { position:absolute; bottom:8px; right:8px; background:#020617; border:1px solid #1e293b; color:#34d399; font-weight:bold; font-size:9px; padding:2px 6px; border-radius:4px; }
         .card-details { padding:10px; background:#0f172a; text-align:left; box-sizing:border-box; }
+        .nav-footer { position:fixed; bottom:0; left:0; right:0; background:rgba(15, 23, 42, 0.95); border-top:1px solid #1e293b; padding:12px 14px; display:flex; justify-content:space-around; backdrop-filter:blur(8px); z-index:40; box-sizing:border-box; }
+        .nav-btn { background:none; border:none; color:#64748b; font-weight:bold; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:4px; }
+        .nav-btn.active { color:#f97316; }
         .card-title { font-weight:bold; font-size:11px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .card-title span { background:#1e293b; color:#fbbf24; font-size:8px; padding:2px 5px; border-radius:4px; margin-left:4px; vertical-align:middle; }
         .card-meta { font-size:9px; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -107,10 +118,6 @@
         .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
         .btn-action { width:100%; padding:15px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; transition:background 0.2s; margin-top:8px; letter-spacing:0.5px; }
         .btn-action:hover { background:#ea580c; }
-
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; background:rgba(15, 23, 42, 0.95); border-top:1px solid #1e293b; padding:12px 14px; display:flex; justify-content:space-around; backdrop-filter:blur(8px); z-index:40; box-sizing:border-box; }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:bold; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:4px; }
-        .nav-btn.active { color:#f97316; }
 
         .modal-overlay { position:fixed; inset:0; background:#020617; z-index:100; box-sizing:border-box; overflow-y:auto; padding:0; display:flex; flex-direction:column; }
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
@@ -141,7 +148,8 @@
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-        <script>
+
+    <script>
         let currentTab = 'collection', modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
         let currentSubTab = 'downloaded'; 
         let searchResultsData = []; 
@@ -211,8 +219,7 @@
                 console.error("Selection exception caught cleanly: ", e);
             }
         }
-
-        function executeToggleWatched() {
+         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title);
             let titleLower = titleStr.toLowerCase().trim();
@@ -234,7 +241,7 @@
                 }
             });
             
-            let existsInCollection = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
+            let existsInCollection = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === String(tmdbIdStr)) || String(m.title).toLowerCase().trim() === titleLower);
             
             if (!existsInCollection) {
                 let customItem = {
@@ -289,6 +296,7 @@
         }
 
         function closeM() { modalOpen = false; activeItem = null; render(); }
+
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
@@ -384,6 +392,7 @@
                 if (currentTab === 'foryou') render();
             } catch(e) {}
         }
+
         async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
@@ -395,15 +404,18 @@
                 if (user.includes('letterboxd.com/')) {
                     user = user.split('letterboxd.com/')[1];
                 }
-                user = user.replace(/^\//, "").trim();
+                user = user.replace(/^\//, "").trim().toLowerCase();
                 if (!user || user === "") continue;
                 
                 try {
                     let cacheBuster = new Date().getTime();
                     let targetUrl = encodeURIComponent(`https://letterboxd.com/${user}/rss/?_cb=${cacheBuster}`);
-                    let proxyPayload = await (await fetch(`https://api.allorigins.win/raw?url=${targetUrl}`)).text();
-                    let items = new DOMParser().parseFromString(proxyPayload, "text/xml").getElementsByTagName("item");
-                    for (let i = 0; i < Math.min(items.length, 35); i++) {
+                    let res = await fetch(`https://api.allorigins.win/get?url=${targetUrl}`);
+                    let json = await res.json();
+                    if (!json.contents) continue;
+                    
+                    let items = new DOMParser().parseFromString(json.contents, "text/xml").getElementsByTagName("item");
+                    for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
                             let cId = 238, poster = '', syn = '';
@@ -509,121 +521,4 @@
                   </div>`}`;
             } else if (currentTab === 'foryou') {
                 body = `${searchRowHtml}
-                  ${renderRow("Friends' Watchlist Picks", friendRowData, true)}
-                  <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; margin-top:12px;">Streaming Curation Dashboard</h2>
-                  ${Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('')}`;
-            } else if (currentTab === 'settings') {
-                body = `<div class="settings-container">
-                    <div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}" /></div>
-                    <div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}" /></div>
-                    <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb" placeholder="pimpjuice, username2">${localStorage.getItem('lb_links')||''}</textarea></div>
-                    <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}" /></div>
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks();" class="btn-action">Save & Sync System Elements</button>
-                  </div>`;
-            }
-
-            if (modalOpen && activeItem) {
-                let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
-                let rawScoreNum = parseFloat(displayTmdbScore);
-                let displayRtScore = !isNaN(rawScoreNum) ? Math.round((rawScoreNum * 9.5) - (Math.random() * 5)) : '78';
-                if (displayRtScore > 100) displayRtScore = 100;
-
-                let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr 
-                    ? `<button class="btn-panel-disabled" disabled>🔒 Already in Radarr</button>`
-                    : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
-
-                modal = `<div class="modal-overlay">
-                    <div class="detail-close-trigger" onclick="closeM()">×</div>
-                    <div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:linear-gradient(to bottom, #1e293b, #020617);`}"></div>
-                    
-                    <div class="detail-content-frame">
-                        <div class="detail-main-row">
-                            <div class="detail-poster-wrapper">
-                                <img class="detail-poster-img" src="${activeItem.posterPath || ''}" onerror="this.parentNode.style.background='#1e293b'" />
-                            </div>
-                            <div class="detail-meta-block">
-                                <h3 class="detail-heading-title">${activeItem.title}</h3>
-                                <div class="detail-sub-specs">${activeItem.year} • ${activeItem.runtime || '104m'}</div>
-                            </div>
-                        </div>
-
-                        <div class="detail-metrics-rack">
-                            <div class="metric-pill">
-                                <span class="metric-icon">⭐</span>
-                                <div class="metric-txt">TMDB: <span>${displayTmdbScore}</span></div>
-                            </div>
-                            <div class="metric-pill">
-                                <span class="metric-icon">🍅</span>
-                                <div class="metric-txt">Rotten: <span class="rt-score">${displayRtScore}%</span></div>
-                            </div>
-                        </div>
-
-                        <div class="detail-synopsis-box">
-                            <h4>Summary</h4>
-                            <p>${activeItem.overview || 'Enriching description layout parameters directly from destination layer metadata keys...'}</p>
-                        </div>
-
-                        <div class="detail-footer-actions">
-                            <button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>
-                            ${radarrButtonHtml}
-                        </div>
-                    </div>
-                </div>`;
-            }
-
-            let savedSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
-            
-            out.innerHTML = `
-                <div class="header">
-                    <div class="search-wrapper">
-                        <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${savedSearchVal}">
-                        <button id="search-clear" class="search-clear-btn" onclick="clearGlobalSearch()" style="${searchResultsData.length > 0 ? 'display:block;' : 'display:none;'}">Clear</button>
-                    </div>
-                </div>
-                ${body} ${modal}
-                <div class="nav-footer">
-                  <button onclick="currentTab='collection';render();" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}"><span>📁</span>Movies</button>
-                  <button onclick="currentTab='foryou';render();" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}"><span>✨</span>For You</button>
-                  <button onclick="currentTab='settings';render();" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}"><span>⚙️</span>Settings</button>
-                </div>`;
-        }
-
-        document.addEventListener('click', function (e) {
-            let triggerCard = e.target.closest('.movie-trigger');
-            if (triggerCard) {
-                let pool = triggerCard.getAttribute('data-pool');
-                let key = triggerCard.getAttribute('data-key');
-                let track = triggerCard.getAttribute('data-track');
-                launchModalFromAttributes(pool, key, track);
-            }
-        });
-
-        window.addEventListener('touchstart', (e) => {
-            if (window.scrollY === 0 && currentTab === 'foryou') { startY = e.touches[0].clientY; isPulling = true; }
-        });
-
-        window.addEventListener('touchmove', (e) => {
-            if (!isPulling) return;
-            let currentY = e.touches[0].clientY; let diff = currentY - startY;
-            if (diff > 0) {
-                if (e.cancelable) e.preventDefault();
-                let indicatorHeight = Math.min(diff * 0.4, 50);
-                let el = document.getElementById('pull-indicator');
-                if (el) { el.style.height = indicatorHeight + 'px'; el.innerText = indicatorHeight >= 45 ? "🔄 Release to refresh recommendations..." : "⬇️ Pull down to refresh..."; }
-            }
-        });
-
-        window.addEventListener('touchend', async () => {
-            if (!isPulling) return; isPulling = false;
-            let el = document.getElementById('pull-indicator'); if (!el) return;
-            let finalHeight = parseInt(el.style.height || '0');
-            if (finalHeight >= 45) { el.innerText = "⚡ Syncing recommendations..."; await syncFeeds(); await loadDiscoverTracks(); }
-            el.style.height = '0px';
-        });
-
-        if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
-        syncFeeds(); loadDiscoverTracks(); render();
-    </script>
-</body>
-</html>
+                  ${renderRow("Friends' Watchlist Picks",       
