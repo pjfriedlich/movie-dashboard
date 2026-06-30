@@ -11,7 +11,6 @@
       }
     </script>
     <style>
-        /* DROPPED GLOBAL PADDING FROM 16PX TO 8PX TO REMOVE BLANK EDGE SPACE */
         html, body { 
             background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); 
             color: #0f172a; 
@@ -44,12 +43,9 @@
         .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; margin-top:0; padding-left: 4px; letter-spacing: 0.5px; }
         .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:12px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
         .scroll-row::-webkit-scrollbar { display: none; }
-        
-        /* ADJUSTED WIDTH AND ASPECT RATIO TO COMPLETELY FIX MOVIE POSTER CLIPPING */
         .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; max-width:145px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-sizing:border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
         .scroll-poster { width:100%; height:215px; background:#e2e8f0; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; overflow:hidden; }
         .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        
         .rating-badge { position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.9); color:#34d399; font-weight:800; font-size:10px; padding:3px 7px; border-radius:6px; }
         .card-details { padding:10px; background:#ffffff; text-align:left; box-sizing:border-box; border-top:1px solid #e2e8f0; }
         .scroll-card .card-title { font-weight:700; font-size:12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -184,7 +180,7 @@
                 }
             } catch (e) { console.error(e); }
         }
-               function executeToggleWatched() {
+        function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
             let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
@@ -224,7 +220,7 @@
             try {
                 let url = `https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(queryText.trim())}&with_original_language=en`;
                 let data = await (await fetch(url)).json();
-                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? `https://image.tmdb.org/t/p/w200${m.poster_path}` : '', overview: m.overview || '' })); }
+                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' })); }
             } catch (e) { console.error(e); }
             render();
         }
@@ -273,7 +269,8 @@
                 }
             } catch(e) { alert("Sync Failed: " + e.message); }
             isRadarrLoading = false; render();
-                }
+        }
+        // FIXED ASSET PATH PIPELINES: Targets the absolute official image server URL string across all engines
         async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
@@ -285,7 +282,7 @@
                 }
                 for (let [title, range] of Object.entries(decades)) {
                     let res1 = await (await fetch("https://api.themoviedb.org/3/discover/movie?api_key=" + tk + "&primary_release_date.gte=" + range[0] + "-01-01&primary_release_date.lte=" + range[1] + "-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=1")).json();
-                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.themoviedb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
                 }
                 if (currentTab === 'foryou') render();
             } catch(e) {}
@@ -325,8 +322,6 @@
             let rowType = isFriend ? 'friend' : 'discover';
             let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.title).toLowerCase().trim())));
             if (displayList.length === 0) return '';
-            
-            // RENDERS RESPONSIVE HARD-INSULATED MOVIE POSTERS TO PREVENT SCREEN-BOUND ASPECT RATIO CRUSHING
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m, idx) => `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-key="${idx}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>`;
         }
 
@@ -369,7 +364,7 @@
                     Downloads
                 </button>
                 <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
             </div>`;
