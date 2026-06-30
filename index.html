@@ -5,23 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
     <link rel="manifest" href="manifest.json">
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
-      }
-    </script>
     <style>
-        html, body { 
-            background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); 
-            color: #0f172a; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            margin: 0; 
-            padding: 12px 8px 125px 8px; 
-            box-sizing: border-box; 
-            overscroll-behavior-y: contain !important;
-            -webkit-overscroll-behavior-y: contain !important;
-            -webkit-font-smoothing: antialiased;
-        }
+        html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; width: 100%; align-items: center; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; }
         .search-wrapper { position: relative; width: 100%; display: flex; gap: 10px; }
         .search-input-field { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; color: #0f172a; box-sizing: border-box; outline: none; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
@@ -107,16 +92,13 @@
         let startY = 0, isPulling = false, isScrollingRow = false;
 
         function switchTab(targetTab) { 
-            currentTab = targetTab; 
-            localStorage.setItem('app_current_tab', targetTab); 
-            render(); 
+            currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); 
             if (targetTab === 'downloads') syncQBittorrentList();
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
-        function clearGlobalSearch() { let inputField = document.getElementById('search-input'); if (inputField) inputField.value = ''; searchResultsData = []; render(); }
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
-        // INSULATED POLLING FILTER: Prevents background tasks rewriting HTML while you scroll the For You streams
+        // INSULATED POLLING ENGINE: Updates data silently and only rerenders if visual state changes
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
@@ -124,61 +106,40 @@
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}&_cb=${timestamp}`);
                 let list = await res.json();
                 let records = Array.isArray(list) ? list : (list.records || []);
-                activeTorrents = records.map(t => {
-                    let prog = t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0";
-                    let remainingMin = t.estimatedCompletionTime ? Math.round((new Date(t.estimatedCompletionTime) - new Date()) / 60000) : 0;
-                    return {
-                        name: t.title || "Active Download",
-                        progress: prog,
-                        size: (t.size / 1073741824).toFixed(2),
-                        speed: t.trackedDownloadState || "Downloading",
-                        status: remainingMin > 0 ? `${remainingMin}m remaining` : "Processing"
-                    };
-                });
-                if (currentTab === 'downloads') render();
+                let newTorrents = records.map(t => ({
+                    name: t.title || "Active Download",
+                    progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
+                    size: (t.size / 1073741824).toFixed(2),
+                    speed: t.trackedDownloadState || "Downloading",
+                    status: t.estimatedCompletionTime ? Math.round((new Date(t.estimatedCompletionTime) - new Date()) / 60000) + "m remaining" : "Processing"
+                }));
+                if (JSON.stringify(newTorrents) !== JSON.stringify(activeTorrents)) {
+                    activeTorrents = newTorrents;
+                    if (currentTab === 'downloads' || currentTab === 'collection') render();
+                }
             } catch(e) {}
         }
 
-        // UNIFIED SELECTION MAPPING: Scans across exact matching IDs, Titles, and Letterboxd local hashes seamlessly
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
-                let targetObject = null;
-                let cleanId = String(identifier).toLowerCase().trim();
-                
-                if (poolType === 'search') {
-                    targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
-                } else if (poolType === 'friend') {
-                    targetObject = friendRowData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
-                } else if (poolType === 'discover') {
-                    targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId || String(m.id).toLowerCase().trim() === cleanId);
-                } else if (poolType === 'library') {
-                    targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
-                }
+                let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
+                if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) return;
                 activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; modalOpen = true; render();
-                
                 let tk = localStorage.getItem('tmdb_key');
-                if (tk && activeItem.tmdbId && !isNaN(activeItem.tmdbId)) {
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`)
-                        .then(res => res.json()).then(d => {
-                            if (d && modalOpen) {
-                                activeItem.overview = d.overview || activeItem.overview;
-                                activeItem.runtime = d.runtime ? `${d.runtime}m` : '104m';
-                                activeItem.vote_average = d.vote_average ? d.vote_average.toFixed(1) : null;
-                                activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
-                                render();
-                            }
-                        }).catch(() => {});
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}/videos?api_key=${tk}`)
-                        .then(res => res.json()).then(v => {
-                            if (v.results && modalOpen) {
-                                let trailer = v.results.find(vid => vid.type === "Trailer" && vid.site === "YouTube");
-                                if (trailer) { activeItem.trailerKey = trailer.key; render(); }
-                            }
-                        }).catch(() => {});
+                if (tk && activeItem.tmdbId) {
+                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`).then(res => res.json()).then(d => {
+                        if (d && modalOpen) { activeItem.overview = d.overview || activeItem.overview; activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : ''; render(); }
+                    }).catch(() => {});
+                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}/videos?api_key=${tk}`).then(res => res.json()).then(v => {
+                        if (v.results && modalOpen) { let trailer = v.results.find(vid => vid.type === "Trailer" && vid.site === "YouTube"); if (trailer) { activeItem.trailerKey = trailer.key; render(); } }
+                    }).catch(() => {});
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         }
         function executeToggleWatched() {
             if (!activeItem) return;
@@ -220,7 +181,7 @@
             try {
                 let url = `https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(queryText.trim())}&with_original_language=en`;
                 let data = await (await fetch(url)).json();
-                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' })); }
+                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' })); }
             } catch (e) { console.error(e); }
             render();
         }
@@ -233,15 +194,12 @@
                 let profiles = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/qualityprofile?apiKey=${k}`)).json();
                 let l = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/movie/lookup?term=tmdb:${activeItem.tmdbId || 238}&apiKey=${k}`)).json();
                 let movieData = Array.isArray(l) ? l[0] : l; if (!movieData) return alert("Missing metadata.");
-                
                 let matchedProfile = profiles.find(p => p.name && p.name.toLowerCase().trim() === "auto movie");
                 movieData.qualityProfileId = matchedProfile ? matchedProfile.id : profiles[0].id;
-                
                 movieData.rootFolderPath = f[0].path; movieData.monitored = true; movieData.addOptions = { searchForMovie: true };
                 let postRes = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(movieData) });
-                if (postRes.status === 201 || postRes.status === 200) { alert(`Added to queue!`); modalOpen = false; await syncRadarrLibrary(); }
-                else { alert("Exists or Rejected."); }
-            } catch(err) { alert("Connection Timeout."); }
+                if (postRes.status === 201 || postRes.status === 200) { alert(`Added!`); modalOpen = false; await syncRadarrLibrary(); }
+            } catch(err) { alert("Timeout."); }
             render();
         }
 
@@ -253,23 +211,17 @@
                 let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
                 let items = await response.json();
                 if (Array.isArray(items)) {
-                    let serverItems = items.map((item) => {
+                    myCollection = items.map((item) => {
                         let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
                         let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
                         let posterObj = item.images?.find(i => i.coverType === 'poster');
                         return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
                     });
-                    let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-                    customHistory.forEach(historicMatch => {
-                        let tmdbIdStr = historicMatch.tmdbId ? String(historicMatch.tmdbId) : null;
-                        let found = serverItems.some(s => tmdbIdStr ? (String(s.tmdbId) === tmdbIdStr) : s.title.toLowerCase().trim() === historicMatch.title.toLowerCase().trim());
-                        if (!found) { serverItems.unshift(historicMatch); }
-                    });
-                    myCollection = serverItems; localStorage.setItem('local_collection', JSON.stringify(myCollection));
+                    localStorage.setItem('local_collection', JSON.stringify(myCollection));
                 }
-            } catch(e) { alert("Sync Failed: " + e.message); }
+            } catch(e) {}
             isRadarrLoading = false; render();
-                                                                                }
+        }
         async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
@@ -277,11 +229,11 @@
             try {
                 for (let [title, gId] of Object.entries(genres)) {
                     let res1 = await (await fetch("https://api.themoviedb.org/3/discover/movie?api_key=" + tk + "&with_genres=" + gId + "&sort_by=popularity.desc&with_original_language=en&page=1")).json();
-                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
                 }
                 for (let [title, range] of Object.entries(decades)) {
                     let res1 = await (await fetch("https://api.themoviedb.org/3/discover/movie?api_key=" + tk + "&primary_release_date.gte=" + range[0] + "-01-01&primary_release_date.lte=" + range[1] + "-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=1")).json();
-                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).map(m => ({ title: m.title, year: m.release_date?.substring(0,4) || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
                 }
                 if (currentTab === 'foryou') render();
             } catch(e) {}
@@ -319,7 +271,7 @@
 
         function renderRow(title, movies, isFriend = false) {
             let rowType = isFriend ? 'friend' : 'discover';
-            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.title).toLowerCase().trim())));
             if (displayList.length === 0) return '';
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
                 let lookupKey = m.id || m.tmdbId || m.title;
@@ -366,7 +318,7 @@
                     Downloads
                 </button>
                 <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
             </div>`;
