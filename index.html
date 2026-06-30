@@ -106,10 +106,6 @@
         .btn-action { width:100%; padding:15px; background:#f97316; color:#020617; border:none; border-radius:12px; font-weight:900; text-transform:uppercase; font-size:11px; cursor:pointer; transition:background 0.2s; margin-top:8px; letter-spacing:0.5px; }
         .btn-action:hover { background:#ea580c; }
 
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; background:rgba(15, 23, 42, 0.95); border-top:1px solid #1e293b; padding:12px 14px; display:flex; justify-content:space-around; backdrop-filter:blur(8px); z-index:40; box-sizing:border-box; }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:bold; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:4px; }
-        .nav-btn.active { color:#f97316; }
-
         .modal-overlay { position:fixed; inset:0; background:#020617; z-index:100; box-sizing:border-box; overflow-y:auto; padding:0; display:flex; flex-direction:column; }
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 30%, #020617 100%); }
@@ -139,7 +135,7 @@
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
-      <script>
+       <script>
         let currentTab = 'collection', modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false;
         let currentSubTab = 'downloaded'; 
         let searchResultsData = []; 
@@ -287,7 +283,7 @@
         }
 
         function closeM() { modalOpen = false; activeItem = null; render(); }
-         async function syncRadarrLibrary() {
+                 async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
             try {
@@ -382,7 +378,7 @@
                 if (currentTab === 'foryou') render();
             } catch(e) {}
         }
-           async function syncFeeds() {
+               async function syncFeeds() {
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
             for (let l of arr) {
@@ -420,6 +416,15 @@
                     }
                 } catch(e) {}
             }
+            
+            // FISHER-YATES SHUFFLE ALGORITHM: Blends usernames seamlessly to fix list crowding
+            for (let i = blended.length - 1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i + 1));
+                let temp = blended[i];
+                blended[i] = blended[j];
+                blended[j] = temp;
+            }
+            
             friendRowData = blended; render();
         }
 
