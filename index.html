@@ -24,6 +24,12 @@
         .scroll-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 145px; min-width: 145px; cursor: pointer; }
         .scroll-poster { width: 100%; height: 215px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+        .torrent-progress-bg { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+        .torrent-progress-fill { height: 100%; background: #f97316; width: 0%; }
+        .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px; }
+        .form-group { display:flex; flex-direction:column; gap:8px; }
+        .btn-action { width:100%; padding:16px; background:#f97316; color:#ffffff; border:none; border-radius:14px; font-weight:800; cursor:pointer; }
         .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.95); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(10px); }
         .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; }
         .nav-btn.active { color: #f97316; }
@@ -34,12 +40,11 @@
 <body>
     <div id="view-root"></div>
     <script>
-        // INITIAL LOAD: Pull immediately from cache
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let tracks = { "Action": [], "Drama": [], "Adventure": [], "Mystery": [] };
-        let friendRowData = [], modalOpen = false, activeItem = null;
+        let friendRowData = [], activeTorrents = [], modalOpen = false, activeItem = null;
 
         function render() {
             let root = document.getElementById('view-root');
@@ -69,11 +74,17 @@
                             <div class="scroll-poster"><img class="scroll-poster-img" src="${m.posterPath}"></div>
                             <div class="card-details">${m.title}</div>
                         </div>`).join('')}</div></div>`).join('');
+            } else if (currentTab === 'downloads') {
+                content = activeTorrents.map(t => `<div class="torrent-card"><strong>${t.name}</strong><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%"></div></div></div>`).join('');
+            } else if (currentTab === 'settings') {
+                content = `<div class="settings-container"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>TMDB Key</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><button class="btn-action" onclick="saveSettings()">Save Settings</button></div>`;
             }
             root.innerHTML = `<div class="header"><input class="search-input-field" placeholder="Search..."></div>${content}
                 <div class="nav-footer">
                     <button class="nav-btn ${currentTab==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
                     <button class="nav-btn ${currentTab==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
+                    <button class="nav-btn ${currentTab==='downloads'?'active':''}" onclick="switchTab('downloads')">Downloads</button>
+                    <button class="nav-btn ${currentTab==='settings'?'active':''}" onclick="switchTab('settings')">Settings</button>
                 </div>`;
             if (modalOpen && activeItem) root.innerHTML += `<div class="modal-overlay"><h3>${activeItem.title}</h3><button class="btn-panel-primary" onclick="closeM()">Close</button></div>`;
         }
@@ -93,7 +104,23 @@
                 myCollection = Array.from(masterLibrary.values());
                 localStorage.setItem('local_collection', JSON.stringify(myCollection));
                 render();
-            } catch(e) { console.error("Sync failed, but using cache."); }
+            } catch(e) {}
+        }
+        
+        async function syncQBittorrentList() {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+            try {
+                let res = await (await fetch(`${u}/api/v3/queue?apiKey=${k}`)).json();
+                activeTorrents = (res.records || []).map(t => ({ name: t.title, progress: (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) }));
+                if (currentTab === 'downloads') render();
+            } catch(e) {}
+        }
+
+        function saveSettings() {
+            localStorage.setItem('radarr_url', document.getElementById('in_radarr').value);
+            localStorage.setItem('radarr_key', document.getElementById('in_key').value);
+            localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value);
+            alert("Settings Saved!"); syncRadarrLibrary();
         }
 
         function switchTab(t) { currentTab = t; localStorage.setItem('app_current_tab', t); render(); }
@@ -105,9 +132,8 @@
             if (t) { modalOpen = true; activeItem = myCollection.find(m => String(m.tmdbId) === String(t.dataset.id)) || {title: 'New Movie'}; render(); }
         });
 
-        // DRAW FIRST, SYNC SECOND
-        render();
-        syncRadarrLibrary();
+        setInterval(syncQBittorrentList, 5000);
+        syncRadarrLibrary(); syncQBittorrentList(); render();
     </script>
 </body>
 </html>
