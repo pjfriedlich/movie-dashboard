@@ -124,7 +124,7 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
-                else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
