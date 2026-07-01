@@ -16,6 +16,10 @@
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; margin-bottom: 24px !important; width: 100% !important; box-sizing: border-box !important; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
+        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:4px; flex:1; height:100%; }
+        .nav-btn.active { color:#f97316; }
+        .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
+        .nav-svg-icon { width: 28px; height: 28px; fill: currentColor; }
         .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
         .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
         .filter-scroller { display: flex; gap: 8px; overflow-x: auto; padding: 4px 4px 12px 4px; margin-bottom: 8px; width: 100%; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
@@ -54,10 +58,6 @@
         .btn-sync-pill:active { background: #fff7ed; border-color: #f97316; transform: scale(0.95); }
         .sync-icon-svg { width: 13px; height: 13px; fill: currentColor; }
         .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:calc(10px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:4px; flex:1; height:100%; }
-        .nav-btn.active { color:#f97316; }
-        .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
-        .nav-svg-icon { width: 28px; height: 28px; fill: currentColor; }
         .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; box-sizing:border-box; overflow-y:auto; display:flex; flex-direction:column; }
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 20%, #f1f5f9 100%); }
@@ -158,9 +158,8 @@
                             activeItem.overview = d.overview || activeItem.overview; 
                             activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
-                                let y = String(d.release_date.substring(0, 4));
-                                activeItem.realYear = y;
-                                activeItem.year = y;
+                                activeItem.realYear = d.release_date.substring(0, 4);
+                                activeItem.year = d.release_date.substring(0, 4);
                             }
                             render(); 
                         }
@@ -307,10 +306,12 @@
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
-                            let itemObj = { id: 'lb_'+user+'_'+i, title: t, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '' };
+                            // Strip away explicit trailing Letterboxd year tags from the feed source title string directly
+                            let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
+                            let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '' };
                             blended.push(itemObj);
                             if (tk) {
-                                let cleanQuery = t.match(/^(.+?),\s*(\d{4})$/) ? t.match(/^(.+?),\s*(\d{4})$/)[1].trim() : t;
+                                let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
                                 fetch("https://api.themoviedb.org/3/search/movie?api_key=" + tk + "&query=" + encodeURIComponent(cleanQuery))
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
@@ -383,7 +384,7 @@
             } else if (currentTab === 'foryou') {
                 body = searchRowHtml + renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
             } else if (currentTab === 'downloads') {
-                body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map(t => `<div class="torrent-card"><div class="torrent-title">${t.name}</div><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div><div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div></div>`).join(''));
+                body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTransfers.map(t => `<div class="torrent-card"><div class="torrent-title">${t.name}</div><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div><div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div></div>`).join(''));
             } else if (currentTab === 'settings') {
                 body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
