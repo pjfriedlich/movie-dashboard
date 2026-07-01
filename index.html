@@ -10,20 +10,21 @@
         .search-input-field { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; outline: none; }
         #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-weight: bold; line-height: 40px; border-radius: 12px; transition: height 0.1s; }
         .movie-grid { display: flex; flex-wrap: wrap; gap: 12px; }
-        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: calc(50% - 6px); box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; cursor: pointer; }
-        .poster-slot { width:100%; height:230px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-        .grid-poster-img { width:100%; height:100%; object-fit:cover; }
-        .row-container { margin-bottom:26px; width:100%; }
-        .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; padding-left:4px; }
-        .scroll-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; }
-        .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; cursor:pointer; }
-        .scroll-poster { width:100%; height:215px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-        .scroll-poster-img { width:100%; height:100%; object-fit:cover; }
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; padding-bottom:env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; }
-        .nav-btn.active { color:#f97316; }
-        .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; overflow-y:auto; padding:20px; }
-        .btn-panel-primary { width:100%; padding:15px; background:#f97316; color:white; border:none; border-radius:12px; font-weight:800; }
+        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; width: calc(50% - 6px); box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; cursor: pointer; }
+        .poster-slot { width: 100%; height: 230px; background: #e2e8f0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .grid-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .card-details { padding: 12px; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0; }
+        .row-container { margin-bottom: 26px; width: 100%; }
+        .row-title { font-size: 14px; font-weight: 800; color: #334155; text-transform: uppercase; margin-bottom: 12px; padding-left: 4px; }
+        .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+        .scroll-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 145px; min-width: 145px; cursor: pointer; }
+        .scroll-poster { width: 100%; height: 215px; background: #e2e8f0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
+        .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-btn.active { color: #f97316; }
+        .modal-overlay { position: fixed; inset: 0; background: #f1f5f9; z-index: 100; overflow-y: auto; padding: 20px; }
+        .btn-panel-primary { width:100%; padding:15px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:white; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; margin-top:20px; }
     </style>
 </head>
 <body>
@@ -33,16 +34,16 @@
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let tracks = { "Action": [], "Drama": [], "Adventure": [], "Mystery": [] };
-        let activeTorrents = [];
-        let isPulling = false;
+        let friendRowData = [];
+        let modalOpen = false, activeItem = null;
+        let startY = 0, isPulling = false, isScrollingRow = false;
 
         function render() {
             let root = document.getElementById('view-root');
             let content = '';
-            
             if (currentTab === 'collection') {
                 content = `<div class="movie-grid">${myCollection.map(m => `
-                    <div class="movie-card movie-trigger" data-pool="library" data-id="${m.tmdbId}">
+                    <div class="movie-card movie-trigger" data-pool="library" data-id="${m.tmdbId || m.id}">
                         <div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : 'No Image'}</div>
                         <div class="card-details">${m.title}</div>
                     </div>`).join('')}</div>`;
@@ -57,34 +58,58 @@
                             </div>`).join('')}
                         </div>
                     </div>`).join('');
+                content += `<div class="row-container"><div class="row-title">Friends</div><div class="scroll-row">${friendRowData.map(m => `
+                    <div class="scroll-card movie-trigger" data-pool="friend" data-id="${m.title}">
+                        <div class="scroll-poster"><img class="scroll-poster-img" src="${m.posterPath}"></div>
+                        <div class="card-details">${m.title}</div>
+                    </div>`).join('')}</div></div>`;
             }
 
-            root.innerHTML = `
-                <div class="header"><input class="search-input-field" placeholder="Search..."></div>
-                ${content}
+            root.innerHTML = `<div class="header"><input class="search-input-field" placeholder="Search..."></div>${content}
                 <div class="nav-footer">
                     <button class="nav-btn ${currentTab==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
                     <button class="nav-btn ${currentTab==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
                     <button class="nav-btn" onclick="switchTab('downloads')">Downloads</button>
                 </div>`;
+            if (modalOpen && activeItem) {
+                root.innerHTML += `<div class="modal-overlay"><h3>${activeItem.title}</h3><button class="btn-panel-primary" onclick="closeM()">Close</button></div>`;
+            }
         }
 
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             let items = await (await fetch(`${u}/api/v3/movie?apiKey=${k}`)).json();
-            myCollection = items.map(item => ({
+            let localWatched = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
+            let custom = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
+            let library = items.map(item => ({
                 id: String(item.id), title: item.title, tmdbId: item.tmdbId,
+                played: localWatched.includes(String(item.tmdbId)),
                 posterPath: item.images[0]?.remoteUrl || ''
             }));
+            custom.forEach(h => { if (!library.some(s => String(s.tmdbId) === String(h.tmdbId))) library.unshift({...h, played: true}); });
+            myCollection = library; localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            render();
+        }
+
+        async function loadDiscoverTracks() {
+            let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
+            for (let cat in tracks) {
+                let res = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&sort_by=popularity.desc`)).json();
+                tracks[cat] = res.results.map(m => ({ title: m.title, tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path }));
+            }
             render();
         }
 
         function switchTab(t) { currentTab = t; localStorage.setItem('app_current_tab', t); render(); }
+        function closeM() { modalOpen = false; activeItem = null; render(); }
+        function launchModalFromAttributes(p, id) { modalOpen = true; activeItem = myCollection.find(m => String(m.tmdbId) === id) || {title: 'New Movie'}; render(); }
 
-        window.addEventListener('touchstart', (e) => { if (window.scrollY === 0) isPulling = true; });
-        window.addEventListener('touchend', () => { isPulling = false; });
-        
-        syncRadarrLibrary();
+        document.addEventListener('click', (e) => {
+            let t = e.target.closest('.movie-trigger');
+            if (t) launchModalFromAttributes(t.dataset.pool, t.dataset.id);
+        });
+
+        syncRadarrLibrary(); loadDiscoverTracks();
     </script>
 </body>
 </html>
