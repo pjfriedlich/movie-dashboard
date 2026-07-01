@@ -213,22 +213,33 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
         
         if (Array.isArray(items)) {
             // 1. Keep only the custom entries (those starting with 'cust_')
-            let customEntries = myCollection.filter(m => String(m.id).startsWith('cust_'));
-            
+             // 1. Keep only the custom entries (those starting with 'cust_')
+            let customEntries = (JSON.parse(localStorage.getItem('local_collection')) || [])
+                .filter(m => String(m.id).startsWith('cust_'));
+
             // 2. Map the new Radarr items
             let radarrEntries = items.map((item) => {
                 let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
                 let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
                 let posterObj = item.images?.find(i => i.coverType === 'poster');
-                return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
+                return { 
+                    id: String(item.id), 
+                    title: item.title, 
+                    year: item.year || 'N/A', 
+                    overview: item.overview || '', 
+                    rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
+                    tmdbId: item.tmdbId || null, 
+                    played: matchPlayed, 
+                    hasFile: item.hasFile, 
+                    posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' 
+                };
             });
 
-            // 3. Merge them: Custom entries + Radarr entries
-// Ensure custom entries are marked as played before merging
-customEntries.forEach(m => m.played = true); 
-
-myCollection = [...customEntries, ...radarrEntries];
-localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            // 3. Merge them and ensure custom entries stay marked as played
+            customEntries.forEach(m => m.played = true);
+            myCollection = customEntries.concat(radarrEntries);
+            localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            
             
         }
     } catch(e) {}
