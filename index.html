@@ -56,16 +56,11 @@
         .scroll-card .card-title { font-weight:700; font-size:12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .scroll-card .card-meta { font-size:10px; color:#64748b; margin-top:4px; font-weight: 600; }
         
-        /* Interactive Swipe-to-Pause Component Framework */
-        .torrent-swipe-container { position: relative; width: 100%; overflow: hidden; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); background: #ef4444; }
-        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 10; transition: transform 0.2s ease-out; width: 100%; box-sizing: border-box; }
-        .swipe-action-underlay { position: absolute; inset: 0; display: flex; justify-content: flex-end; align-items: center; padding-right: 24px; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: white; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; z-index: 1; border-radius: 16px; }
-        
-        .torrent-title { font-size: 14px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 32px; }
+        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; width: 100%; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+        .torrent-title { font-size: 14px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 24px; }
         .torrent-meta { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; font-weight: 600; }
         .torrent-progress-bg { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; position: relative; }
         .torrent-progress-fill { height: 100%; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); width: 0%; transition: width 0.3s ease; }
-        .inline-pause-indicator-dot { width: 44px; height: 100%; position: absolute; right: 0; top: 0; display: flex; align-items: center; justify-content: center; color: #cbd5e1; border-left: 1px solid rgba(15,23,42,0.04); }
         
         .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px 0; width:100%; box-sizing:border-box; }
         .form-group { display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box; }
@@ -116,9 +111,6 @@
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
         let startY = 0, isPulling = false, isScrollingRow = false;
-        
-        // Touch state dictionary to map card slides
-        let touchStartCardX = 0, touchCurrentCardX = 0, activeSwipeItemIdx = null;
 
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
@@ -138,6 +130,15 @@
             filtersExpanded = !filtersExpanded;
             localStorage.setItem('app_filters_expanded', filtersExpanded);
             render();
+        }
+
+        // Expanded interactive inline menu toggle controller
+        function toggleTorrentMenu(event, index) {
+            event.stopPropagation();
+            const targetMenuEl = document.getElementById(`torrent-menu-${index}`);
+            if (targetMenuEl) {
+                targetMenuEl.style.display = targetMenuEl.style.display === 'flex' ? 'none' : 'flex';
+            }
         }
 
         document.addEventListener('input', function(e) {
@@ -193,12 +194,10 @@
             } catch(e) {}
         }
 
-        // Silent API pause toggle execution mapping via Proxy
         async function executeToggleQueueTask(queueId, currentStatusStr) {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k || !queueId) return;
             let targetEndpointStr = currentStatusStr.includes('paused') ? 'resume' : 'pause';
             try {
-                // Connect straight to Radarr execution queues to pause/resume downstream client downloads
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${targetEndpointStr}?apiKey=${k}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -208,8 +207,7 @@
                     showAppNotification(`Transfer state: ${targetEndpointStr}d`);
                     await syncQBittorrentList();
                 } else {
-                    // Fallback block if specific endpoint overrides aren't fully unblocked on your local port deck
-                    showAppNotification("Radarr endpoint bypass rejected.");
+                    showAppNotification("Radarr queue adjustment rejected.");
                 }
             } catch (e) {
                 showAppNotification("Connection timed out.");
@@ -425,32 +423,6 @@
             }).join('') + `</div></div>`;
         }
 
-        function handleTorrentTouchStart(e, index) {
-            touchStartCardX = e.touches[0].clientX;
-            activeSwipeItemIdx = index;
-        }
-
-        function handleTorrentTouchMove(e, cardEl) {
-            if (activeSwipeItemIdx === null) return;
-            touchCurrentCardX = e.touches[0].clientX;
-            let distanceX = touchCurrentCardX - touchStartCardX;
-            // Cap left swipe constraints to lock toggle overlay neatly
-            if (distanceX < 0 && distanceX > -90) {
-                cardEl.style.transform = `translateX(${distanceX}px)`;
-            }
-        }
-
-        function handleTorrentTouchEnd(e, cardEl, queueId, currentStatus) {
-            if (activeSwipeItemIdx === null) return;
-            let distanceX = touchCurrentCardX - touchStartCardX;
-            cardEl.style.transform = ''; // Clear temporary translate values
-            activeSwipeItemIdx = null;
-            // Fire toggle state change if user swipes more than halfway across bounds
-            if (distanceX < -45) {
-                executeToggleQueueTask(queueId, currentStatus);
-            }
-        }
-
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -481,12 +453,7 @@
                 ` : '';
                 
                 let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
-                
-                let inlineCollapsibleFilterHtml = `
-                    <div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">
-                        ${sortingControlsHtml}
-                    </div>
-                `;
+                let inlineCollapsibleFilterHtml = `<div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">${sortingControlsHtml}</div>`;
                 
                 let staticMainTabsHtml = `
                     <div class="stats-grid">
@@ -519,13 +486,17 @@
                     let isCurrentlyPaused = t.rawStatus.includes('paused') || t.speed.toLowerCase().includes('paused');
                     let triggerLabelText = isCurrentlyPaused ? "▶️ Resume" : "⏸️ Pause";
                     return `
-                    <div class="torrent-swipe-container">
-                        <div class="swipe-action-underlay">${triggerLabelText}</div>
-                        <div class="torrent-card" ontouchstart="handleTorrentTouchStart(event, ${idx})" ontouchmove="handleTorrentTouchMove(event, this)" ontouchend="handleTorrentTouchEnd(event, this, '${t.queueId}', '${t.rawStatus}')">
-                            <div class="torrent-title">${t.name}</div>
-                            <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
-                            <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
-                            <div class="inline-pause-indicator-dot" onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}')">${isCurrentlyPaused ? '▶️' : '⏸️'}</div>
+                    <div class="torrent-card" style="margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                            <div class="torrent-title" style="flex:1;">${t.name}</div>
+                            <button onclick="toggleTorrentMenu(event, ${idx})" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
+                        </div>
+                        <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
+                        <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
+                        
+                        <!-- Dropdown Options Action Panel -->
+                        <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
@@ -549,7 +520,7 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
@@ -572,14 +543,14 @@
                     Movies
                 </button>
                 <button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.34 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
                     For You
                 </button>
                 <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
                     <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
                     Downloads
                 </button>
-                <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
+                <button onclick="settings_tab" onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
                     <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
