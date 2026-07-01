@@ -87,6 +87,7 @@
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
+        let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
         let startY = 0, isPulling = false, isScrollingRow = false;
@@ -126,6 +127,7 @@
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) return;
                 activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; modalOpen = true; render();
@@ -144,36 +146,42 @@
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
-            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
+            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
+            
             if (tmdbIdStr && !localWatchedCache.includes(tmdbIdStr)) localWatchedCache.push(tmdbIdStr);
-            if (internalIdStr && !localWatchedCache.includes(internalIdStr)) localWatchedCache.push(internalIdStr);
             if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
-            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-            let customEntry = { id: (internalIdStr && !internalIdStr.startsWith('lb_')) ? internalIdStr : 'cust_' + Date.now(), title: activeItem.title, year: activeItem.year || '2026', overview: activeItem.overview || '', rating: activeItem.rating || '7.5', tmdbId: activeItem.tmdbId ? parseInt(activeItem.tmdbId) : null, played: true, hasFile: false, posterPath: activeItem.posterPath || '' };
-            if (!customHistory.some(h => String(h.title).toLowerCase().trim() === titleLower || (tmdbIdStr && String(h.tmdbId) === tmdbIdStr))) { customHistory.push(customEntry); localStorage.setItem('custom_watched_history', JSON.stringify(customHistory)); }
-
-            let exists = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
-            if (exists) { myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = true; }); }
-            else { myCollection.unshift(customEntry); }
-            localStorage.setItem('local_collection', JSON.stringify(myCollection)); modalOpen = false; render();
+            if (!customWatchedHistory.some(h => String(h.title).toLowerCase().trim() === titleLower || (tmdbIdStr && String(h.tmdbId) === tmdbIdStr))) {
+                let customEntry = { 
+                    id: 'cust_' + Date.now(), 
+                    title: activeItem.title, 
+                    year: activeItem.year || '2026', 
+                    overview: activeItem.overview || '', 
+                    rating: activeItem.rating || '7.5', 
+                    tmdbId: activeItem.tmdbId ? parseInt(activeItem.tmdbId) : null, 
+                    played: true, 
+                    hasFile: false, 
+                    posterPath: activeItem.posterPath || '' 
+                };
+                customWatchedHistory.unshift(customEntry);
+                localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
+            }
+            modalOpen = false; render();
         }
 
         function executeRemoveFromWatched() {
             if (!activeItem) return;
             let titleLower = String(activeItem.title).toLowerCase().trim();
-            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null, internalIdStr = activeItem.id ? String(activeItem.id) : null;
-            localWatchedCache = localWatchedCache.filter(item => { let m = String(item).toLowerCase().trim(); return m !== titleLower && m !== tmdbIdStr && m !== internalIdStr; });
+            let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
+            
+            localWatchedCache = localWatchedCache.filter(item => String(item).toLowerCase().trim() !== titleLower && String(item) !== tmdbIdStr);
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
-            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-            customHistory = customHistory.filter(h => String(h.title).toLowerCase().trim() !== titleLower && (!tmdbIdStr || String(h.tmdbId) !== tmdbIdStr));
-            localStorage.setItem('custom_watched_history', JSON.stringify(customHistory));
+            customWatchedHistory = customWatchedHistory.filter(h => String(h.title).toLowerCase().trim() !== titleLower && (!tmdbIdStr || String(h.tmdbId) !== tmdbIdStr));
+            localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
             
-            myCollection = myCollection.filter(m => String(m.id) !== internalIdStr && (!internalIdStr || !String(m.id).startsWith('cust_')));
-            myCollection.forEach(m => { if (String(m.id) === internalIdStr || String(m.tmdbId) === tmdbIdStr || String(m.title).toLowerCase().trim() === titleLower) m.played = false; });
-            localStorage.setItem('local_collection', JSON.stringify(myCollection)); modalOpen = false; render();
+            modalOpen = false; render();
         }
 
         async function triggerUniversalSearch(queryText) {
@@ -212,12 +220,7 @@
                 let items = await response.json();
                 
                 if (Array.isArray(items)) {
-                    let customEntries = (JSON.parse(localStorage.getItem('local_collection')) || [])
-                        .filter(m => String(m.id).startsWith('cust_'));
-
-                    let radarrEntries = items.map((item) => {
-                        let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
-                        let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
+                    myCollection = items.map((item) => {
                         let posterObj = item.images?.find(i => i.coverType === 'poster');
                         return { 
                             id: String(item.id), 
@@ -226,14 +229,11 @@
                             overview: item.overview || '', 
                             rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
                             tmdbId: item.tmdbId || null, 
-                            played: matchPlayed, 
+                            played: item.hasFile, 
                             hasFile: item.hasFile, 
                             posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' 
                         };
                     });
-
-                    customEntries.forEach(m => m.played = true);
-                    myCollection = customEntries.concat(radarrEntries);
                     localStorage.setItem('local_collection', JSON.stringify(myCollection));
                 }
             } catch(e) {}
@@ -289,7 +289,7 @@
 
         function renderRow(title, movies, isFriend = false) {
             let rowType = isFriend ? 'friend' : 'discover';
-            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.title).toLowerCase().trim())));
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
             if (displayList.length === 0) return '';
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
                 let lookupKey = m.id || m.tmdbId || m.title;
@@ -300,14 +300,17 @@
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let searchRowHtml = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>` : '';
+            
             if (currentTab === 'collection') {
-                let watchedMovies = myCollection.filter(m => m.played === true || localWatchedCache.includes(String(m.tmdbId)) || localWatchedCache.includes(String(m.title).toLowerCase().trim()));
+                let watchedMovies = customWatchedHistory;
                 let downloadedMovies = myCollection.filter(m => m.hasFile === true);
-                let comingSoonMovies = myCollection.filter(m => !m.hasFile && !m.played);
+                let comingSoonMovies = myCollection.filter(m => !m.hasFile);
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
+                let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
+                
                 body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider"><div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                     let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
-                    return `<div class="movie-card movie-trigger" data-pool="library" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}</div></div>`;
+                    return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}</div></div>`;
                 }).join('')}</div>`);
             } else if (currentTab === 'foryou') {
                 body = searchRowHtml + renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
@@ -316,11 +319,20 @@
             } else if (currentTab === 'settings') {
                 body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
+            
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
-                let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId) && !String(c.id).startsWith('cust_')) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
-                modal = `<div class="modal-overlay"><div class="btn-unwatch-action" onclick="executeRemoveFromWatched()">✕ Unwatch</div><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div><button id="modal-trailer-trigger" class="trailer-btn" onclick="injectInlineTrailerFrame()" style="${activeItem.trailerKey ? 'display:block;' : 'display:none;'}">🎬 Play Trailer</button></div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Auto Movie Quality Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>${radarrButtonHtml}</div></div></div>`;
+                let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
+                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
+                
+                let titleLower = String(activeItem.title).toLowerCase().trim();
+                let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
+                let isCurrentlyWatched = localWatchedCache.includes(titleLower) || (tmdbIdStr && localWatchedCache.includes(tmdbIdStr));
+                let watchButtonHtml = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-panel-primary" style="background: #ef4444;">Remove From Watched</button>` : `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>`;
+                
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div><button id="modal-trailer-trigger" class="trailer-btn" onclick="injectInlineTrailerFrame()" style="${activeItem.trailerKey ? 'display:block;' : 'display:none;'}">🎬 Play Trailer</button></div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
+            
             out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}
             <div class="nav-footer">
                 <button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}">
