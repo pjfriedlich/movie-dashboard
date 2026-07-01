@@ -111,6 +111,7 @@
         
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
+        // Bulletproof regex parsing helper to guarantee numeric extraction
         function parseNumericYear(item) {
             if (!item) return 0;
             if (item.realYear && !isNaN(parseInt(item.realYear))) return parseInt(item.realYear);
@@ -338,7 +339,7 @@
             if (displayList.length === 0) return '';
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
                 let lookupKey = m.id || m.tmdbId || m.title;
-                let displayMeta = (m.year && !m.year.startsWith('@')) ? m.year : '';
+                let displayMeta = m.year ? String(m.year).split(',')[0] : '';
                 return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
