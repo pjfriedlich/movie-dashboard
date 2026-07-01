@@ -405,7 +405,7 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
             launchModalFromAttributes(triggerCard.getAttribute('data-pool'), triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-track')); 
         });
 
-        setInterval(syncQBittorrentList, 5000);
+        //setInterval(syncQBittorrentList, 5000);
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
     </script>
