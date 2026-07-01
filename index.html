@@ -132,7 +132,6 @@
             render();
         }
 
-        // Expanded interactive inline menu toggle controller
         function toggleTorrentMenu(event, index) {
             event.stopPropagation();
             const targetMenuEl = document.getElementById(`torrent-menu-${index}`);
@@ -194,23 +193,31 @@
             } catch(e) {}
         }
 
+        // Fixed Global Command Execution Tunnel
         async function executeToggleQueueTask(queueId, currentStatusStr) {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k || !queueId) return;
-            let targetEndpointStr = currentStatusStr.includes('paused') ? 'resume' : 'pause';
+            
+            // Map status directly to Radarr core command engine properties
+            let commandNameStr = currentStatusStr.includes('paused') ? 'ResumeQueueItem' : 'PauseQueueItem';
+            let labelActionStr = currentStatusStr.includes('paused') ? 'Started' : 'Stopped';
+            
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${targetEndpointStr}?apiKey=${k}`, {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ queueIds: [parseInt(queueId)] })
+                    body: JSON.stringify({
+                        name: commandNameStr,
+                        queueItemId: parseInt(queueId)
+                    })
                 });
                 if (res.status === 200 || res.status === 201) {
-                    showAppNotification(`Transfer state: ${targetEndpointStr}d`);
-                    await syncQBittorrentList();
+                    showAppNotification(`Transfer ${labelActionStr}`);
+                    setTimeout(syncQBittorrentList, 1000);
                 } else {
-                    showAppNotification("Radarr queue adjustment rejected.");
+                    showAppNotification("Radarr command route rejected.");
                 }
             } catch (e) {
-                showAppNotification("Connection timed out.");
+                showAppNotification("Connection error.");
             }
         }
 
@@ -388,7 +395,7 @@
                             blended.push(itemObj);
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
-                                fetch("https://api.themoviedb.org/3/search/movie?api_key=" + tk + "&query=" + encodeURIComponent(cleanQuery))
+                                fetch("https://api.themoviedb.org/3/search/movie?api_key=" + tk + "&query=\" + encodeURIComponent(cleanQuery))
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
                                             itemObj.tmdbId = s.results[0].id; 
@@ -484,7 +491,7 @@
                 body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + 
                 (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map((t, idx) => {
                     let isCurrentlyPaused = t.rawStatus.includes('paused') || t.speed.toLowerCase().includes('paused');
-                    let triggerLabelText = isCurrentlyPaused ? "▶️ Resume" : "⏸️ Pause";
+                    let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
                     return `
                     <div class="torrent-card" style="margin-bottom:12px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
@@ -494,7 +501,6 @@
                         <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
-                        <!-- Dropdown Options Action Panel -->
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
                             <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
@@ -543,14 +549,14 @@
                     Movies
                 </button>
                 <button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.34 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
                     For You
                 </button>
                 <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
                     <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
                     Downloads
                 </button>
-                <button onclick="settings_tab" onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
+                <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
                     <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
