@@ -9,44 +9,45 @@
         .header { display: flex; width: 100%; border-bottom: 1px solid rgba(15,23,42,0.08); padding-bottom: 14px; margin-bottom: 20px; }
         .search-input-field { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; outline: none; }
         #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-weight: bold; line-height: 40px; border-radius: 12px; transition: height 0.1s; }
-        .section-divider { width: 100%; height: 1px; background: rgba(15,23,42,0.08); margin: 24px 0; border: none; }
         .movie-grid { display: flex; flex-wrap: wrap; gap: 12px; }
-        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; width: calc(50% - 6px); box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; cursor: pointer; }
-        .poster-slot { width: 100%; height: 230px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .grid-poster-img { width: 100%; height: 100%; object-fit: cover; }
-        .card-details { padding: 12px; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0; }
-        .row-container { margin-bottom: 26px; width: 100%; }
-        .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
-        .scroll-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 145px; min-width: 145px; cursor: pointer; }
-        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
-        .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .nav-btn.active { color: #f97316; }
+        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: calc(50% - 6px); box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; cursor: pointer; }
+        .poster-slot { width:100%; height:230px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        .grid-poster-img { width:100%; height:100%; object-fit:cover; }
+        .row-container { margin-bottom:26px; width:100%; }
+        .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; padding-left:4px; }
+        .scroll-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; }
+        .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; cursor:pointer; }
+        .scroll-poster { width:100%; height:215px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        .scroll-poster-img { width:100%; height:100%; object-fit:cover; }
+        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; padding-bottom:env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
+        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; }
+        .nav-btn.active { color:#f97316; }
+        .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; overflow-y:auto; padding:20px; }
+        .btn-panel-primary { width:100%; padding:15px; background:#f97316; color:white; border:none; border-radius:12px; font-weight:800; }
     </style>
 </head>
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
     <script>
-        // --- 1. DATA STATE ---
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
-        let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [] };
+        let tracks = { "Action": [], "Drama": [], "Adventure": [], "Mystery": [] };
         let activeTorrents = [];
-        let startY = 0, isPulling = false, isScrollingRow = false;
+        let isPulling = false;
 
-        // --- 2. CORE RENDER ENGINE ---
         function render() {
             let root = document.getElementById('view-root');
-            let body = '';
+            let content = '';
             
             if (currentTab === 'collection') {
-                body = `<div class="movie-grid">${myCollection.map(m => `
-                    <div class="movie-card movie-trigger" data-pool="library" data-id="${m.id}">
+                content = `<div class="movie-grid">${myCollection.map(m => `
+                    <div class="movie-card movie-trigger" data-pool="library" data-id="${m.tmdbId}">
                         <div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : 'No Image'}</div>
                         <div class="card-details">${m.title}</div>
                     </div>`).join('')}</div>`;
             } else if (currentTab === 'foryou') {
-                body = Object.keys(tracks).map(cat => `
+                content = Object.keys(tracks).map(cat => `
                     <div class="row-container">
                         <div class="row-title">${cat}</div>
                         <div class="scroll-row">${tracks[cat].map(m => `
@@ -57,24 +58,22 @@
                         </div>
                     </div>`).join('');
             }
-            
+
             root.innerHTML = `
                 <div class="header"><input class="search-input-field" placeholder="Search..."></div>
-                ${body}
+                ${content}
                 <div class="nav-footer">
                     <button class="nav-btn ${currentTab==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
                     <button class="nav-btn ${currentTab==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
+                    <button class="nav-btn" onclick="switchTab('downloads')">Downloads</button>
                 </div>`;
         }
 
-        // --- 3. SYNC LOGIC ---
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             let items = await (await fetch(`${u}/api/v3/movie?apiKey=${k}`)).json();
-            let localWatched = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
             myCollection = items.map(item => ({
                 id: String(item.id), title: item.title, tmdbId: item.tmdbId,
-                played: localWatched.includes(String(item.tmdbId)),
                 posterPath: item.images[0]?.remoteUrl || ''
             }));
             render();
@@ -82,20 +81,9 @@
 
         function switchTab(t) { currentTab = t; localStorage.setItem('app_current_tab', t); render(); }
 
-        // --- 4. GESTURE HANDLERS ---
-        window.addEventListener('touchstart', (e) => { 
-            if (e.target.closest('.scroll-row')) startY = e.touches[0].clientX;
-            else if (window.scrollY === 0) isPulling = true;
-        });
-        window.addEventListener('touchmove', (e) => {
-            if (isPulling) {
-                let diff = e.touches[0].clientY - 0; // simplified
-                document.getElementById('pull-indicator').style.height = Math.min(diff * 0.4, 50) + 'px';
-            }
-        });
-        window.addEventListener('touchend', () => { isPulling = false; document.getElementById('pull-indicator').style.height = '0px'; });
-
-        // --- INITIALIZE ---
+        window.addEventListener('touchstart', (e) => { if (window.scrollY === 0) isPulling = true; });
+        window.addEventListener('touchend', () => { isPulling = false; });
+        
         syncRadarrLibrary();
     </script>
 </body>
