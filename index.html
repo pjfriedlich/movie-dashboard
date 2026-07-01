@@ -58,15 +58,7 @@
         .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 20%, #f1f5f9 100%); }
         .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:20px; font-weight:bold; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; }
-        .detail-content-frame {
-    padding: 20px 24px 48px 24px; /* Added top padding */
-    margin-top: 0px;              /* Removed negative margin */
-    position: relative;
-    z-index: 105;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-        }
+        .detail-content-frame { padding: 20px 24px 48px 24px; margin-top: 0px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 22px; }
         .detail-main-row { display:flex; gap:18px; align-items:flex-end; }
         .detail-poster-wrapper { width:115px; height:172px; border-radius:14px; overflow:hidden; border:1px solid #cbd5e1; background:#ffffff; flex-shrink:0; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
         .detail-poster-img { width:100%; height:100%; object-fit: cover; }
@@ -106,7 +98,6 @@
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
-        // INSULATED POLLING ENGINE: Updates data silently and only rerenders if visual state changes
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
@@ -128,7 +119,7 @@
             } catch(e) {}
         }
 
-function launchModalFromAttributes(poolType, identifier, trackName = null) {
+        function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
@@ -149,6 +140,7 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
                 }
             } catch (e) {}
         }
+
         function executeToggleWatched() {
             if (!activeItem) return;
             let titleStr = String(activeItem.title), titleLower = titleStr.toLowerCase().trim();
@@ -159,7 +151,7 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
             let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-            let customEntry = { id: internalIdStr || 'cust_' + Date.now(), title: activeItem.title, year: activeItem.year || '2026', overview: activeItem.overview || '', rating: activeItem.rating || '7.5', tmdbId: activeItem.tmdbId ? parseInt(activeItem.tmdbId) : null, played: true, hasFile: false, posterPath: activeItem.posterPath || '' };
+            let customEntry = { id: (internalIdStr && !internalIdStr.startsWith('lb_')) ? internalIdStr : 'cust_' + Date.now(), title: activeItem.title, year: activeItem.year || '2026', overview: activeItem.overview || '', rating: activeItem.rating || '7.5', tmdbId: activeItem.tmdbId ? parseInt(activeItem.tmdbId) : null, played: true, hasFile: false, posterPath: activeItem.posterPath || '' };
             if (!customHistory.some(h => String(h.title).toLowerCase().trim() === titleLower || (tmdbIdStr && String(h.tmdbId) === tmdbIdStr))) { customHistory.push(customEntry); localStorage.setItem('custom_watched_history', JSON.stringify(customHistory)); }
 
             let exists = myCollection.some(m => String(m.id) === internalIdStr || (m.tmdbId && String(m.tmdbId) === tmdbIdStr) || String(m.title).toLowerCase().trim() === titleLower);
@@ -212,46 +204,40 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
         }
 
         async function syncRadarrLibrary() {
-    let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
-    isRadarrLoading = true; render();
-    try {
-        let timestamp = new Date().getTime();
-        let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
-        let items = await response.json();
-        
-        if (Array.isArray(items)) {
-            // 1. Keep only the custom entries (those starting with 'cust_')
-             // 1. Keep only the custom entries (those starting with 'cust_')
-            let customEntries = (JSON.parse(localStorage.getItem('local_collection')) || [])
-                .filter(m => String(m.id).startsWith('cust_'));
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+            isRadarrLoading = true; render();
+            try {
+                let timestamp = new Date().getTime();
+                let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
+                let items = await response.json();
+                
+                if (Array.isArray(items)) {
+                    let customEntries = (JSON.parse(localStorage.getItem('local_collection')) || [])
+                        .filter(m => String(m.id).startsWith('cust_'));
 
-            // 2. Map the new Radarr items
-            let radarrEntries = items.map((item) => {
-                let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
-                let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
-                let posterObj = item.images?.find(i => i.coverType === 'poster');
-                return { 
-                    id: String(item.id), 
-                    title: item.title, 
-                    year: item.year || 'N/A', 
-                    overview: item.overview || '', 
-                    rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
-                    tmdbId: item.tmdbId || null, 
-                    played: matchPlayed, 
-                    hasFile: item.hasFile, 
-                    posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' 
-                };
-            });
+                    let radarrEntries = items.map((item) => {
+                        let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
+                        let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
+                        let posterObj = item.images?.find(i => i.coverType === 'poster');
+                        return { 
+                            id: String(item.id), 
+                            title: item.title, 
+                            year: item.year || 'N/A', 
+                            overview: item.overview || '', 
+                            rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
+                            tmdbId: item.tmdbId || null, 
+                            played: matchPlayed, 
+                            hasFile: item.hasFile, 
+                            posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' 
+                        };
+                    });
 
-            // 3. Merge them and ensure custom entries stay marked as played
-            customEntries.forEach(m => m.played = true);
-            myCollection = customEntries.concat(radarrEntries);
-            localStorage.setItem('local_collection', JSON.stringify(myCollection));
-            
-            
-        }
-    } catch(e) {}
-    isRadarrLoading = false; render();
+                    customEntries.forEach(m => m.played = true);
+                    myCollection = customEntries.concat(radarrEntries);
+                    localStorage.setItem('local_collection', JSON.stringify(myCollection));
+                }
+            } catch(e) {}
+            isRadarrLoading = false; render();
         }
         
         async function loadDiscoverTracks() {
@@ -315,12 +301,7 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let searchRowHtml = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>` : '';
             if (currentTab === 'collection') {
-     // Change this line (approx line 318):
-let watchedMovies = myCollection.filter(m => 
-    m.played === true || 
-    localWatchedCache.includes(String(m.tmdbId)) || 
-    localWatchedCache.includes(String(m.title).toLowerCase().trim())
-);
+                let watchedMovies = myCollection.filter(m => m.played === true || localWatchedCache.includes(String(m.tmdbId)) || localWatchedCache.includes(String(m.title).toLowerCase().trim()));
                 let downloadedMovies = myCollection.filter(m => m.hasFile === true);
                 let comingSoonMovies = myCollection.filter(m => !m.hasFile && !m.played);
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
@@ -337,7 +318,7 @@ let watchedMovies = myCollection.filter(m =>
             }
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
-                let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId)) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
+                let radarrButtonHtml = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId) && !String(c.id).startsWith('cust_')) ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
                 modal = `<div class="modal-overlay"><div class="btn-unwatch-action" onclick="executeRemoveFromWatched()">✕ Unwatch</div><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year}</div><button id="modal-trailer-trigger" class="trailer-btn" onclick="injectInlineTrailerFrame()" style="${activeItem.trailerKey ? 'display:block;' : 'display:none;'}">🎬 Play Trailer</button></div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Auto Movie Quality Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>${radarrButtonHtml}</div></div></div>`;
             }
             out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}
@@ -410,9 +391,8 @@ let watchedMovies = myCollection.filter(m =>
             launchModalFromAttributes(triggerCard.getAttribute('data-pool'), triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-track')); 
         });
 
-        //setInterval(syncQBittorrentList, 5000);
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
     </script>
 </body>
-</html> 
+</html>
