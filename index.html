@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json">
+    <link class="manifest" href="manifest.json">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; width: 100%; align-items: center; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; }
@@ -306,7 +306,7 @@
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
-                            let itemObj = { id: 'lb_'+user+'_'+i, title: t, year: '@'+user, realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '' };
+                            let itemObj = { id: 'lb_'+user+'_'+i, title: t, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '' };
                             blended.push(itemObj);
                             if (tk) {
                                 let cleanQuery = t.match(/^(.+?),\s*(\d{4})$/) ? t.match(/^(.+?),\s*(\d{4})$/)[1].trim() : t;
