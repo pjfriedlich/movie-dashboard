@@ -179,6 +179,7 @@
                 let records = Array.isArray(list) ? list : (list.records || []);
                 let newTorrents = records.map(t => ({
                     queueId: t.id,
+                    downloadId: t.downloadId, // Save downstream download client reference hash
                     name: t.title || "Active Download",
                     progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
                     size: (t.size / 1073741824).toFixed(2),
@@ -193,29 +194,34 @@
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(queueId, currentStatusStr) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k || !queueId) return;
+        // Native qBittorrent Stateless API Key Action Tunnel
+        async function executeToggleQueueTask(downloadId, currentStatusStr) {
+            let qbitUrl = localStorage.getItem('qbit_url'), qbitKey = localStorage.getItem('qbit_key');
+            if (!qbitUrl || !qbitKey || !downloadId) return showAppNotification("Configure qBittorrent Key!");
             
-            let commandNameStr = currentStatusStr.includes('paused') ? 'ResumeQueueItem' : 'PauseQueueItem';
-            let labelActionStr = currentStatusStr.includes('paused') ? 'Started' : 'Stopped';
+            // Map actions dynamically to clean v5.0.0 api path naming specs (stop/start)
+            let isStoppedMode = currentStatusStr.includes('paused') || currentStatusStr.includes('completed') || currentStatusStr.includes('blocked');
+            let targetMethodStr = isStoppedMode ? 'start' : 'stop';
+            let labelActionStr = isStoppedMode ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
+                // Post form values directly using stateless Bearer header auth
+                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: commandNameStr,
-                        queueItemId: parseInt(queueId)
-                    })
+                    headers: {
+                        'Authorization': `Bearer ${qbitKey}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `hashes=${downloadId}`
                 });
-                if (res.status === 200 || res.status === 201) {
+                if (res.status === 200) {
                     showAppNotification(`Transfer ${labelActionStr}`);
                     setTimeout(syncQBittorrentList, 1000);
                 } else {
-                    showAppNotification("Radarr command route rejected.");
+                    showAppNotification(`Client Error: Code ${res.status}`);
                 }
             } catch (e) {
-                showAppNotification("Connection error.");
+                showAppNotification("qBittorrent connection error.");
             }
         }
 
@@ -225,8 +231,7 @@
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
-                else if (poolType === 'library') targetObject = myCollection.filter(m => m.hasFile === true); // insulated collection filter context fallback
-                if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) return;
@@ -489,15 +494,15 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
             } else if (currentTab === 'settings') {
-                body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
+                body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>qBittorrent WebUI URL</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" placeholder="e.g. http://100.101.236.76:8080"></div><div class="form-group"><label>qBittorrent API Key (v5.2.0+)</label><input type="password" id="in_qbit_key" value="${localStorage.getItem('qbit_key')||''}" placeholder="Paste qbt_ WebUI API key"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('qbit_url', document.getElementById('in_qbit_url').value.trim()); localStorage.setItem('qbit_key', document.getElementById('in_qbit_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
 
-            let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
+            let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title"></div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
             
             if (modalOpen && activeItem) {
                 let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
