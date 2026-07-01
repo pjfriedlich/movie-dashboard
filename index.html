@@ -18,6 +18,13 @@
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
         .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
         .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
+        
+        /* New Filter Bar Styles */
+        .filter-scroller { display: flex; gap: 8px; overflow-x: auto; padding: 4px 4px 12px 4px; margin-bottom: 8px; width: 100%; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+        .filter-scroller::-webkit-scrollbar { display: none; }
+        .filter-pill { background: #ffffff; border: 1px solid #cbd5e1; color: #475569; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s ease; }
+        .filter-pill.active-pill { background: #ea580c; border-color: #ea580c; color: #ffffff; box-shadow: 0 3px 8px rgba(234,88,12,0.2); }
+
         .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
         .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; box-sizing: border-box !important; width: calc(50% - 6px) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; }
         .poster-slot { width:100% !important; height:230px !important; background:#e2e8f0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; overflow:hidden; }
@@ -84,6 +91,7 @@
     <script>
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
+        let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; // New tracking state
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
@@ -97,6 +105,13 @@
             if (targetTab === 'downloads') syncQBittorrentList();
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
+        
+        function switchWatchedSort(sortMode) {
+            watchedSortMode = sortMode;
+            localStorage.setItem('watched_sort_mode', sortMode);
+            render();
+        }
+        
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
         async function syncQBittorrentList() {
@@ -302,13 +317,32 @@
             let searchRowHtml = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div>` : '';
             
             if (currentTab === 'collection') {
-                let watchedMovies = customWatchedHistory;
+                // 1. Sort the watched history dynamically if active
+                let watchedMovies = [...customWatchedHistory];
+                if (watchedSortMode === 'alpha') {
+                    watchedMovies.sort((a, b) => a.title.localeCompare(b.title));
+                } else if (watchedSortMode === 'year_desc') {
+                    watchedMovies.sort((a, b) => parseInt(b.year || 0) - parseInt(a.year || 0));
+                } else if (watchedSortMode === 'year_asc') {
+                    watchedMovies.sort((a, b) => parseInt(a.year || 0) - parseInt(b.year || 0));
+                } // Default is 'recent' which uses the array ordering exactly
+                
                 let downloadedMovies = myCollection.filter(m => m.hasFile === true);
                 let comingSoonMovies = myCollection.filter(m => !m.hasFile);
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
                 let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
                 
-                body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider"><div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                // 2. Inject Sorting Element Controls only on Watched Sub-Tab
+                let sortingControlsHtml = currentSubTab === 'watched' && watchedMovies.length > 0 ? `
+                    <div class="filter-scroller">
+                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">📅 Date Logged</div>
+                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">🔤 Title A-Z</div>
+                        <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode === 'year_desc' ? 'active-pill' : ''}">⏳ Year (New-Old)</div>
+                        <div onclick="switchWatchedSort('year_asc')" class="filter-pill ${watchedSortMode === 'year_asc' ? 'active-pill' : ''}">⏳ Year (Old-New)</div>
+                    </div>
+                ` : '';
+                
+                body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider">${sortingControlsHtml}<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                     let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
                     return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}</div></div>`;
                 }).join('')}</div>`);
@@ -356,7 +390,7 @@
 
         window.addEventListener('touchstart', (e) => { 
             let targetCard = e.target.closest('.movie-trigger');
-            if (e.target.closest('.scroll-row') || targetCard) {
+            if (e.target.closest('.scroll-row') || e.target.closest('.filter-scroller') || targetCard) {
                 startY = e.touches[0].clientX;
                 isScrollingRow = false;
             } else if (window.scrollY === 0 && currentTab === 'foryou') { 
@@ -376,7 +410,7 @@
                         el.innerText = diff * 0.4 >= 45 ? "🔄 Release..." : "⬇️ Pull..."; 
                     } 
                 }
-            } else if (e.target.closest('.scroll-row') || targetCard) {
+            } else if (e.target.closest('.scroll-row') || e.target.closest('.filter-scroller') || targetCard) {
                 let diffX = Math.abs(e.touches[0].clientX - startY);
                 if (diffX > 6) isScrollingRow = true;
             }
