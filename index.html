@@ -5,154 +5,98 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
     <style>
-        html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
-        .header { display: flex; width: 100%; align-items: center; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; }
-        .search-wrapper { position: relative; width: 100%; display: flex; gap: 10px; }
-        .search-input-field { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; color: #0f172a; box-sizing: border-box; outline: none; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
-        #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-size: 11px; font-weight: bold; text-transform: uppercase; line-height: 40px; border-radius: 12px; transition: height 0.1s ease-out; }
-        .section-divider { width: 100%; height: 1px; background: linear-gradient(90deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.02) 100%); margin: 24px 0; border: none; }
-        .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; margin-bottom: 24px !important; width: 100% !important; box-sizing: border-box !important; }
-        .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
-        .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; }
-        .stat-num { font-size: 22px; font-weight: 800; color: #0f172a; }
-        .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; }
-        .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
-        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; width: calc(50% - 6px) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; }
-        .poster-slot { width:100% !important; height:230px !important; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-        .grid-poster-img { width:100% !important; height:100% !important; object-fit:cover !important; }
-        .grid-card-details { padding:12px; font-size:13px; font-weight: 700; border-top:1px solid #e2e8f0; }
-        .downloading-badge { position: absolute; top: 10px; left: 10px; background: rgba(249, 115, 22, 0.95); color: white; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; z-index: 5; }
-        .row-container { margin-bottom:26px; width:100%; display:block; }
-        .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; padding-left: 4px; }
-        .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:12px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; }
-        .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; max-width:145px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
-        .scroll-poster { width:100%; height:215px; background:#e2e8f0; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-        .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; }
-        .rating-badge { position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.9); color:#34d399; font-weight:800; font-size:10px; padding:3px 7px; border-radius:6px; }
-        .card-details { padding:10px; background:#ffffff; border-top:1px solid #e2e8f0; }
-        .btn-sync-pill { display: flex; align-items: center; gap: 6px; background: #ffffff; color: #ea580c; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; padding-bottom:env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:4px; flex:1; }
-        .nav-btn.active { color:#f97316; }
-        .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; overflow-y:auto; }
-        .detail-hero-backdrop { width:100%; height:260px; background-size:cover; background-position:center; position:relative; }
-        .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.9); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; }
-        .detail-content-frame { padding:0 24px 48px 24px; margin-top:-100px; display:flex; flex-direction:column; gap:22px; }
-        .btn-panel-primary { width:100%; padding:15px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; }
+        html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
+        .header { display: flex; width: 100%; border-bottom: 1px solid rgba(15,23,42,0.08); padding-bottom: 14px; margin-bottom: 20px; }
+        .search-input-field { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; outline: none; }
+        #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-weight: bold; line-height: 40px; border-radius: 12px; transition: height 0.1s; }
+        .section-divider { width: 100%; height: 1px; background: rgba(15,23,42,0.08); margin: 24px 0; border: none; }
+        .movie-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+        .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; width: calc(50% - 6px); box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; cursor: pointer; }
+        .poster-slot { width: 100%; height: 230px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .grid-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .card-details { padding: 12px; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0; }
+        .row-container { margin-bottom: 26px; width: 100%; }
+        .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+        .scroll-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 145px; min-width: 145px; cursor: pointer; }
+        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(20px); }
+        .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-btn.active { color: #f97316; }
     </style>
 </head>
 <body>
     <div id="pull-indicator">⬇️ Pull down to refresh...</div>
     <div id="view-root"></div>
     <script>
+        // --- 1. DATA STATE ---
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
-        let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
-        let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
-        let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [] };
-        let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
+        let activeTorrents = [];
         let startY = 0, isPulling = false, isScrollingRow = false;
 
-        function switchTab(targetTab) { currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); }
-        function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
-        function closeM() { modalOpen = false; activeItem = null; render(); }
-
-        // INSULATED SYNC: Only updates the screen if transfer states actually change
-        async function syncQBittorrentList() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
-            try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}&_cb=${new Date().getTime()}`);
-                let list = await res.json();
-                let records = Array.isArray(list) ? list : (list.records || []);
-                let nextTorrents = records.map(t => ({
-                    name: t.title, progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
-                    speed: t.trackedDownloadState || "Downloading", status: "Active"
-                }));
-                if (JSON.stringify(nextTorrents) !== JSON.stringify(activeTorrents)) {
-                    activeTorrents = nextTorrents;
-                    if (currentTab === 'downloads') render();
-                }
-            } catch(e) {}
-        }
-
-        function launchModalFromAttributes(poolType, identifier, trackName = null) {
-            let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
-            if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
-            else if (poolType === 'friend') targetObject = friendRowData.find(m => m.title.toLowerCase().trim() === cleanId);
-            else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId);
-            else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId);
+        // --- 2. CORE RENDER ENGINE ---
+        function render() {
+            let root = document.getElementById('view-root');
+            let body = '';
             
-            if (!targetObject) return;
-            activeItem = JSON.parse(JSON.stringify(targetObject)); modalOpen = true; render();
-        }
-        function executeToggleWatched() {
-            if (!activeItem) return;
-            let titleLower = activeItem.title.toLowerCase().trim();
-            if (!localWatchedCache.includes(titleLower)) localWatchedCache.push(titleLower);
-            localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
-            
-            let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-            if (!customHistory.some(h => h.title.toLowerCase().trim() === titleLower)) {
-                customHistory.push({...activeItem, played: true});
-                localStorage.setItem('custom_watched_history', JSON.stringify(customHistory));
+            if (currentTab === 'collection') {
+                body = `<div class="movie-grid">${myCollection.map(m => `
+                    <div class="movie-card movie-trigger" data-pool="library" data-id="${m.id}">
+                        <div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : 'No Image'}</div>
+                        <div class="card-details">${m.title}</div>
+                    </div>`).join('')}</div>`;
+            } else if (currentTab === 'foryou') {
+                body = Object.keys(tracks).map(cat => `
+                    <div class="row-container">
+                        <div class="row-title">${cat}</div>
+                        <div class="scroll-row">${tracks[cat].map(m => `
+                            <div class="scroll-card movie-trigger" data-pool="discover" data-id="${m.tmdbId}">
+                                <div class="scroll-poster"><img class="scroll-poster-img" src="${m.posterPath}"></div>
+                                <div class="card-details">${m.title}</div>
+                            </div>`).join('')}
+                        </div>
+                    </div>`).join('');
             }
-            syncRadarrLibrary();
+            
+            root.innerHTML = `
+                <div class="header"><input class="search-input-field" placeholder="Search..."></div>
+                ${body}
+                <div class="nav-footer">
+                    <button class="nav-btn ${currentTab==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
+                    <button class="nav-btn ${currentTab==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
+                </div>`;
         }
 
-        // SMART-MERGE SYNC: Combines local watched memory with live server data
+        // --- 3. SYNC LOGIC ---
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
-            try {
-                let items = await (await fetch(`${u}/api/v3/movie?apiKey=${k}&_cb=${new Date().getTime()}`)).json();
-                let customHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-                
-                let serverItems = items.map(item => ({
-                    id: String(item.id), title: item.title, year: item.year, tmdbId: item.tmdbId, 
-                    played: localWatchedCache.includes(item.title.toLowerCase().trim()),
-                    hasFile: item.hasFile, posterPath: item.images[0]?.remoteUrl || ''
-                }));
-                
-                // Overlay custom local watched items onto the server list
-                customHistory.forEach(h => {
-                    if (!serverItems.some(s => s.title.toLowerCase().trim() === h.title.toLowerCase().trim())) {
-                        serverItems.unshift({ ...h, played: true, hasFile: false });
-                    }
-                });
-                myCollection = serverItems; localStorage.setItem('local_collection', JSON.stringify(myCollection));
-                render();
-            } catch(e) {}
-        }
-              async function loadDiscoverTracks(clear = false) {
-            let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
-            let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
-            for (let [title, gId] of Object.entries(genres)) {
-                let res = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=${gId}&sort_by=popularity.desc&page=1`)).json();
-                tracks[title] = res.results.map(m => ({ title: m.title, year: m.release_date?.substring(0,4), rating: m.vote_average.toFixed(1), tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path }));
-            }
+            let items = await (await fetch(`${u}/api/v3/movie?apiKey=${k}`)).json();
+            let localWatched = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
+            myCollection = items.map(item => ({
+                id: String(item.id), title: item.title, tmdbId: item.tmdbId,
+                played: localWatched.includes(String(item.tmdbId)),
+                posterPath: item.images[0]?.remoteUrl || ''
+            }));
             render();
         }
 
+        function switchTab(t) { currentTab = t; localStorage.setItem('app_current_tab', t); render(); }
+
+        // --- 4. GESTURE HANDLERS ---
         window.addEventListener('touchstart', (e) => { 
-            let targetCard = e.target.closest('.movie-trigger');
-            if (e.target.closest('.scroll-row') || targetCard) { startY = e.touches[0].clientX; isScrollingRow = false; }
-            else if (window.scrollY === 0 && currentTab === 'foryou') { startY = e.touches[0].clientY; isPulling = true; } 
+            if (e.target.closest('.scroll-row')) startY = e.touches[0].clientX;
+            else if (window.scrollY === 0) isPulling = true;
         });
-        window.addEventListener('touchmove', (e) => { 
-            if (isPulling) { 
-                let diff = e.touches[0].clientY - startY; 
-                if (diff > 0) { e.preventDefault(); let el = document.getElementById('pull-indicator'); el.style.height = Math.min(diff * 0.4, 50) + 'px'; } 
-            } else if (e.target.closest('.scroll-row')) { if (Math.abs(e.touches[0].clientX - startY) > 6) isScrollingRow = true; }
+        window.addEventListener('touchmove', (e) => {
+            if (isPulling) {
+                let diff = e.touches[0].clientY - 0; // simplified
+                document.getElementById('pull-indicator').style.height = Math.min(diff * 0.4, 50) + 'px';
+            }
         });
-        window.addEventListener('touchend', async () => {
-            if (isPulling) { isPulling = false; document.getElementById('pull-indicator').style.height = '0px'; await syncFeeds(); await loadDiscoverTracks(true); await syncQBittorrentList(); await syncRadarrLibrary(); }
-        });
-        document.addEventListener('click', (e) => {
-            let t = e.target.closest('.movie-trigger'); if (!t || isScrollingRow) { isScrollingRow = false; return; }
-            launchModalFromAttributes(t.getAttribute('data-pool'), t.getAttribute('data-id'), t.getAttribute('data-track'));
-        });
-        setInterval(syncQBittorrentList, 5000);
-        syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks();
+        window.addEventListener('touchend', () => { isPulling = false; document.getElementById('pull-indicator').style.height = '0px'; });
+
+        // --- INITIALIZE ---
+        syncRadarrLibrary();
     </script>
 </body>
 </html>
