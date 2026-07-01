@@ -38,12 +38,20 @@
         .filter-scroller::-webkit-scrollbar { display: none; }
         .filter-pill { background: #ffffff; border: 1px solid #cbd5e1; color: #475569; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s ease; }
         .filter-pill.active-pill { background: #ea580c; border-color: #ea580c; color: #ffffff; box-shadow: 0 3px 8px rgba(234,88,12,0.2); }
+        
+        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; width: 100%; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+        .torrent-title { font-size: 14px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 24px; }
+        .torrent-meta { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; font-weight: 600; }
+        .torrent-progress-bg { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; position: relative; }
+        .torrent-progress-fill { height: 100%; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); width: 0%; transition: width 0.3s ease; }
+        
         .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
         .movie-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; cursor: pointer; display: flex !important; flex-direction: column !important; box-sizing: border-box !important; width: calc(50% - 6px) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.04); position: relative; }
         .poster-slot { width:100% !important; height:230px !important; background:#e2e8f0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; overflow:hidden; }
         .grid-poster-img { width:100% !important; height:100% !important; object-fit:cover !important; display:block !important; }
         .grid-card-details { padding:12px; font-size:13px; font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#ffffff; border-top:1px solid #e2e8f0; box-sizing:border-box; text-align:left; color:#0f172a; }
         .downloading-badge { position: absolute; top: 10px; left: 10px; background: rgba(249, 115, 22, 0.95); color: white; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 5; letter-spacing: 0.5px; }
+        
         .row-container { margin-bottom:26px; width:100%; display:block; }
         .row-title { font-size:14px; font-weight:800; color:#334155; text-transform:uppercase; margin-bottom:12px; margin-top:0; padding-left: 4px; letter-spacing: 0.5px; }
         .scroll-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:12px; overflow-x:auto; padding-bottom:12px; width:100%; box-sizing:border-box; -webkit-overflow-scrolling:touch; }
@@ -55,12 +63,6 @@
         .card-details { padding:10px; background:#ffffff; text-align:left; box-sizing:border-box; border-top:1px solid #e2e8f0; }
         .scroll-card .card-title { font-weight:700; font-size:12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .scroll-card .card-meta { font-size:10px; color:#64748b; margin-top:4px; font-weight: 600; }
-        
-        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; width: 100%; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
-        .torrent-title { font-size: 14px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 24px; }
-        .torrent-meta { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; font-weight: 600; }
-        .torrent-progress-bg { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; position: relative; }
-        .torrent-progress-fill { height: 100%; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); width: 0%; transition: width 0.3s ease; }
         
         .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px 0; width:100%; box-sizing:border-box; }
         .form-group { display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box; }
@@ -194,31 +196,32 @@
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(downloadId, currentStatusStr) {
-            let qbitUrl = localStorage.getItem('qbit_url'), qbitKey = localStorage.getItem('qbit_key');
-            if (!qbitUrl || !qbitKey || !downloadId) return showAppNotification("Configure qBittorrent Key!");
+        // Securely tunnel queue pause/resume instructions directly through Radarr API Proxy Command engine
+        async function executeToggleQueueTask(queueId, currentStatusStr) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
+            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
             
-            let isStoppedMode = currentStatusStr.includes('paused') || currentStatusStr.includes('completed') || currentStatusStr.includes('blocked');
-            let targetMethodStr = isStoppedMode ? 'start' : 'stop';
-            let labelActionStr = isStoppedMode ? 'Started' : 'Stopped';
+            let isItemCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('completed') || currentStatusStr.includes('blocked');
+            let commandNameStr = isItemCurrentlyStopped ? 'ResumeQueueItem' : 'PauseQueueItem';
+            let labelActionStr = isItemCurrentlyStopped ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`, {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${qbitKey}`,
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `hashes=${downloadId}`
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: commandNameStr,
+                        queueItemId: parseInt(queueId)
+                    })
                 });
-                if (res.status === 200) {
+                if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1000);
+                    setTimeout(syncQBittorrentList, 1200);
                 } else {
-                    showAppNotification(`Client Error: Code ${res.status}`);
+                    showAppNotification(`Server rejected command request.`);
                 }
             } catch (e) {
-                showAppNotification("qBittorrent connection error.");
+                showAppNotification("Connection route error.");
             }
         }
 
@@ -396,6 +399,7 @@
                             blended.push(itemObj);
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
+                                // Fixed raw escaped token text string parameter bugs securely
                                 fetch("https://api.themoviedb.org/3/search/movie?api_key=" + tk + "&query=" + encodeURIComponent(cleanQuery))
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
@@ -417,6 +421,18 @@
             }
             for (let i = blended.length - 1; i > 0; i--) { let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; blended[i] = blended[j]; blended[j] = temp; }
             friendRowData = blended; render();
+        }
+
+        function renderRow(title, movies, isFriend = false) {
+            let rowType = isFriend ? 'friend' : 'discover';
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+            if (displayList.length === 0) return '';
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
+                let lookupKey = m.id || m.tmdbId || m.title;
+                let cleanYearNumeric = parseNumericYear(m);
+                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
+                return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
+            }).join('') + `</div></div>`;
         }
 
         function render() {
@@ -470,7 +486,7 @@
             } else if (currentTab === 'downloads') {
                 body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + 
                 (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map((t, idx) => {
-                    let isCurrentlyPaused = t.rawStatus.includes('paused') || t.speed.toLowerCase().includes('paused');
+                    let isCurrentlyPaused = t.rawStatus.includes('paused') || t.speed.toLowerCase().includes('paused') || t.speed.toLowerCase().includes('stopped');
                     let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
                     return `
                     <div class="torrent-card" style="margin-bottom:12px;">
@@ -482,7 +498,7 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
@@ -506,7 +522,7 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
