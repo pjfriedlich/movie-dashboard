@@ -113,11 +113,9 @@
 
         function parseNumericYear(item) {
             if (!item) return 0;
-            if (item.realYear) return parseInt(item.realYear);
+            if (item.realYear && !isNaN(parseInt(item.realYear))) return parseInt(item.realYear);
             let match = String(item.year || '').match(/\d{4}/);
             if (match) return parseInt(match[0]);
-            let idMatch = String(item.id || '').match(/\d{10,}/);
-            if (idMatch) return parseInt(idMatch[0]);
             return 0;
         }
 
@@ -161,6 +159,7 @@
                             activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
                                 activeItem.realYear = d.release_date.substring(0, 4);
+                                activeItem.year = d.release_date.substring(0, 4);
                             }
                             render(); 
                         }
@@ -319,6 +318,7 @@
                                             itemObj.overview = s.results[0].overview || ''; 
                                             if(s.results[0].release_date) {
                                                 itemObj.realYear = s.results[0].release_date.substring(0,4);
+                                                itemObj.year = s.results[0].release_date.substring(0,4);
                                             }
                                             render(); 
                                         } 
@@ -373,7 +373,8 @@
                 
                 body = searchRowHtml + `<div class="stats-grid"><div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div><div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div><div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div></div><hr class="section-divider">${sortingControlsHtml}<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                     let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
-                    let displayYearLabel = m.year ? `, ${m.year}` : '';
+                    let cleanYearNumeric = parseNumericYear(m);
+                    let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
                     return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
                 }).join('')}</div>`);
             } else if (currentTab === 'foryou') {
@@ -394,7 +395,10 @@
                 let isCurrentlyWatched = localWatchedCache.includes(titleLower) || (tmdbIdStr && localWatchedCache.includes(tmdbIdStr));
                 let watchButtonHtml = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-panel-primary" style="background: #ef4444;">Remove From Watched</button>` : `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>`;
                 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${activeItem.year || ''}</div><button id="modal-trailer-trigger" class="trailer-btn" onclick="injectInlineTrailerFrame()" style="${activeItem.trailerKey ? 'display:block;' : 'display:none;'}">🎬 Play Trailer</button></div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                let cleanModalYear = parseNumericYear(activeItem);
+                let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
+
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div><button id="modal-trailer-trigger" class="trailer-btn" onclick="injectInlineTrailerFrame()" style="${activeItem.trailerKey ? 'display:block;' : 'display:none;'}">🎬 Play Trailer</button></div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             out.innerHTML = `<div class="header"><div class="search-wrapper"><input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${document.getElementById('search-input') ? document.getElementById('search-input').value : ''}"></div></div>${body}${modal}
