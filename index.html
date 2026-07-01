@@ -111,13 +111,12 @@
         
         function closeM() { modalOpen = false; activeItem = null; render(); }
 
-        // Bulletproof regex parsing helper to guarantee numeric extraction
         function parseNumericYear(item) {
             if (!item) return 0;
-            if (item.realYear && !isNaN(parseInt(item.realYear))) return parseInt(item.realYear);
-            let match = String(item.year || '').match(/\d{4}/);
-            if (match) return parseInt(match[0]);
-            return 0;
+            let val = item.realYear || item.year;
+            if (!val) return 0;
+            let num = parseInt(String(val).replace(/\D/g, ""), 10);
+            return isNaN(num) ? 0 : num;
         }
 
         async function syncQBittorrentList() {
@@ -159,8 +158,9 @@
                             activeItem.overview = d.overview || activeItem.overview; 
                             activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
-                                activeItem.realYear = d.release_date.substring(0, 4);
-                                activeItem.year = d.release_date.substring(0, 4);
+                                let y = String(d.release_date.substring(0, 4));
+                                activeItem.realYear = y;
+                                activeItem.year = y;
                             }
                             render(); 
                         }
@@ -182,10 +182,9 @@
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             
             if (!customWatchedHistory.some(h => String(h.title).toLowerCase().trim() === titleLower || (tmdbIdStr && String(h.tmdbId) === tmdbIdStr))) {
-                let cleanYearStr = '2026';
-                let match = String(activeItem.year || '').match(/\d{4}/);
+                let cleanYearStr = "2026";
+                let match = String(activeItem.year || activeItem.realYear || "").match(/\d{4}/);
                 if (match) cleanYearStr = match[0];
-                else if (activeItem.realYear) cleanYearStr = String(activeItem.realYear);
 
                 let customEntry = { 
                     id: 'cust_' + Date.now(), 
@@ -260,7 +259,8 @@
                         return { 
                             id: String(item.id), 
                             title: item.title, 
-                            year: item.year || 'N/A', 
+                            year: String(item.year || ''), 
+                            realYear: String(item.year || ''),
                             overview: item.overview || '', 
                             rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
                             tmdbId: item.tmdbId || null, 
@@ -318,8 +318,9 @@
                                             itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
                                             itemObj.overview = s.results[0].overview || ''; 
                                             if(s.results[0].release_date) {
-                                                itemObj.realYear = s.results[0].release_date.substring(0,4);
-                                                itemObj.year = s.results[0].release_date.substring(0,4);
+                                                let y = String(s.results[0].release_date.substring(0,4));
+                                                itemObj.realYear = y;
+                                                itemObj.year = y;
                                             }
                                             render(); 
                                         } 
@@ -339,7 +340,8 @@
             if (displayList.length === 0) return '';
             return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
                 let lookupKey = m.id || m.tmdbId || m.title;
-                let displayMeta = m.year ? String(m.year).split(',')[0] : '';
+                let cleanYearNumeric = parseNumericYear(m);
+                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
                 return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
