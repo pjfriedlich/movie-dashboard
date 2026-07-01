@@ -224,8 +224,12 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
             });
 
             // 3. Merge them: Custom entries + Radarr entries
-            myCollection = [...customEntries, ...radarrEntries];
-            localStorage.setItem('local_collection', JSON.stringify(myCollection));
+// Ensure custom entries are marked as played before merging
+customEntries.forEach(m => m.played = true); 
+
+myCollection = [...customEntries, ...radarrEntries];
+localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            
         }
     } catch(e) {}
     isRadarrLoading = false; render();
