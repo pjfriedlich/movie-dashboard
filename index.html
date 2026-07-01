@@ -17,11 +17,11 @@
         .btn-toggle-filters { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.04); box-sizing: border-box; flex-shrink: 0; }
         .btn-toggle-filters.active-filters-on { border-color: #f97316; color: #ea580c; background: #fff7ed; }
         
-        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); }
+        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-bottom: 12px; }
         
         #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-size: 11px; font-weight: bold; text-transform: uppercase; line-height: 40px; border-radius: 12px; transition: height 0.1s ease-out; }
         .section-divider { width: 100%; height: 1px; background: linear-gradient(90deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.02) 100%); margin: 24px 0; border: none; }
-        .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; }
+        .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; margin-bottom: 16px; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
         .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:calc(10px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
@@ -97,7 +97,7 @@
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
-        let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; // Tracks if drawer is open
+        let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
@@ -118,16 +118,18 @@
             render();
         }
 
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.id === 'search-input') {
+                const clearBtn = document.getElementById('search-clear-trigger');
+                if (clearBtn) clearBtn.style.display = e.target.value.trim().length > 0 ? 'block' : 'none';
+            }
+        });
+
         function clearSearchInput() {
             const inputEl = document.getElementById('search-input');
             if (inputEl) inputEl.value = '';
             searchResultsData = [];
             render();
-        }
-
-        function handleSearchTyping(inputEl) {
-            const clearBtn = document.getElementById('search-clear-trigger');
-            if (clearBtn) clearBtn.style.display = inputEl.value.trim().length > 0 ? 'block' : 'none';
         }
 
         function switchWatchedSort(sortMode) {
@@ -377,7 +379,6 @@
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             
-            // Generate standard search input string length check state
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
             let clearBtnStyle = existingSearchVal.trim().length > 0 ? 'block' : 'none';
             
@@ -396,8 +397,8 @@
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
                 let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
                 
-                let sortingControlsHtml = currentSubTab === 'watched' && watchedMovies.length > 0 ? `
-                    <div class="filter-scroller" style="border-top: 1px solid rgba(15,23,42,0.06); padding-top: 10px; margin-top: 4px;">
+                let sortingControlsHtml = watchedMovies.length > 0 ? `
+                    <div class="filter-scroller">
                         <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">📅 Date Logged</div>
                         <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">🔤 Title A-Z</div>
                         <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode === 'year_desc' ? 'active-pill' : ''}">⏳ Year (New-Old)</div>
@@ -405,30 +406,34 @@
                     </div>
                 ` : '';
                 
-                // Embed collapsible collection controls inside target elements drawer
                 let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
                 
+                // ONLY sorting row inside collapsible panel container
                 let inlineCollapsibleFilterHtml = `
                     <div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">
-                        <div class="stats-grid">
-                            <div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}">
-                                <div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div>
-                                <div class="stat-lbl">Watched</div>
-                            </div>
-                            <div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}">
-                                <div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div>
-                                <div class="stat-lbl">Downloaded</div>
-                            </div>
-                            <div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}">
-                                <div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div>
-                                <div class="stat-lbl">Coming Soon</div>
-                            </div>
-                        </div>
                         ${sortingControlsHtml}
                     </div>
                 `;
                 
-                body = inlineCollapsibleFilterHtml + `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                // Main Category Sub-Tabs placed permanently out of box container
+                let staticMainTabsHtml = `
+                    <div class="stats-grid">
+                        <div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}">
+                            <div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div>
+                            <div class="stat-lbl">Watched</div>
+                        </div>
+                        <div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}">
+                            <div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div>
+                            <div class="stat-lbl">Downloaded</div>
+                        </div>
+                        <div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}">
+                            <div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div>
+                            <div class="stat-lbl">Coming Soon</div>
+                        </div>
+                    </div>
+                `;
+                
+                body = inlineCollapsibleFilterHtml + staticMainTabsHtml + `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList();" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                     let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
                     let cleanYearNumeric = parseNumericYear(m);
                     let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
@@ -442,7 +447,6 @@
                 body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label style="opacity:0.4;">qBittorrent URL (Bypassed via Radarr)</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" disabled placeholder="Managed automatically via Radarr proxy tunnel"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); alert('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
 
-            // Append search overlay block directly if search payloads are active
             let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
             
             if (modalOpen && activeItem) {
@@ -462,7 +466,6 @@
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
-            // Build advanced Header layout structure block cleanly
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
             let contextualFilterButtonHtml = currentTab === 'collection' ? `<button onclick="toggleFilterPanel()" class="${configGearClassStr}"><svg style="width:24px; height:24px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>` : '';
 
@@ -470,7 +473,7 @@
             <div class="header">
                 <div class="search-wrapper">
                     <div class="search-container-box">
-                        <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." oninput="handleSearchTyping(this)" onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
+                        <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
                         <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
                     </div>
                     ${contextualFilterButtonHtml}
