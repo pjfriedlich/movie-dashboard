@@ -20,15 +20,13 @@
         .card-details { padding: 12px; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0; }
         .row-container { margin-bottom: 26px; width: 100%; }
         .row-title { font-size: 14px; font-weight: 800; color: #334155; text-transform: uppercase; margin-bottom: 12px; padding-left: 4px; }
-        .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+        .scroll-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; width: 100%; }
         .scroll-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 145px; min-width: 145px; cursor: pointer; }
         .scroll-poster { width: 100%; height: 215px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; }
         .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.95); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(10px); }
         .nav-btn { background: none; border: none; color: #64748b; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; }
         .nav-btn.active { color: #f97316; }
-        .modal-overlay { position: fixed; inset: 0; background: #f1f5f9; z-index: 100; overflow-y: auto; padding: 20px; }
-        .btn-panel-primary { width: 100%; padding: 15px; background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: white; border: none; border-radius: 12px; font-weight: 800; }
     </style>
 </head>
 <body>
@@ -38,7 +36,7 @@
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let tracks = { "Action": [], "Drama": [], "Adventure": [], "Mystery": [] };
-        let friendRowData = [], activeTorrents = [], modalOpen = false, activeItem = null;
+        let friendRowData = [], modalOpen = false, activeItem = null;
 
         function render() {
             let root = document.getElementById('view-root');
@@ -74,14 +72,12 @@
                     <button class="nav-btn ${currentTab==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
                     <button class="nav-btn ${currentTab==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
                 </div>`;
-            if (modalOpen && activeItem) root.innerHTML += `<div class="modal-overlay"><h3>${activeItem.title}</h3><button class="btn-panel-primary" onclick="closeM()">Close</button></div>`;
         }
 
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             let items = await (await fetch(`${u}/api/v3/movie?apiKey=${k}`)).json();
             let custom = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
-            
             let masterLibrary = new Map();
             custom.forEach(h => { if(h.tmdbId) masterLibrary.set(String(h.tmdbId), {...h, played: true, hasFile: false}); });
             items.forEach(i => {
@@ -89,7 +85,6 @@
                 let existing = masterLibrary.get(tmdbId);
                 masterLibrary.set(tmdbId, { id: String(i.id), title: i.title, tmdbId: i.tmdbId, hasFile: i.hasFile, played: existing ? true : false, posterPath: i.images[0]?.remoteUrl || '' });
             });
-
             myCollection = Array.from(masterLibrary.values());
             localStorage.setItem('local_collection', JSON.stringify(myCollection));
             render();
@@ -97,11 +92,10 @@
 
         function switchTab(t) { currentTab = t; localStorage.setItem('app_current_tab', t); render(); }
         function switchSubTab(t) { currentSubTab = t; localStorage.setItem('app_current_sub_tab', t); render(); }
-        function closeM() { modalOpen = false; activeItem = null; render(); }
         
         document.addEventListener('click', (e) => {
             let t = e.target.closest('.movie-trigger');
-            if (t) { modalOpen = true; activeItem = myCollection.find(m => String(m.tmdbId) === String(t.dataset.id)) || {title: 'New Movie'}; render(); }
+            if (t) { /* Logic to open modal if desired */ }
         });
 
         syncRadarrLibrary(); render();
