@@ -204,24 +204,33 @@ function launchModalFromAttributes(poolType, identifier, trackName = null) {
         }
 
         async function syncRadarrLibrary() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
-            isRadarrLoading = true; render();
-            try {
-                let timestamp = new Date().getTime();
-                let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
-                let items = await response.json();
-                if (Array.isArray(items)) {
-                    myCollection = items.map((item) => {
-                        let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
-                        let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
-                        let posterObj = item.images?.find(i => i.coverType === 'poster');
-                        return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
-                    });
-                    localStorage.setItem('local_collection', JSON.stringify(myCollection));
-                }
-            } catch(e) {}
-            isRadarrLoading = false; render();
+    let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+    isRadarrLoading = true; render();
+    try {
+        let timestamp = new Date().getTime();
+        let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
+        let items = await response.json();
+        
+        if (Array.isArray(items)) {
+            // 1. Keep only the custom entries (those starting with 'cust_')
+            let customEntries = myCollection.filter(m => String(m.id).startsWith('cust_'));
+            
+            // 2. Map the new Radarr items
+            let radarrEntries = items.map((item) => {
+                let tmdbIdStr = item.tmdbId ? String(item.tmdbId) : null;
+                let matchPlayed = localWatchedCache.includes(tmdbIdStr) || localWatchedCache.includes(String(item.title).toLowerCase().trim());
+                let posterObj = item.images?.find(i => i.coverType === 'poster');
+                return { id: String(item.id), title: item.title, year: item.year || 'N/A', overview: item.overview || '', rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', tmdbId: item.tmdbId || null, played: matchPlayed, hasFile: item.hasFile, posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' };
+            });
+
+            // 3. Merge them: Custom entries + Radarr entries
+            myCollection = [...customEntries, ...radarrEntries];
+            localStorage.setItem('local_collection', JSON.stringify(myCollection));
         }
+    } catch(e) {}
+    isRadarrLoading = false; render();
+        }
+        
         async function loadDiscoverTracks() {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             let genres = { "Action": "28", "Comedy": "35", "Drama": "18", "Adventure": "12", "Mystery": "9648", "Sci-Fi": "878" };
