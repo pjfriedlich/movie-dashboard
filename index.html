@@ -122,6 +122,7 @@
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
+        let isScrollingRow = false;
 
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
@@ -605,11 +606,12 @@
         document.addEventListener('click', function (e) { 
             let triggerCard = e.target.closest('.movie-trigger'); 
             if (!triggerCard) return;
-            e.preventDefault();
-            e.stopPropagation();
-            if (isScrollingRow) { isScrollingRow = false; return; }
+            
+            // Only trigger modal if we are NOT on the "refresh" button
+            if (e.target.closest('.refresh-pill')) return;
+
             launchModalFromAttributes(triggerCard.getAttribute('data-pool'), triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-track')); 
-        }, true);
+        });
 
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
