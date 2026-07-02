@@ -114,6 +114,7 @@
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
         let startY = 0, isPulling = false, isScrollingRow = false;
 
+        // Bolds key phrases judiciously
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
             if (!toastEl) return;
@@ -192,6 +193,7 @@
                     return {
                         queueId: t.id,
                         downloadId: t.downloadId,
+                        downloadClientId: t.downloadClientId,
                         name: t.title || "Active Download",
                         progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
                         size: (t.size / 1073741824).toFixed(2),
@@ -204,27 +206,30 @@
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(queueId, currentStatusStr, downloadId) {
-            let qbitUrl = localStorage.getItem('qbit_url');
-            if (!qbitUrl || !downloadId) return showAppNotification("Verify qBittorrent Configuration URL!");
+        // Send pause/resume requests safely using Radarr's download client proxy tunnel
+        async function executeToggleQueueTask(queueId, currentStatusStr, downloadClientId, downloadId) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
+            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
             
-            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('pause') || currentStatusStr.toLowerCase().includes('seeding');
-            let targetMethodStr = isCurrentlyPaused ? 'resume' : 'pause';
+            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused') || currentStatusStr.toLowerCase().includes('seed');
+            let targetMethodStr = isCurrentlyPaused ? 'start' : 'stop';
             let labelActionStr = isCurrentlyPaused ? 'Started' : 'Stopped';
             
-            let targetUrl = `${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`;
-            
             try {
-                let res = await fetch("https://corsproxy.io/?" + encodeURIComponent(targetUrl), {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/downloadclient/command?apiKey=${k}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `hashes=${downloadId}`
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: targetMethodStr,
+                        downloadClientId: parseInt(downloadClientId || 1),
+                        clientId: downloadId
+                    })
                 });
-                if (res.status === 200 || res.status === 204) {
+                if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1000);
+                    setTimeout(syncQBittorrentList, 1200);
                 } else {
-                    showAppNotification(`qBit Error Code: ${res.status}`);
+                    showAppNotification("Radarr client proxy tunnel error.");
                 }
             } catch (e) {
                 showAppNotification("Connection route error.");
@@ -428,6 +433,18 @@
             friendRowData = blended; render();
         }
 
+        function renderRow(title, movies, isFriend = false) {
+            let rowType = isFriend ? 'friend' : 'discover';
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+            if (displayList.length === 0) return '';
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
+                let lookupKey = m.id || m.tmdbId || m.title;
+                let cleanYearNumeric = parseNumericYear(m);
+                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
+                return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
+            }).join('') + `</div></div>`;
+        }
+
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -542,11 +559,11 @@
                     For You
                 </button>
                 <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6  hijack h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
                     Downloads
                 </button>
                 <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
             </div>`;
