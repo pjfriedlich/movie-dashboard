@@ -182,4 +182,15 @@
                 `).join('');
             } else if(currentTab === 'settings') {
                 root.innerHTML = `
-                    <div class="settings
+                    <div class="settings-container">
+                        <input type="text" id="in_radarr_url" placeholder="Radarr URL" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
+                        <input type="password" id="in_radarr_key" placeholder="API Key" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
+                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value); showAppNotification('Saved!')" class="btn-action">Save</button>
+                    </div>
+                `;
+            }
+        }
+        syncQBittorrentList(); render();
+    </script>
+</body>
+</html>
