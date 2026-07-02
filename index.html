@@ -324,7 +324,6 @@
                 localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
                 showAppNotification("Logged to Watched");
             }
-            // Auto-refresh recommendations
             loadDiscoverTracks(); syncFeeds();
             modalOpen = false; render();
         }
@@ -341,7 +340,6 @@
             localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
             showAppNotification("Removed Log");
             
-            // Auto-refresh recommendations
             loadDiscoverTracks(); syncFeeds();
             modalOpen = false; render();
         }
