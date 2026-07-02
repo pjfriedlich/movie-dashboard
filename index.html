@@ -33,6 +33,7 @@
         .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
         .nav-svg-icon { width: 28px; height: 28px; fill: currentColor; }
         .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
+        .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
         .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
         .filter-scroller { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 4px 0; width: 100%; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
         .filter-scroller::-webkit-scrollbar { display: none; }
@@ -114,7 +115,6 @@
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
         let startY = 0, isPulling = false, isScrollingRow = false;
 
-        // Bolds key phrases judiciously
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
             if (!toastEl) return;
@@ -129,7 +129,6 @@
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         
-        // Use bullet points for long paragraphs
         function toggleFilterPanel() {
             filtersExpanded = !filtersExpanded;
             localStorage.setItem('app_filters_expanded', filtersExpanded);
@@ -193,7 +192,6 @@
                     return {
                         queueId: t.id,
                         downloadId: t.downloadId,
-                        downloadClientId: t.downloadClientId,
                         name: t.title || "Active Download",
                         progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
                         size: (t.size / 1073741824).toFixed(2),
@@ -206,33 +204,32 @@
             } catch(e) {}
         }
 
-        // Send pause/resume requests safely using Radarr's download client proxy tunnel
-        async function executeToggleQueueTask(queueId, currentStatusStr, downloadClientId, downloadId) {
+        // Targets native Radarr dedicated endpoints to shift the seeding states safely
+        async function executeToggleQueueTask(queueId, currentStatusStr) {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
             if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
             
-            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused') || currentStatusStr.toLowerCase().includes('seed');
-            let targetMethodStr = isCurrentlyPaused ? 'start' : 'stop';
+            // Fixed comparison checks using lowercase matching
+            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
+            let actionEndpointStr = isCurrentlyPaused ? 'resume' : 'pause';
             let labelActionStr = isCurrentlyPaused ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/downloadclient/command?apiKey=${k}`, {
+                // Execute a clean post direct to Radarr queue control path arrays
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${actionEndpointStr}?apiKey=${k}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: targetMethodStr,
-                        downloadClientId: parseInt(downloadClientId || 1),
-                        clientId: downloadId
-                    })
+                    body: JSON.stringify({ queueItemIds: [parseInt(queueId)] })
                 });
+                
                 if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${labelActionStr}`);
                     setTimeout(syncQBittorrentList, 1200);
                 } else {
-                    showAppNotification("Radarr client proxy tunnel error.");
+                    showAppNotification("Queue action adjustment rejected by server.");
                 }
             } catch (e) {
-                showAppNotification("Connection route error.");
+                showAppNotification("Connection route failure.");
             }
         }
 
@@ -532,7 +529,7 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
@@ -559,7 +556,7 @@
                     For You
                 </button>
                 <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6  hijack h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
                     Downloads
                 </button>
                 <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
