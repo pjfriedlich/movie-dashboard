@@ -255,7 +255,7 @@
                     fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`).then(res => res.json()).then(d => {
                         if (d && modalOpen) { 
                             activeItem.overview = d.overview || activeItem.overview; 
-                            activeItem.backdrop_path = d.backdrop_path ? `https://image.tmdb.org/t/p/w780${d.backdrop_path}` : '';
+                            activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
                                 activeItem.realYear = d.release_date.substring(0, 4);
                                 activeItem.year = d.release_date.substring(0, 4);
@@ -279,6 +279,7 @@
                 myCollectionsCache[collectionId] = {
                     id: collectionId,
                     name: data.name,
+                    posterPath: data.poster_path ? "https://image.tmdb.org/t/p/w200" + data.poster_path : '',
                     parts: data.parts.map(m => ({ 
                         title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', 
                         realYear: m.release_date ? m.release_date.substring(0,4) : '', 
@@ -509,22 +510,27 @@
                     </div>
                 `;
                 
+                let bodyContent = '';
                 if (currentSubTab === 'collections') {
-                    body = inlineCollapsibleFilterHtml + staticMainTabsHtml + `<div class="movie-grid">` + Object.keys(myCollectionsCache).map(id => {
+                    bodyContent = `<div class="movie-grid">` + Object.keys(myCollectionsCache).map(id => {
                         let coll = myCollectionsCache[id];
+                        let posterHtml = coll.posterPath ? 
+                            `<img src="${coll.posterPath}" class="grid-poster-img">` : 
+                            `<div style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px; display:flex; align-items:center; justify-content:center; height:100%;">📁</div>`;
                         return `<div class="movie-card" onclick="activeCollection = myCollectionsCache['${id}']; render();">
-                                    <div class="poster-slot" style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px;">📁</div>
+                                    <div class="poster-slot">${posterHtml}</div>
                                     <div class="grid-card-details">${coll.name}</div>
                                 </div>`;
                     }).join('') + `</div>`;
                 } else {
-                    body = inlineCollapsibleFilterHtml + staticMainTabsHtml + `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList(); showAppNotification('Library Refreshed');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                    bodyContent = `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList(); showAppNotification('Library Refreshed');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                         let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
                         let cleanYearNumeric = parseNumericYear(m);
                         let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
                         return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
                     }).join('')}</div>`);
                 }
+                body = inlineCollapsibleFilterHtml + staticMainTabsHtml + bodyContent;
             } else if (currentTab === 'foryou') {
                 body = renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
             } else if (currentTab === 'downloads') {
