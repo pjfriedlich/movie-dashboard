@@ -35,6 +35,7 @@
         .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; width: 100%; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
         .torrent-title { font-size: 14px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 24px; }
         .torrent-meta { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; font-weight: 600; }
+        .movie-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
         .btn-panel-primary { width:100%; padding:15px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15); }
     </style>
 </head>
@@ -66,45 +67,34 @@
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let activeTorrents = [];
 
-        function showAppNotification(messageText) {
-            const toastEl = document.getElementById('app-toast-banner');
-            if (!toastEl) return;
-            toastEl.innerText = messageText;
-            toastEl.classList.add('toast-show-active');
-            setTimeout(() => { toastEl.classList.remove('toast-show-active'); }, 3000);
-        }
-
-        function switchTab(targetTab) { 
-            currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); 
-            if (targetTab === 'downloads') syncQBittorrentList();
-        }
-        
+        function showAppNotification(msg) { const t = document.getElementById('app-toast-banner'); t.innerText = msg; t.classList.add('toast-show-active'); setTimeout(() => t.classList.remove('toast-show-active'), 3000); }
+        function switchTab(t) { localStorage.setItem('app_current_tab', t); currentTab = t; render(); if(t==='downloads') syncQBittorrentList(); }
+        function switchWatchedSort(m) { watchedSortMode = m; localStorage.setItem('watched_sort_mode', m); render(); }
         function toggleFilterPanel() { filtersExpanded = !filtersExpanded; localStorage.setItem('app_filters_expanded', filtersExpanded); render(); }
-        function switchWatchedSort(sortMode) { watchedSortMode = sortMode; localStorage.setItem('watched_sort_mode', sortMode); render(); }
 
         async function syncQBittorrentList() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
+            if(!u || !k) return;
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}`);
                 let list = await res.json();
-                let records = Array.isArray(list) ? list : (list.records || []);
-                activeTorrents = records.map(t => ({ queueId: t.id, name: t.title, status: t.status }));
-                if (currentTab === 'downloads') render();
-            } catch(e) {}
+                activeTorrents = Array.isArray(list) ? list : (list.records || []);
+                render();
+            } catch(e) { showAppNotification("Connection Error"); }
         }
 
-        async function executeToggleQueueTask(queueId, currentStatusStr) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
-            let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
-            let action = isPaused ? 'resume' : 'pause';
+        async function executeToggleQueueTask(id, status) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
+            let action = (status.toLowerCase().includes('stop') || status.toLowerCase().includes('paused')) ? 'resume' : 'pause';
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${action}?apiKey=${k}`, {
+                await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${action}?apiKey=${k}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ queueItemIds: [parseInt(queueId)] })
+                    body: JSON.stringify({ queueItemIds: [parseInt(id)] })
                 });
-                if (res.ok) { showAppNotification("Action Sent"); setTimeout(syncQBittorrentList, 1000); }
-            } catch (e) { showAppNotification("Connection Error"); }
+                showAppNotification("Command Sent");
+                setTimeout(syncQBittorrentList, 1000);
+            } catch(e) { showAppNotification("Request Failed"); }
         }
 
         function render() {
@@ -115,25 +105,25 @@
             if(currentTab === 'collection') {
                 root.innerHTML = `
                     <div class="filter-scroller" style="margin-bottom:15px;">
-                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">Recent</div>
-                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">A-Z</div>
+                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode==='recent'?'active-pill':''}">Recent</div>
+                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode==='alpha'?'active-pill':''}">A-Z</div>
                     </div>
-                    <div>Library Content...</div>
+                    <div>Library Content Rendering...</div>
                 `;
             } else if(currentTab === 'downloads') {
                 root.innerHTML = activeTorrents.map(t => `
                     <div class="torrent-card">
-                        <div class="torrent-title">${t.name}</div>
+                        <div class="torrent-title">${t.title}</div>
                         <div class="torrent-meta">Status: ${t.status}</div>
-                        <button class="btn-panel-primary" onclick="executeToggleQueueTask('${t.queueId}', '${t.status}')">Toggle Status</button>
+                        <button class="btn-panel-primary" onclick="executeToggleQueueTask('${t.id}', '${t.status}')">Toggle Status</button>
                     </div>
                 `).join('');
             } else if(currentTab === 'settings') {
                 root.innerHTML = `
                     <div class="settings-container">
-                        <input type="text" id="in_radarr_url" placeholder="Radarr URL" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
-                        <input type="password" id="in_radarr_key" placeholder="API Key" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
-                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value); showAppNotification('Saved!')" class="btn-action">Save Settings</button>
+                        <input type="text" id="r_url" placeholder="Radarr URL" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
+                        <input type="password" id="r_key" placeholder="API Key" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
+                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('r_url').value); localStorage.setItem('radarr_key', document.getElementById('r_key').value); showAppNotification('Saved!')" class="btn-action" style="padding:16px; background:#f97316; color:white; border:none; border-radius:12px; width:100%;">Save Settings</button>
                     </div>
                 `;
             }
