@@ -17,7 +17,7 @@
         .btn-toggle-filters { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.04); box-sizing: border-box; flex-shrink: 0; }
         .btn-toggle-filters.active-filters-on { border-color: #f97316; color: #ea580c; background: #fff7ed; }
         
-        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-bottom: 12px; }
+        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-top: -8px; margin-bottom: 12px; }
         
         .toast-notification-banner { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 10px 25px rgba(234,88,12,0.25); z-index: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease; opacity: 0; display: flex; align-items: center; justify-content: center; text-align: center; pointer-events: none; min-width: 200px; }
         .toast-notification-banner.toast-show-active { top: 24px; opacity: 1; }
@@ -203,13 +203,12 @@
             } catch(e) {}
         }
 
-        // Tunnels commands cleanly via Radarr's proxy bridge to avoid local CORS network drops
-        async function executeToggleQueueTask(queueId, currentStatusStr) {
+        async function executeToggleQueueTask(queueId, currentStatusStr, downloadId) {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
             if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
             
-            // Fixed scope layout evaluation parameters securely
-            let isCurrentlyPaused = currentStatusStr.includes('paused') || currentStatusStr.includes('stop') || currentStatusStr.includes('completed');
+            // Fixed scope evaluation parameters seamlessly to support toggle operations natively
+            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused') || currentStatusStr.toLowerCase().includes('seeding');
             let commandNameStr = isCurrentlyPaused ? 'ResumeQueueItem' : 'PauseQueueItem';
             let labelActionStr = isCurrentlyPaused ? 'Started' : 'Stopped';
             
@@ -505,7 +504,7 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}', '${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
@@ -529,7 +528,7 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
