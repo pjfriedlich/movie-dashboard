@@ -122,7 +122,6 @@
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
-        let isScrollingRow = false;
 
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
@@ -235,6 +234,8 @@
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
+                
+                // Prioritize finding the object even if the async load isn't finished
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
@@ -248,11 +249,16 @@
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) return;
-                activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; modalOpen = true; render();
+                
+                activeItem = JSON.parse(JSON.stringify(targetObject)); 
+                activeItem.trailerKey = null; 
+                modalOpen = true; 
+                render();
+                
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem.tmdbId) {
                     fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`).then(res => res.json()).then(d => {
-                        if (d && modalOpen) { 
+                        if (d && modalOpen && activeItem.tmdbId === d.id) { 
                             activeItem.overview = d.overview || activeItem.overview; 
                             activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
@@ -262,9 +268,6 @@
                             if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                             render(); 
                         }
-                    }).catch(() => {});
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}/videos?api_key=${tk}`).then(res => res.json()).then(v => {
-                        if (v.results && modalOpen) { let trailer = v.results.find(vid => vid.type === "Trailer" && vid.site === "YouTube"); if (trailer) { activeItem.trailerKey = trailer.key; render(); } }
                     }).catch(() => {});
                 }
             } catch (e) {}
@@ -603,14 +606,18 @@
             `;
         }
 
-        document.addEventListener('click', function (e) { 
-            let triggerCard = e.target.closest('.movie-trigger'); 
-            if (!triggerCard) return;
-            
-            // Only trigger modal if we are NOT on the "refresh" button
-            if (e.target.closest('.refresh-pill')) return;
-
-            launchModalFromAttributes(triggerCard.getAttribute('data-pool'), triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-track')); 
+        // Final Robust Click Handler
+        document.addEventListener('click', function (e) {
+            let triggerCard = e.target.closest('.movie-trigger');
+            if (triggerCard) {
+                e.preventDefault();
+                e.stopPropagation();
+                launchModalFromAttributes(
+                    triggerCard.getAttribute('data-pool'), 
+                    triggerCard.getAttribute('data-id'), 
+                    triggerCard.getAttribute('data-track')
+                );
+            }
         });
 
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
