@@ -5,38 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
     <style>
-        html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 100px 8px; box-sizing: border-box; }
-        .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; gap: 12px; }
-        .stats-grid { display: flex; gap: 10px; margin-bottom: 16px; }
-        .stat-card { flex: 1; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; }
-        .stat-card.active-sub-tab { border-color: #f97316; background: #fff7ed; }
-        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 80px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); z-index: 1000; }
-        .nav-btn { background: none; border: none; font-weight: 800; font-size: 11px; text-transform: uppercase; color: #64748b; cursor: pointer; }
+        html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; }
+        .header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid #cbd5e1; box-sizing: border-box; }
+        .nav-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 86px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(10px); z-index: 1000; }
+        .nav-btn { background: none; border: none; font-weight: 800; font-size: 11px; text-transform: uppercase; color: #64748b; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
         .nav-btn.active { color: #f97316; }
-        .torrent-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-        .btn-stop { background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #ffffff; border: none; padding: 10px; border-radius: 8px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 8px; }
-        .filter-scroller { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; }
-        .filter-pill { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-        .filter-pill.active { background: #ea580c; color: #ffffff; border-color: #ea580c; }
+        .torrent-card { background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .btn-stop { background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 8px; }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #f97316; color: white; padding: 12px 24px; border-radius: 14px; z-index: 2000; display: none; font-weight: 800; }
+        .movie-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .movie-card { background: white; padding: 10px; border-radius: 14px; border: 1px solid #cbd5e1; }
     </style>
 </head>
 <body>
     <div id="toast" class="toast"></div>
+    <div class="header" id="header">
+        <input type="text" class="search-input" id="search" placeholder="Search movies...">
+    </div>
     <div id="view-root"></div>
     <div class="nav-footer">
-        <button class="nav-btn ${localStorage.getItem('app_current_tab')==='collection'?'active':''}" onclick="switchTab('collection')">Movies</button>
-        <button class="nav-btn ${localStorage.getItem('app_current_tab')==='foryou'?'active':''}" onclick="switchTab('foryou')">For You</button>
-        <button class="nav-btn ${localStorage.getItem('app_current_tab')==='downloads'?'active':''}" onclick="switchTab('downloads')">Downloads</button>
-        <button class="nav-btn ${localStorage.getItem('app_current_tab')==='settings'?'active':''}" onclick="switchTab('settings')">Settings</button>
+        <button class="nav-btn" id="nav-movies" onclick="switchTab('collection')">Movies</button>
+        <button class="nav-btn" id="nav-foryou" onclick="switchTab('foryou')">For You</button>
+        <button class="nav-btn" id="nav-downloads" onclick="switchTab('downloads')">Downloads</button>
+        <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')">Settings</button>
     </div>
     <script>
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
-        let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent';
 
         function showToast(msg) { let t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
-        function switchTab(t) { localStorage.setItem('app_current_tab', t); currentTab = t; render(); }
-        function switchSort(m) { watchedSortMode = m; localStorage.setItem('watched_sort_mode', m); render(); }
+        
+        function switchTab(t) { 
+            localStorage.setItem('app_current_tab', t); 
+            currentTab = t; 
+            render(); 
+        }
 
         async function syncDownloads() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
@@ -47,12 +50,12 @@
                 let records = Array.isArray(list) ? list : (list.records || []);
                 document.getElementById('view-root').innerHTML = records.map(t => `
                     <div class="torrent-card">
-                        <div style="font-weight: 700;">${t.title}</div>
-                        <div style="font-size: 12px; color: #64748b;">${t.status}</div>
+                        <div style="font-weight:700;">${t.title}</div>
+                        <div style="font-size:12px; color:#64748b;">${t.status}</div>
                         <button class="btn-stop" onclick="toggleTransfer('${t.id}', '${t.status}')">Toggle Status</button>
                     </div>
                 `).join('');
-            } catch(e) { showToast("Radarr Connection Error"); }
+            } catch(e) { showToast("Connection Error"); }
         }
 
         async function toggleTransfer(id, status) {
@@ -70,25 +73,25 @@
         }
 
         function render() {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${currentTab}`).classList.add('active');
             let root = document.getElementById('view-root');
+            
             if(currentTab === 'collection') {
+                root.innerHTML = `<div class="movie-grid"><div>My Movies Grid</div></div>`;
+            } else if(currentTab === 'foryou') {
+                root.innerHTML = "<div>For You Content</div>";
+            } else if(currentTab === 'downloads') {
+                syncDownloads();
+            } else if(currentTab === 'settings') {
                 root.innerHTML = `
-                    <div class="filter-scroller">
-                        <div onclick="switchSort('recent')" class="filter-pill ${watchedSortMode === 'recent'?'active':''}">Recent</div>
-                        <div onclick="switchSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha'?'active':''}">A-Z</div>
-                    </div>
-                    <div style="text-align: center; padding-top: 50px;">Library Content Rendering...</div>
-                `;
-            } else if(currentTab === 'downloads') syncDownloads();
-            else if(currentTab === 'settings') {
-                root.innerHTML = `
-                    <div class="settings-container">
+                    <div class="settings-container" style="padding: 10px;">
                         <input type="text" id="r_url" placeholder="Radarr URL" style="width:100%; padding:10px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
                         <input type="password" id="r_key" placeholder="API Key" style="width:100%; padding:10px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
                         <button onclick="localStorage.setItem('radarr_url', document.getElementById('r_url').value); localStorage.setItem('radarr_key', document.getElementById('r_key').value); showToast('Saved!')" style="width:100%; padding:12px; background:#f97316; color:white; border:none; border-radius:8px;">Save Settings</button>
                     </div>
                 `;
-            } else { root.innerHTML = "<div style='text-align:center;'>For You Content</div>"; }
+            }
         }
         render();
     </script>
