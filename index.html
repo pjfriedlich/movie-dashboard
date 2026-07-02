@@ -331,11 +331,11 @@
                 myCollectionsCache[collectionId] = {
                     id: collectionId,
                     name: data.name,
-                    posterPath: data.poster_path ? "https://image.tmdb.org/t/p/w200" + data.poster_path : '',
+                    posterPath: data.poster_path ? "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + data.poster_path : '',
                     parts: data.parts.map(m => ({ 
                         title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', 
                         realYear: m.release_date ? m.release_date.substring(0,4) : '', 
-                        tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '',
+                        tmdbId: m.id, posterPath: m.poster_path ? "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + m.poster_path : '',
                         overview: m.overview || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0'
                     }))
                 };
@@ -400,7 +400,7 @@
             try {
                 let url = `https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(queryText.trim())}`;
                 let data = await (await fetch(url)).json();
-                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' })); }
+                if (data.results) { searchResultsData = data.results.map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', tmdbId: m.id, posterPath: m.poster_path ? "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + m.poster_path : '', overview: m.overview || '' })); }
             } catch (e) { console.error(e); }
             render();
         }
@@ -461,11 +461,11 @@
             try {
                 for (let [title, gId] of Object.entries(genres)) {
                     let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=${gId}&sort_by=popularity.desc&with_original_language=en&page=${randomPage}`)).json();
-                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + m.poster_path, overview: m.overview || '' }));
                 }
                 for (let [title, range] of decades) {
                     let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=${range[0]}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=${randomPage}`)).json();
-                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + m.poster_path, overview: m.overview || '' }));
                 }
                 render();
             } catch(e) {}
@@ -476,11 +476,11 @@
             let arr = links.split(','), blended = [];
             for (let l of arr) {
                 let user = l.trim().replace(/\/$/, ""); if (!user) continue;
-                if (user.includes('letterboxd.com/')) user = user.split('letterboxd.com/')[1];
+                if (user.includes('[letterboxd.com/](https://letterboxd.com/)')) user = user.split('[letterboxd.com/](https://letterboxd.com/)')[1];
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
                 try {
-                    let targetUrl = "https://letterboxd.com/" + user + "/rss/?_cb=" + new Date().getTime();
-                    let res = await fetch("https://corsproxy.io/?" + encodeURIComponent(targetUrl));
+                    let targetUrl = "[https://letterboxd.com/](https://letterboxd.com/)" + user + "/rss/?_cb=" + new Date().getTime();
+                    let res = await fetch("[https://corsproxy.io/](https://corsproxy.io/)?" + encodeURIComponent(targetUrl));
                     let textXml = await res.text(); if (!textXml || textXml.trim() === '') continue;
                     let items = new DOMParser().parseFromString(textXml, "text/xml").getElementsByTagName("item");
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
@@ -495,7 +495,7 @@
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
                                             itemObj.tmdbId = s.results[0].id; 
-                                            itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
+                                            itemObj.posterPath = "[https://image.tmdb.org/t/p/w200](https://image.tmdb.org/t/p/w200)" + s.results[0].poster_path; 
                                             itemObj.overview = s.results[0].overview || ''; 
                                             if(s.results[0].release_date) {
                                                 let y = String(s.results[0].release_date.substring(0,4));
@@ -615,7 +615,7 @@
                     <div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div>
                     
                     <h3 class="row-title" style="margin-top:10px;">qBittorrent (Downloads)</h3>
-                    <div class="form-group"><label>qBittorrent URL</label><input type="text" id="in_qb_url" value="${localStorage.getItem('qb_url')||''}" placeholder="http://100.x.x.x:8080"></div>
+                    <div class="form-group"><label>qBittorrent URL</label><input type="text" id="in_qb_url" value="${localStorage.getItem('qb_url')||''}" placeholder="[http://100.](http://100.)x.x.x:8080"></div>
                     <div class="form-group"><label>Username</label><input type="text" id="in_qb_user" value="${localStorage.getItem('qb_user')||'admin'}"></div>
                     <div class="form-group"><label>Password</label><input type="password" id="in_qb_pass" value="${localStorage.getItem('qb_pass')||''}"></div>
 
@@ -697,4 +697,4 @@
         syncFeeds(); loadDiscoverTracks(); render();
     </script>
 </body>
-</html>  
+</html>
