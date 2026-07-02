@@ -116,7 +116,7 @@
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
-        let modalOpen = false, activeItem = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
+        let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
@@ -166,7 +166,7 @@
             render();
         }
         
-        function closeM() { modalOpen = false; activeItem = null; render(); }
+        function closeM() { modalOpen = false; activeItem = null; activeCollection = null; render(); }
 
         function parseNumericYear(item) {
             if (!item) return 0;
@@ -277,6 +277,7 @@
                 let res = await fetch(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${tk}`);
                 let data = await res.json();
                 myCollectionsCache[collectionId] = {
+                    id: collectionId,
                     name: data.name,
                     parts: data.parts.map(m => ({ 
                         title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', 
@@ -504,17 +505,26 @@
                         <div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div>
                         <div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div>
                         <div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div>
+                        <div onclick="switchSubTab('collections')" class="stat-card ${currentSubTab === 'collections' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#f59e0b;">${Object.keys(myCollectionsCache).length}</div><div class="stat-lbl">Collections</div></div>
                     </div>
                 `;
                 
-                let collectionsSection = Object.values(myCollectionsCache).map(coll => renderRow(coll.name, coll.parts, false, 'collection_part')).join('');
-                
-                body = inlineCollapsibleFilterHtml + staticMainTabsHtml + `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList(); showAppNotification('Library Refreshed');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
-                    let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
-                    let cleanYearNumeric = parseNumericYear(m);
-                    let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
-                    return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
-                }).join('')}</div>`) + (currentSubTab !== 'watched' ? `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Collections</h2>` + collectionsSection : '');
+                if (currentSubTab === 'collections') {
+                    body = `<div class="movie-grid">` + Object.keys(myCollectionsCache).map(id => {
+                        let coll = myCollectionsCache[id];
+                        return `<div class="movie-card" onclick="activeCollection = myCollectionsCache['${id}']; render();">
+                                    <div class="poster-slot" style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px;">📁</div>
+                                    <div class="grid-card-details">${coll.name}</div>
+                                </div>`;
+                    }).join('') + `</div>`;
+                } else {
+                    body = inlineCollapsibleFilterHtml + staticMainTabsHtml + `<div style="display:flex; justify-content:space-between; margin-top:16px; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2><button onclick="syncRadarrLibrary(); syncQBittorrentList(); showAppNotification('Library Refreshed');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Sync</button></div>` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                        let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
+                        let cleanYearNumeric = parseNumericYear(m);
+                        let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
+                        return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
+                    }).join('')}</div>`);
+                }
             } else if (currentTab === 'foryou') {
                 body = renderRow("Friends' Watchlist Picks", friendRowData, true) + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('');
             } else if (currentTab === 'downloads') {
@@ -558,6 +568,12 @@
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+            } else if (activeCollection) {
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-content-frame"><h3 class="detail-heading-title" style="margin-top:40px;">${activeCollection.name}</h3><div class="movie-grid">${activeCollection.parts.map(m => `
+                    <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
+                        <div class="poster-slot"><img src="${m.posterPath}" class="grid-poster-img"></div>
+                        <div class="grid-card-details">${m.title}</div>
+                    </div>`).join('')}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
