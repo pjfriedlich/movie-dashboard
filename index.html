@@ -580,11 +580,12 @@
                     <hr class="section-divider">
                     <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button>
                     
+                    <!-- FULL APP BACKUP BUTTONS -->
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
-                        <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Data Migration</h4>
+                        <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
-                            <button onclick="exportWatchedList()" style="flex:1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight:800; font-size:11px; text-transform:uppercase; cursor: pointer;">Export</button>
-                            <button onclick="importWatchedList()" style="flex:1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight:800; font-size:11px; text-transform:uppercase; cursor: pointer;">Import</button>
+                            <button onclick="exportWatchedList()" style="flex:1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight:800; font-size:11px; text-transform:uppercase; cursor: pointer;">Export All Data</button>
+                            <button onclick="importWatchedList()" style="flex:1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight:800; font-size:11px; text-transform:uppercase; cursor: pointer;">Import All Data</button>
                         </div>
                         <textarea id="migrationBox" placeholder="Exported data will appear here..." style="width: 100%; height: 80px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 11px;"></textarea>
                     </div>
@@ -647,16 +648,17 @@
             }
         });
 
-        // TEMPORARY MIGRATION FUNCTIONS
+        // UPGRADED FULL APP BACKUP FUNCTIONS
         function exportWatchedList() {
-            const watchedData = localStorage.getItem('custom_watched_history'); 
-            if (watchedData && watchedData !== "[]") {
-                document.getElementById('migrationBox').value = watchedData;
-                document.getElementById('migrationBox').select();
-                alert('Data exported! Copy all the text inside the box now.');
-            } else {
-                alert('No watched list data found in this browser.');
-            }
+            const backupPayload = {
+                watched: JSON.parse(localStorage.getItem('custom_watched_history') || '[]'),
+                cache: JSON.parse(localStorage.getItem('local_watched_cache') || '[]'),
+                collections: JSON.parse(localStorage.getItem('my_collections_cache') || '{}')
+            };
+            
+            document.getElementById('migrationBox').value = JSON.stringify(backupPayload);
+            document.getElementById('migrationBox').select();
+            alert('All data (Watched & Collections) exported! Copy all the text inside the box now.');
         }
 
         function importWatchedList() {
@@ -666,17 +668,22 @@
                 return;
             }
             try {
-                // Validate format before breaking storage
-                JSON.parse(dataToImport); 
-                localStorage.setItem('custom_watched_history', dataToImport);
+                let parsed = JSON.parse(dataToImport); 
                 
-                // Re-sync the hidden cache so the recommendations don't show already watched movies
-                let parsed = JSON.parse(dataToImport);
-                let cacheArr = parsed.map(m => String(m.title).toLowerCase().trim());
-                parsed.forEach(m => { if(m.tmdbId) cacheArr.push(String(m.tmdbId)); });
-                localStorage.setItem('local_watched_cache', JSON.stringify(cacheArr));
+                // Fallback for the old single-array export format
+                if (Array.isArray(parsed)) {
+                    localStorage.setItem('custom_watched_history', dataToImport);
+                    let cacheArr = parsed.map(m => String(m.title).toLowerCase().trim());
+                    parsed.forEach(m => { if(m.tmdbId) cacheArr.push(String(m.tmdbId)); });
+                    localStorage.setItem('local_watched_cache', JSON.stringify(cacheArr));
+                } else {
+                    // New comprehensive backup format
+                    if (parsed.watched) localStorage.setItem('custom_watched_history', JSON.stringify(parsed.watched));
+                    if (parsed.cache) localStorage.setItem('local_watched_cache', JSON.stringify(parsed.cache));
+                    if (parsed.collections) localStorage.setItem('my_collections_cache', JSON.stringify(parsed.collections));
+                }
                 
-                alert('Success! Your watched list has been imported. Refreshing the page...');
+                alert('Success! All data has been imported. Refreshing the page...');
                 location.reload();
             } catch (e) {
                 alert('Invalid data format. Make sure you copied the exact text from the export.');
