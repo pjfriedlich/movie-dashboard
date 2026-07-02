@@ -23,7 +23,7 @@
         .toast-notification-banner.toast-show-active { top: 24px; opacity: 1; }
 
         #pull-indicator { width: 100%; height: 0px; overflow: hidden; text-align: center; background: #cbd5e1; color: #ea580c; font-size: 11px; font-weight: bold; text-transform: uppercase; line-height: 40px; border-radius: 12px; transition: height 0.1s ease-out; }
-        .section-divider { width: 100%; height: 1px; background: linear-gradient(90deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.02) 100%); margin: 24px 0; border: none; }
+        .section-divider { width: 100%; height: 1px; background: linear-gradient(90deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.02) 100%); margin: 24px 0; border: none; }
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; margin-bottom: 16px; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
@@ -172,66 +172,68 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // Clean Core query mapping pointing directly to stateless qBittorrent info blocks
+        // Pull active queue payloads, expanding filters securely to capture seeding states from Radarr proxy
         async function syncQBittorrentList() {
-            let qbitUrl = localStorage.getItem('qbit_url'), qbitKey = localStorage.getItem('qbit_key');
-            if (!qbitUrl || !qbitKey) return;
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
-                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/info`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${qbitKey}` }
-                });
+                let timestamp = new Date().getTime();
+                // Query Radarr queue endpoint with explicitly expanded page bounds to grab completed seeding item blocks safely
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true&pageSize=100&_cb=${timestamp}`);
                 let list = await res.json();
-                if (Array.isArray(list)) {
-                    activeTorrents = list.map(t => {
-                        let stateText = String(t.state || '').toLowerCase();
-                        let triggerState = "Active";
-                        if (stateText.includes('paused') || stateText.includes('stopped')) triggerState = "Stopped";
-                        else if (stateText.includes('checking')) triggerState = "Checking";
-                        else if (stateText.includes('seed')) triggerState = "Seeding";
-                        else if (stateText.includes('download')) triggerState = "Downloading";
+                let records = Array.isArray(list) ? list : (list.records || []);
+                activeTorrents = records.map(t => {
+                    let rawStatusStr = String(t.status || '').toLowerCase();
+                    let stateLabel = "Downloading";
+                    
+                    // Map local seeding metrics cleanly based on active client state variables
+                    if (t.trackedDownloadStatus === 'warning' || rawStatusStr.includes('block') || t.sizeleft === 0) {
+                        stateLabel = "Seeding";
+                    } else if (rawStatusStr.includes('paused') || rawStatusStr.includes('stop')) {
+                        stateLabel = "Stopped";
+                    }
 
-                        return {
-                            downloadId: t.hash,
-                            name: t.name || "Active Transfer",
-                            progress: (t.progress * 100).toFixed(1),
-                            size: (t.size / 1073741824).toFixed(2),
-                            speed: triggerState,
-                            status: t.eta && t.eta < 864000 ? Math.round(t.eta / 60) + "m remaining" : "Seeding",
-                            rawStatus: stateText
-                        };
-                    });
-                    if (currentTab === 'downloads' || currentTab === 'collection') render();
-                }
+                    return {
+                        queueId: t.id,
+                        name: t.title || "Active Download",
+                        progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
+                        size: (t.size / 1073741824).toFixed(2),
+                        speed: stateLabel,
+                        status: t.estimatedCompletionTime ? Math.round((new Date(t.estimatedCompletionTime) - new Date()) / 60000) + "m remaining" : "Completed",
+                        rawStatus: rawStatusStr
+                    };
+                });
+                if (currentTab === 'downloads' || currentTab === 'collection') render();
             } catch(e) {}
         }
 
-        // Directly commands your torrent container via strict POST hashes parameters
-        async function executeToggleQueueTask(downloadId, currentStatusStr) {
-            let qbitUrl = localStorage.getItem('qbit_url'), qbitKey = localStorage.getItem('qbit_key');
-            if (!qbitUrl || !qbitKey || !downloadId) return showAppNotification("Verify Settings Details!");
+        // Corrected background task engine linking right back to your Radarr command routing blocks
+        async function executeToggleQueueTask(queueId, currentStatusStr) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
+            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Configuration!");
             
-            let isItemCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('stopped') || currentStatusStr.includes('completed');
-            let targetMethodStr = isItemCurrentlyStopped ? 'start' : 'stop';
-            let labelActionStr = isItemCurrentlyStopped ? 'Started' : 'Stopped';
+            // Fixed operational scoping mapping variables safely
+            let isCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('stop');
+            let commandNameStr = isCurrentlyStopped ? 'ResumeQueueItem' : 'PauseQueueItem';
+            let labelActionStr = isCurrentlyStopped ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`, {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${qbitKey}`,
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `hashes=${downloadId}`
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: commandNameStr,
+                        queueItemId: parseInt(queueId)
+                    })
                 });
-                if (res.status === 200) {
+                if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1000);
+                    setTimeout(syncQBittorrentList, 1200);
                 } else {
-                    showAppNotification(`Client Rejected Command Request.`);
+                    // Fallback to custom manual state notification messaging if your specific backend profile blocks adjustments
+                    showAppNotification("Radarr rejected queue change request.");
                 }
             } catch (e) {
-                showAppNotification("Connection route timed out.");
+                showAppNotification("Connection route error.");
             }
         }
 
@@ -409,6 +411,7 @@
                             blended.push(itemObj);
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
+                                // Unified string mapping parameters safely via dynamic string arrays
                                 fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(cleanQuery)}`)
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
@@ -430,6 +433,18 @@
             }
             for (let i = blended.length - 1; i > 0; i--) { let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; blended[i] = blended[j]; blended[j] = temp; }
             friendRowData = blended; render();
+        }
+
+        function renderRow(title, movies, isFriend = false) {
+            let rowType = isFriend ? 'friend' : 'discover';
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+            if (displayList.length === 0) return '';
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '🎬'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
+                let lookupKey = m.id || m.tmdbId || m.title;
+                let cleanYearNumeric = parseNumericYear(m);
+                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
+                return `<div class="scroll-card movie-trigger" data-pool="${rowType}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
+            }).join('') + `</div></div>`;
         }
 
         function render() {
@@ -495,7 +510,7 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
