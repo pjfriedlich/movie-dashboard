@@ -461,14 +461,14 @@
                 let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
                 let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
                 
-                let sortingControlsHtml = watchedMovies.length > 0 ? `
-                    <div class="filter-scroller">
+                let sortingControlsHtml = `
+                    <div class="filter-scroller" style="margin-bottom:15px;">
                         <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">📅 Date Logged</div>
                         <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">🔤 Title A-Z</div>
                         <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode === 'year_desc' ? 'active-pill' : ''}">⏳ Year (New-Old)</div>
                         <div onclick="switchWatchedSort('year_asc')" class="filter-pill ${watchedSortMode === 'year_asc' ? 'active-pill' : ''}">⏳ Year (Old-New)</div>
                     </div>
-                ` : '';
+                `;
                 
                 let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
                 let inlineCollapsibleFilterHtml = `<div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">${sortingControlsHtml}</div>`;
