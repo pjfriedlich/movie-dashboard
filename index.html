@@ -44,19 +44,19 @@
     <div id="app-toast-banner" class="toast-notification-banner"></div>
     <div id="view-root"></div>
     <div class="nav-footer">
-        <button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}" id="nav-collection">
+        <button onclick="switchTab('collection')" class="nav-btn" id="nav-collection">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></div>
             Movies
         </button>
-        <button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}" id="nav-foryou">
+        <button onclick="switchTab('foryou')" class="nav-btn" id="nav-foryou">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
             For You
         </button>
-        <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}" id="nav-downloads">
+        <button onclick="switchTab('downloads')" class="nav-btn" id="nav-downloads">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
             Downloads
         </button>
-        <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}" id="nav-settings">
+        <button onclick="switchTab('settings')" class="nav-btn" id="nav-settings">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
             Settings
         </button>
@@ -67,34 +67,65 @@
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let activeTorrents = [];
 
-        function showAppNotification(msg) { const t = document.getElementById('app-toast-banner'); t.innerText = msg; t.classList.add('toast-show-active'); setTimeout(() => t.classList.remove('toast-show-active'), 3000); }
-        function switchTab(t) { localStorage.setItem('app_current_tab', t); currentTab = t; render(); if(t==='downloads') syncQBittorrentList(); }
-        function switchWatchedSort(m) { watchedSortMode = m; localStorage.setItem('watched_sort_mode', m); render(); }
-        function toggleFilterPanel() { filtersExpanded = !filtersExpanded; localStorage.setItem('app_filters_expanded', filtersExpanded); render(); }
+        function showAppNotification(messageText) {
+            const toastEl = document.getElementById('app-toast-banner');
+            if (!toastEl) return;
+            toastEl.innerText = messageText;
+            toastEl.classList.add('toast-show-active');
+            setTimeout(() => { toastEl.classList.remove('toast-show-active'); }, 3000);
+        }
+
+        function switchTab(targetTab) { 
+            currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); 
+            if (targetTab === 'downloads') syncQBittorrentList();
+        }
+        
+        function switchWatchedSort(sortMode) {
+            watchedSortMode = sortMode;
+            localStorage.setItem('watched_sort_mode', sortMode);
+            render();
+        }
+        
+        function toggleFilterPanel() {
+            filtersExpanded = !filtersExpanded;
+            localStorage.setItem('app_filters_expanded', filtersExpanded);
+            render();
+        }
 
         async function syncQBittorrentList() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
-            if(!u || !k) return;
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}`);
                 let list = await res.json();
                 activeTorrents = Array.isArray(list) ? list : (list.records || []);
                 render();
-            } catch(e) { showAppNotification("Connection Error"); }
+            } catch(e) {}
         }
 
-        async function executeToggleQueueTask(id, status) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
-            let action = (status.toLowerCase().includes('stop') || status.toLowerCase().includes('paused')) ? 'resume' : 'pause';
+        async function executeToggleQueueTask(queueId, currentStatusStr) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
+            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
+            
+            let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
+            let action = isPaused ? 'resume' : 'pause';
+            let label = isPaused ? 'Started' : 'Stopped';
+            
             try {
-                await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${action}?apiKey=${k}`, {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${action}?apiKey=${k}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ queueItemIds: [parseInt(id)] })
+                    body: JSON.stringify({ queueItemIds: [parseInt(queueId)] })
                 });
-                showAppNotification("Command Sent");
-                setTimeout(syncQBittorrentList, 1000);
-            } catch(e) { showAppNotification("Request Failed"); }
+                
+                if (res.status === 200 || res.status === 201) {
+                    showAppNotification(`Transfer ${label}`);
+                    setTimeout(syncQBittorrentList, 1000);
+                } else {
+                    showAppNotification("Radarr rejected the action.");
+                }
+            } catch (e) {
+                showAppNotification("Connection Error");
+            }
         }
 
         function render() {
@@ -105,10 +136,10 @@
             if(currentTab === 'collection') {
                 root.innerHTML = `
                     <div class="filter-scroller" style="margin-bottom:15px;">
-                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode==='recent'?'active-pill':''}">Recent</div>
-                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode==='alpha'?'active-pill':''}">A-Z</div>
+                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">Recent</div>
+                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">A-Z</div>
                     </div>
-                    <div>Library Content Rendering...</div>
+                    <div>Library Content...</div>
                 `;
             } else if(currentTab === 'downloads') {
                 root.innerHTML = activeTorrents.map(t => `
@@ -121,9 +152,9 @@
             } else if(currentTab === 'settings') {
                 root.innerHTML = `
                     <div class="settings-container">
-                        <input type="text" id="r_url" placeholder="Radarr URL" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
-                        <input type="password" id="r_key" placeholder="API Key" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
-                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('r_url').value); localStorage.setItem('radarr_key', document.getElementById('r_key').value); showAppNotification('Saved!')" class="btn-action" style="padding:16px; background:#f97316; color:white; border:none; border-radius:12px; width:100%;">Save Settings</button>
+                        <input type="text" id="in_radarr_url" placeholder="Radarr URL" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_url')||''}">
+                        <input type="password" id="in_radarr_key" placeholder="API Key" style="width:100%; padding:14px; border-radius:12px; margin-bottom:10px;" value="${localStorage.getItem('radarr_key')||''}">
+                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value); showAppNotification('Saved!')" class="btn-action" style="padding:16px; background:#f97316; color:white; border:none; border-radius:12px; width:100%;">Save Settings</button>
                     </div>
                 `;
             }
