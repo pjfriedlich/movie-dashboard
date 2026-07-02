@@ -59,7 +59,7 @@
         .scroll-card { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:145px; min-width:145px; max-width:145px; display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; cursor:pointer; box-sizing:border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
         .scroll-poster { width:100%; height:215px; background:#e2e8f0; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; overflow:hidden; }
         .scroll-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .rating-badge { position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.9); color:#34d399; font-weight:800; font-size:10px; padding:3px 7px; border-radius:6px; }
+        .rating-badge { position:absolute; bottom:8px; right:8px; background:rgba(15, 23, 42, 0.9); color:#34d399; font-weight:800; font-size:10px; padding:3px 7px; border-radius:6px; }
         .card-details { padding:10px; background:#ffffff; text-align:left; box-sizing:border-box; border-top:1px solid #e2e8f0; }
         .scroll-card .card-title { font-weight:700; font-size:12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .scroll-card .card-meta { font-size:10px; color:#64748b; margin-top:4px; font-weight: 600; }
@@ -203,28 +203,33 @@
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(queueId, currentStatusStr, downloadId) {
-            let qbitUrl = localStorage.getItem('qbit_url');
-            if (!qbitUrl || !downloadId) return showAppNotification("Verify qBittorrent Configuration URL!");
+        // Tunnels commands cleanly via Radarr's proxy bridge to avoid local CORS network drops
+        async function executeToggleQueueTask(queueId, currentStatusStr) {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
+            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
             
-            let isItemCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('stop');
-            let targetMethodStr = isItemCurrentlyStopped ? 'resume' : 'pause';
-            let labelActionStr = isItemCurrentlyStopped ? 'Started' : 'Stopped';
+            // Fixed scope layout evaluation parameters securely
+            let isCurrentlyPaused = currentStatusStr.includes('paused') || currentStatusStr.includes('stop') || currentStatusStr.includes('completed');
+            let commandNameStr = isCurrentlyPaused ? 'ResumeQueueItem' : 'PauseQueueItem';
+            let labelActionStr = isCurrentlyPaused ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`, {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `hashes=${downloadId}`
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: commandNameStr,
+                        queueItemId: parseInt(queueId)
+                    })
                 });
-                if (res.status === 200) {
+                if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1000);
+                    setTimeout(syncQBittorrentList, 1200);
                 } else {
-                    showAppNotification(`qBit Error Code: ${res.status}`);
+                    showAppNotification("Server rejected queue modification command.");
                 }
             } catch (e) {
-                showAppNotification("Connection Route Error. Enable qBit WebUI local bypass auth.");
+                showAppNotification("Connection error.");
             }
         }
 
@@ -500,7 +505,7 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}', '${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
