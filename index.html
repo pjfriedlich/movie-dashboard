@@ -134,16 +134,20 @@
             let root = document.getElementById('view-root');
             
             if(currentTab === 'collection') {
-                root.innerHTML = `
+                let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
+                let sortingControlsHtml = `
                     <div class="filter-scroller" style="margin-bottom:15px;">
                         <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">Recent</div>
                         <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">A-Z</div>
                     </div>
+                `;
+                root.innerHTML = `
+                    <div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">${sortingControlsHtml}</div>
                     <div>Library Content...</div>
                 `;
             } else if(currentTab === 'downloads') {
                 root.innerHTML = activeTorrents.map(t => `
-                    <div class="torrent-card">
+                    <div class="torrent-card" style="margin-bottom:12px;">
                         <div class="torrent-title">${t.title}</div>
                         <div class="torrent-meta">Status: ${t.status}</div>
                         <button class="btn-panel-primary" onclick="executeToggleQueueTask('${t.id}', '${t.status}')">Toggle Status</button>
