@@ -176,7 +176,6 @@
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
                 let timestamp = new Date().getTime();
-                // Query Radarr expanded queue route containing completed and seeding history records safely
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true&pageSize=100&_cb=${timestamp}`);
                 let list = await res.json();
                 let records = Array.isArray(list) ? list : (list.records || []);
@@ -192,7 +191,6 @@
                     return {
                         queueId: t.id,
                         downloadId: t.downloadId,
-                        downloadClientId: t.downloadClientId, // Extract direct background agent server reference index
                         name: t.title || "Active Download",
                         progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
                         size: (t.size / 1073741824).toFixed(2),
@@ -205,46 +203,28 @@
             } catch(e) {}
         }
 
-        // Securely pass download control execution commands across proxy boundaries
-        async function executeToggleQueueTask(queueId, currentStatusStr, downloadClientId, downloadId) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
-            if (!u || !k || !queueId) return showAppNotification("Verify Settings Details!");
+        async function executeToggleQueueTask(queueId, currentStatusStr, downloadId) {
+            let qbitUrl = localStorage.getItem('qbit_url');
+            if (!qbitUrl || !downloadId) return showAppNotification("Verify qBittorrent Configuration URL!");
             
-            let isCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('stopped');
-            let targetMethodStr = isCurrentlyStopped ? 'start' : 'stop';
-            let labelActionStr = isCurrentlyStopped ? 'Started' : 'Stopped';
+            let isItemCurrentlyStopped = currentStatusStr.includes('paused') || currentStatusStr.includes('stop');
+            let targetMethodStr = isItemCurrentlyStopped ? 'resume' : 'pause';
+            let labelActionStr = isItemCurrentlyStopped ? 'Started' : 'Stopped';
             
             try {
-                // Leverage downloadclient pass-through proxy tunnel parameters safely
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/downloadclient/command?apiKey=${k}`, {
+                let res = await fetch(`${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: targetMethodStr,
-                        downloadClientId: parseInt(downloadClientId || 1),
-                        clientId: downloadId
-                    })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `hashes=${downloadId}`
                 });
-                if (res.status === 200 || res.status === 201) {
+                if (res.status === 200) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1200);
+                    setTimeout(syncQBittorrentList, 1000);
                 } else {
-                    // Failover block safely toggling queue parameters if pass-through route isn't fully exposed
-                    let failoverMethodStr = isCurrentlyStopped ? 'ResumeQueueItem' : 'PauseQueueItem';
-                    let failoverRes = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: failoverMethodStr, queueItemId: parseInt(queueId) })
-                    });
-                    if (failoverRes.status === 200 || failoverRes.status === 201) {
-                        showAppNotification(`Transfer ${labelActionStr}`);
-                        setTimeout(syncQBittorrentList, 1200);
-                    } else {
-                        showAppNotification("Queue change rejected by server.");
-                    }
+                    showAppNotification(`qBit Error Code: ${res.status}`);
                 }
             } catch (e) {
-                showAppNotification("Connection route error.");
+                showAppNotification("Connection Route Error. Enable qBit WebUI local bypass auth.");
             }
         }
 
@@ -508,7 +488,7 @@
             } else if (currentTab === 'downloads') {
                 body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + 
                 (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map((t, idx) => {
-                    let isCurrentlyPaused = t.rawStatus.includes('paused') || t.speed.toLowerCase().includes('paused') || t.speed.toLowerCase().includes('stopped');
+                    let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('pause');
                     let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
                     return `
                     <div class="torrent-card" style="margin-bottom:12px;">
@@ -520,12 +500,12 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.rawStatus}', '${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}', '${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
             } else if (currentTab === 'settings') {
-                body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
+                body = `<div class="settings-container" style="padding:4px 4px;"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>qBittorrent WebUI URL</label><input type="text" id="in_qbit_url" value="${localStorage.getItem('qbit_url')||''}" placeholder="e.g. http://100.101.236.76:8080"></div><div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><hr class="section-divider"><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('qbit_url', document.getElementById('in_qbit_url').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button></div>`;
             }
 
             let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title"></div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
