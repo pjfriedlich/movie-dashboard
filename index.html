@@ -17,7 +17,7 @@
         .btn-toggle-filters { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.04); box-sizing: border-box; flex-shrink: 0; }
         .btn-toggle-filters.active-filters-on { border-color: #f97316; color: #ea580c; background: #fff7ed; }
         
-        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-top: -8px; margin-bottom: 12px; }
+        .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-bottom: 12px; }
         
         .toast-notification-banner { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 10px 25px rgba(234,88,12,0.25); z-index: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease; opacity: 0; display: flex; align-items: center; justify-content: center; text-align: center; pointer-events: none; min-width: 200px; }
         .toast-notification-banner.toast-show-active { top: 24px; opacity: 1; }
@@ -203,32 +203,32 @@
             } catch(e) {}
         }
 
+        // Tunnels commands over our trusted CORS proxy straight to the qBit native Web API
         async function executeToggleQueueTask(queueId, currentStatusStr, downloadId) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
-            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
+            let qbitUrl = localStorage.getItem('qbit_url');
+            if (!qbitUrl || !downloadId) return showAppNotification("Verify qBittorrent Configuration URL!");
             
-            // Fixed scope evaluation parameters seamlessly to support toggle operations natively
-            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused') || currentStatusStr.toLowerCase().includes('seeding');
-            let commandNameStr = isCurrentlyPaused ? 'ResumeQueueItem' : 'PauseQueueItem';
+            // Map states accurately based on clean speed parameters
+            let isCurrentlyPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('pause');
+            let targetMethodStr = isCurrentlyPaused ? 'resume' : 'pause';
             let labelActionStr = isCurrentlyPaused ? 'Started' : 'Stopped';
             
+            let targetUrl = `${qbitUrl.replace(/\/$/, "")}/api/v2/torrents/${targetMethodStr}`;
+            
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/command?apiKey=${k}`, {
+                let res = await fetch("https://corsproxy.io/?" + encodeURIComponent(targetUrl), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: commandNameStr,
-                        queueItemId: parseInt(queueId)
-                    })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `hashes=${downloadId}`
                 });
-                if (res.status === 200 || res.status === 201) {
+                if (res.status === 200 || res.status === 204) {
                     showAppNotification(`Transfer ${labelActionStr}`);
-                    setTimeout(syncQBittorrentList, 1200);
+                    setTimeout(syncQBittorrentList, 1000);
                 } else {
-                    showAppNotification("Server rejected queue modification command.");
+                    showAppNotification(`qBit Error Code: ${res.status}`);
                 }
             } catch (e) {
-                showAppNotification("Connection error.");
+                showAppNotification("Connection route error.");
             }
         }
 
@@ -528,7 +528,7 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;` orbit-backdrop_path}'></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div><div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
@@ -541,7 +541,7 @@
                         <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
                         <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
                     </div>
-                    ${contextualFilterButtonHtml}
+                    ${contextFilterButtonHtml}
                 </div>
             </div>
             ${searchResultsHtml}${body}${modal}
@@ -559,7 +559,7 @@
                     Downloads
                 </button>
                 <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+                    <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
                     Settings
                 </button>
             </div>`;
