@@ -234,7 +234,11 @@
                 }
                 if (!targetObject) targetObject = { title: "Loading...", overview: "Metadata is fetching...", tmdbId: identifier };
                 
-                activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; modalOpen = true; render();
+                activeItem = JSON.parse(JSON.stringify(targetObject)); 
+                activeItem.trailerKey = null; 
+                modalOpen = true; 
+                render();
+                
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem.tmdbId) {
                     fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`).then(res => res.json()).then(d => {
@@ -382,6 +386,7 @@
 
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
+            let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
             
             if (currentTab === 'collection') {
                 let watchedMovies = [...customWatchedHistory];
@@ -421,6 +426,8 @@
                 body = `<div class="settings-container"><div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div><div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div><div class="form-group"><label>Letterboxd User</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div><div class="form-group"><label>TMDB Key</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div><button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); location.reload();" class="btn-action">Save Settings</button></div>`;
             }
 
+            let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.tmdbId || m.title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title"></div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
+            
             if (modalOpen && activeItem) {
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'Loading...'}</p></div><div class="detail-footer-actions"><button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button></div></div></div>`;
             } else if (activeCollection) {
@@ -440,7 +447,6 @@
         document.addEventListener('click', function (e) {
             let triggerCard = e.target.closest('.movie-trigger');
             if (triggerCard && !e.target.closest('.refresh-pill')) {
-                e.preventDefault(); e.stopPropagation();
                 launchModalFromAttributes(triggerCard.dataset.pool, triggerCard.dataset.id, triggerCard.dataset.track);
             }
         });
