@@ -247,9 +247,9 @@
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
-                // Fallback / Placeholder Logic
+                // Placeholder Logic: Always show the modal even if async load isn't complete
                 if (!targetObject) {
-                    activeItem = { title: "Loading...", overview: "Fetching metadata...", posterPath: '' };
+                    activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '' };
                 } else {
                     activeItem = JSON.parse(JSON.stringify(targetObject));
                     activeItem.trailerKey = null;
@@ -260,9 +260,11 @@
                 
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem && activeItem.tmdbId) {
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`).then(res => res.json()).then(d => {
+                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}`)
+                    .then(res => res.json())
+                    .then(d => {
                         if (d && modalOpen && activeItem.tmdbId === d.id) { 
-                            activeItem.overview = d.overview || activeItem.overview; 
+                            activeItem.overview = d.overview || "No summary available.";
                             activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
                             if (d.release_date) {
                                 activeItem.realYear = d.release_date.substring(0, 4);
@@ -271,9 +273,17 @@
                             if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                             render(); 
                         }
-                    }).catch(() => {});
+                    })
+                    .catch(() => {
+                        if (modalOpen) {
+                            activeItem.overview = "Unable to load summary.";
+                            render();
+                        }
+                    });
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("Modal Launch Error:", e);
+            }
         }
 
         async function fetchCollection(collectionId) {
@@ -609,7 +619,6 @@
             `;
         }
 
-        // Final Robust Click Handler
         document.addEventListener('click', function (e) {
             let triggerCard = e.target.closest('.movie-trigger');
             if (triggerCard) {
