@@ -88,7 +88,7 @@
         .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:12px; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
 
-        /* JELLYFIN REMOTE UI */
+        /* NATIVE HA TV REMOTE UI */
         .remote-box { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
         .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
@@ -127,7 +127,7 @@
     <script>
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
-        if (!localStorage.getItem('ha_tv_entity')) localStorage.setItem('ha_tv_entity', 'media_player.living_room_tv');
+        if (!localStorage.getItem('ha_tv_entity')) localStorage.setItem('ha_tv_entity', 'media_player.chromecast');
 
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
@@ -159,7 +159,7 @@
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncQBittorrentList();
-            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); }
+            if (targetTab === 'smarthome') fetchHAEntities();
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         
@@ -197,60 +197,30 @@
             let num = parseInt(String(val).replace(/\D/g, ""), 10);
             return isNaN(num) ? 0 : num;
         }
-
-        async function syncJfSessions() {
-            let u = localStorage.getItem('jf_url');
-            let k = localStorage.getItem('jf_key');
-            if(!u || !k) return;
-            u = u.trim().replace(/\/$/, "");
-            if(!u.startsWith('http')) u = 'http://' + u;
-            try {
-                let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`);
-                let data = await res.json();
-                let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
-                
-                // FIXED: Compares session IDs to prevent drawing over dropdown while interacting
-                let oldIds = jfActiveSessions.map(s => s.Id).join(',');
-                let newIds = filtered.map(s => s.Id).join(',');
-                
-                jfActiveSessions = filtered;
-                if(currentTab === 'smarthome' && !modalOpen && oldIds !== newIds) render();
-            } catch(e) {}
-        }
         
-        async function sendJfCmd(cmd) {
-            let sessionSelect = document.getElementById('remote_session_select');
-            let sessionId = sessionSelect ? sessionSelect.value : null;
-            if(!sessionId) return showAppNotification("No TV selected!");
-            let u = localStorage.getItem('jf_url');
-            let k = localStorage.getItem('jf_key');
-            if(!u || !k) return;
+        async function sendTvCmd(cmd) {
+            let u = localStorage.getItem('ha_url') || "";
+            let k = localStorage.getItem('ha_key') || "";
+            let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
+            let remoteId = tvEntity.trim().replace('media_player.', 'remote.');
             u = u.trim().replace(/\/$/, "");
-            if(!u.startsWith('http')) u = 'http://' + u;
+            if (!u.startsWith('http')) u = 'http://' + u;
             try {
-                await fetch(`${u}/Sessions/${sessionId}/Command/${cmd}?api_key=${k.trim()}`, { method: 'POST' });
-            } catch(e) { showAppNotification("Remote Error"); }
+                await fetch(`${u}/api/services/remote/send_command`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entity_id: remoteId, command: cmd })
+                });
+            } catch(e) { showAppNotification("HA Remote Connection Error"); }
         }
 
         async function sendJfText() {
-            let sessionSelect = document.getElementById('remote_session_select');
-            let sessionId = sessionSelect ? sessionSelect.value : null;
-            if(!sessionId) return showAppNotification("No TV selected!");
-            let textToSend = prompt("Enter text to send to TV:");
+            let textToSend = prompt("Enter text to type on TV:");
             if (!textToSend) return;
-            let u = localStorage.getItem('jf_url');
-            let k = localStorage.getItem('jf_key');
-            if(!u || !k) return;
-            u = u.trim().replace(/\/$/, "");
-            if(!u.startsWith('http')) u = 'http://' + u;
-            try {
-                await fetch(`${u}/Sessions/${sessionId}/Command?api_key=${k.trim()}`, { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Name: "SendString", Arguments: { String: textToSend } })
-                });
-                showAppNotification("Text Sent!");
-            } catch(e) { showAppNotification("Remote Error"); }
+            
+            showAppNotification("Feature currently relies on Jellyfin API.");
+            // Optional: The HA Android TV remote doesn't have a simple text pass-through, so text search 
+            // still requires the active Jellyfin session to hook into if you want to keep it!
         }
 
         async function wakeTvAndLaunchJellyfin() {
@@ -258,7 +228,7 @@
             let k = localStorage.getItem('ha_key') || "";
             u = u.trim().replace(/\/$/, "");
             k = k.trim();
-            let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.living_room_tv';
+            let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
             tvEntity = tvEntity.trim();
             if (!u || !k) return showAppNotification("Verify HA Settings First!");
             if (!u.startsWith('http')) u = 'http://' + u;
@@ -604,7 +574,11 @@
                                 })
                                 .then(sessions => {
                                     if (sessions && modalOpen) {
-                                        activeItem.jfSessions = sessions.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
+                                        activeItem.jfSessions = sessions.filter(s => {
+                                            let client = (s.Client || '').toLowerCase();
+                                            let device = (s.DeviceName || '').toLowerCase();
+                                            return !client.includes('server') && !client.includes('web') && !device.includes('server');
+                                        });
                                         render();
                                     }
                                 }).catch(e => {
@@ -951,32 +925,32 @@
                     </div>
                 `;
                 
-                let remoteOptions = jfActiveSessions.length === 0 ? `<option value="">No Active TVs Found</option>` : jfActiveSessions.map(s => `<option value="${s.Id}">${s.DeviceName || s.Client}</option>`).join('');
+                let tvName = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
+                tvName = tvName.split('.').pop().replace(/_/g, ' ').toUpperCase();
                 
-                let jellyfinRemoteHtml = `
+                let tvRemoteHtml = `
                     <div class="remote-box">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <h3 style="margin:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Jellyfin Remote</h3>
-                            <button onclick="wakeTvAndLaunchJellyfin(); showAppNotification('Waking TV...');" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:0;">Wake TV</button>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">TV Remote (${tvName})</h3>
+                            <button onclick="wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:0;">Wake TV</button>
                         </div>
-                        <select id="remote_session_select" style="width:100%; padding:14px; margin-bottom:16px; border-radius:12px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; outline:none; background:#f8fafc; appearance:none;">${remoteOptions}</select>
                         
                         <div class="dpad-grid">
                             <div></div>
-                            <button class="dpad-btn" onclick="sendJfCmd('MoveUp')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
                             <div></div>
-                            <button class="dpad-btn" onclick="sendJfCmd('MoveLeft')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
-                            <button class="dpad-btn dpad-ok" onclick="sendJfCmd('Select')">OK</button>
-                            <button class="dpad-btn" onclick="sendJfCmd('MoveRight')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
+                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
+                            <button class="dpad-btn dpad-ok" onclick="sendTvCmd('DPAD_CENTER')">OK</button>
+                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_RIGHT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
                             <div></div>
-                            <button class="dpad-btn" onclick="sendJfCmd('MoveDown')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
+                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_DOWN')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
                             <div></div>
                         </div>
                         
                         <div class="action-row">
-                            <button class="action-btn" onclick="sendJfCmd('Back')">⏪ Back</button>
-                            <button class="action-btn" onclick="sendJfCmd('PlayPause')">⏯ Play</button>
-                            <button class="action-btn" onclick="sendJfCmd('GoHome')">🏠 Home</button>
+                            <button class="action-btn" onclick="sendTvCmd('BACK')">⏪ Back</button>
+                            <button class="action-btn" onclick="sendTvCmd('MEDIA_PLAY_PAUSE')">⏯ Play</button>
+                            <button class="action-btn" onclick="sendTvCmd('HOME')">🏠 Home</button>
                             <button class="action-btn" onclick="sendJfText()">⌨️ Text</button>
                         </div>
                     </div>
@@ -987,7 +961,7 @@
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
                     <button onclick="fetchHAEntities(); syncJfSessions(); showAppNotification('Syncing Devices...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
-                ${jellyfinRemoteHtml}
+                ${tvRemoteHtml}
                 ${intercomHtml}
                 <h3 style="font-size:12px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:10px; padding-left:4px; letter-spacing:0.5px;">Lights & Plugs</h3>
                 ${lightsHtml}
@@ -1027,7 +1001,7 @@
                     <div class="form-group"><label>Jellyfin API Key</label><input type="password" id="in_jf_key" value="${localStorage.getItem('jf_key')||''}"></div>
                     <div class="form-group"><label>Home Assistant URL</label><input type="text" id="in_ha_url" value="${localStorage.getItem('ha_url')||''}"></div>
                     <div class="form-group"><label>Home Assistant Key</label><input type="password" id="in_ha_key" value="${localStorage.getItem('ha_key')||''}"></div>
-                    <div class="form-group"><label>HA Android TV Entity</label><input type="text" id="in_ha_tv" value="${localStorage.getItem('ha_tv_entity')||'media_player.living_room_tv'}"></div>
+                    <div class="form-group"><label>HA Android TV Entity</label><input type="text" id="in_ha_tv" value="${localStorage.getItem('ha_tv_entity')||'media_player.chromecast'}"></div>
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
@@ -1048,7 +1022,7 @@
             
             if (modalOpen && activeItem) {
                 let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1;">Add to Radarr</button>`;
+                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
@@ -1090,7 +1064,7 @@
                             jellyfinHtml = `<div style="display:flex; gap:10px; width:100%; box-sizing:border-box;"><select id="jf_session_select" style="flex:1; padding:15px; border-radius:12px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc; font-size:12px;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 24px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Cast</button></div>`;
                         }
                     } else {
-                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:12px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
+                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
                     }
                 }
 
