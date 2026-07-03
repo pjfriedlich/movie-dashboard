@@ -88,14 +88,15 @@
         .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:12px; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
 
-        /* NATIVE HA TV REMOTE UI */
-        .remote-box { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); overflow: hidden; transition: padding 0.2s ease; }
-        .remote-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
-        .remote-header-title { display: flex; align-items: center; gap: 8px; }
-        .remote-header h3 { margin: 0; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .remote-chevron { color: #94a3b8; font-size: 10px; transition: transform 0.2s ease; }
-        .remote-content { padding: 0 16px 16px 16px; display: none; }
-        .remote-content.open { display: block; }
+        /* COLLAPSIBLE HUB CARDS */
+        .card-box { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); overflow: hidden; transition: padding 0.2s ease; }
+        .card-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .card-header-title { display: flex; align-items: center; gap: 8px; }
+        .card-header h3 { margin: 0; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-chevron { color: #94a3b8; font-size: 10px; transition: transform 0.2s ease; font-weight:800;}
+        .card-content { padding: 0 16px 16px 16px; display: none; }
+        .card-content.open { display: block; }
+        
         .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 12px 0 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
         .dpad-btn:active { background:#e2e8f0; transform:scale(0.95); }
@@ -140,6 +141,9 @@
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let remoteExpanded = localStorage.getItem('app_remote_expanded') !== 'false'; 
+        let intercomExpanded = localStorage.getItem('app_intercom_expanded') !== 'false';
+        let lightsExpanded = localStorage.getItem('app_lights_expanded') !== 'false';
+        
         let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let openMenuHash = null; 
@@ -179,6 +183,18 @@
         function toggleRemotePanel() {
             remoteExpanded = !remoteExpanded;
             localStorage.setItem('app_remote_expanded', remoteExpanded);
+            render();
+        }
+
+        function toggleIntercomPanel() {
+            intercomExpanded = !intercomExpanded;
+            localStorage.setItem('app_intercom_expanded', intercomExpanded);
+            render();
+        }
+
+        function toggleLightsPanel() {
+            lightsExpanded = !lightsExpanded;
+            localStorage.setItem('app_lights_expanded', lightsExpanded);
             render();
         }
 
@@ -969,7 +985,7 @@
                 let lights = haEntities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
                 let speakers = haEntities.filter(e => e.entity_id.startsWith('media_player.'));
 
-                let lightsHtml = lights.length === 0 ? `<div style="text-align:center; padding:30px; color:#64748b; font-size:12px;">No lights or plugs discovered yet. Ensure Home Assistant is running in Host mode on CasaOS.</div>` : lights.map(l => {
+                let lightsHtml = lights.length === 0 ? `<div style="text-align:center; padding:30px; color:#64748b; font-size:12px;">No lights or plugs discovered yet.</div>` : lights.map(l => {
                     let isOn = l.state === 'on';
                     let domain = l.entity_id.split('.')[0];
                     return `<div class="stat-card" style="margin-bottom:10px; flex-direction:row !important; justify-content:space-between !important; padding:16px;">
@@ -978,13 +994,40 @@
                     </div>`;
                 }).join('');
 
+                let lightsContentDisplay = lightsExpanded ? 'block' : 'none';
+                let lightsChevron = lightsExpanded ? '▲' : '▼';
+                
+                let lightsCardHtml = `
+                    <div class="card-box" style="padding-bottom: ${lightsExpanded ? '16px' : '0'};">
+                        <div class="card-header" style="margin-bottom: ${lightsExpanded ? '12px' : '0'}; padding: ${lightsExpanded ? '0' : '16px'};" onclick="toggleLightsPanel()">
+                            <div class="card-header-title">
+                                <h3>Lights & Plugs</h3>
+                            </div>
+                            <span class="card-chevron">${lightsChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${lightsContentDisplay}; padding:0;">
+                            ${lightsHtml}
+                        </div>
+                    </div>
+                `;
+
                 let speakerOptions = speakers.map(s => `<option value="${s.entity_id}">${s.attributes.friendly_name || s.entity_id}</option>`).join('');
-                let intercomHtml = speakers.length === 0 ? '' : `
-                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:16px; margin-bottom:16px;">
-                        <h3 style="margin-top:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Intercom Broadcast</h3>
-                        <select id="ha_speaker_select" style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; outline:none;">${speakerOptions}</select>
-                        <input type="text" id="ha_tts_message" placeholder="Type a message to announce..." style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; box-sizing:border-box; outline:none;">
-                        <button onclick="sendHAIntercom(document.getElementById('ha_tts_message').value, document.getElementById('ha_speaker_select').value)" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:14px; border-radius:12px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15);">📣 Send Broadcast</button>
+                let intercomContentDisplay = intercomExpanded ? 'block' : 'none';
+                let intercomChevron = intercomExpanded ? '▲' : '▼';
+                
+                let intercomCardHtml = speakers.length === 0 ? '' : `
+                    <div class="card-box" style="padding-bottom: ${intercomExpanded ? '16px' : '0'};">
+                        <div class="card-header" style="margin-bottom: ${intercomExpanded ? '12px' : '0'}; padding: ${intercomExpanded ? '0' : '16px'};" onclick="toggleIntercomPanel()">
+                            <div class="card-header-title">
+                                <h3>Intercom Broadcast</h3>
+                            </div>
+                            <span class="card-chevron">${intercomChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${intercomContentDisplay}; padding:0;">
+                            <select id="ha_speaker_select" style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; outline:none; background:#f8fafc; appearance:none;">${speakerOptions}</select>
+                            <input type="text" id="ha_tts_message" placeholder="Type a message to announce..." style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; box-sizing:border-box; outline:none;">
+                            <button onclick="sendHAIntercom(document.getElementById('ha_tts_message').value, document.getElementById('ha_speaker_select').value)" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:14px; border-radius:12px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15);">📣 Send Broadcast</button>
+                        </div>
                     </div>
                 `;
                 
@@ -992,19 +1035,19 @@
                 tvName = tvName.split('.').pop().replace(/_/g, ' ').toUpperCase();
                 
                 let remoteContentDisplay = remoteExpanded ? 'block' : 'none';
-                let chevron = remoteExpanded ? '▲' : '▼';
+                let remoteChevron = remoteExpanded ? '▲' : '▼';
                 
                 let tvRemoteHtml = `
-                    <div class="remote-box" style="padding-bottom: ${remoteExpanded ? '16px' : '0'};">
-                        <div class="remote-header" style="margin-bottom: ${remoteExpanded ? '12px' : '0'}; padding: ${remoteExpanded ? '0' : '16px'};" onclick="toggleRemotePanel()">
-                            <div class="remote-header-title">
+                    <div class="card-box" style="padding-bottom: ${remoteExpanded ? '16px' : '0'};">
+                        <div class="card-header" style="margin-bottom: ${remoteExpanded ? '12px' : '0'}; padding: ${remoteExpanded ? '0' : '16px'};" onclick="toggleRemotePanel()">
+                            <div class="card-header-title">
                                 <h3>TV Remote (${tvName})</h3>
-                                <span class="remote-chevron">${chevron}</span>
+                                <span class="card-chevron">${remoteChevron}</span>
                             </div>
                             <button onclick="event.stopPropagation(); wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">Wake TV</button>
                         </div>
                         
-                        <div class="remote-content" style="display:${remoteContentDisplay}; padding:0;">
+                        <div class="card-content" style="display:${remoteContentDisplay}; padding:0;">
                             <div class="dpad-grid">
                                 <div></div>
                                 <button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
@@ -1033,9 +1076,8 @@
                     <button onclick="fetchHAEntities(); syncJfSessions(); showAppNotification('Syncing Devices...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
                 ${tvRemoteHtml}
-                ${intercomHtml}
-                <h3 style="font-size:12px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:10px; padding-left:4px; letter-spacing:0.5px;">Lights & Plugs</h3>
-                ${lightsHtml}
+                ${intercomCardHtml}
+                ${lightsCardHtml}
                 `;
 
             } else if (currentTab === 'foryou') {
