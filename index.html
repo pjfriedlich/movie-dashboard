@@ -186,7 +186,7 @@
                     let trackedDownloadStatusStr = String(t.trackedDownloadState || '').toLowerCase();
                     
                     let triggerState = "Downloading";
-                    if (rawStatusStr.includes('paused') || trackedDownloadStatusStr.includes('paused')) triggerState = "Stopped";
+                    if (rawStatusStr.includes('paused') || trackedDownloadStatusStr.includes('paused') || rawStatusStr.includes('stop')) triggerState = "Stopped";
                     else if (rawStatusStr.includes('completed') || trackedDownloadStatusStr.includes('completed') || trackedDownloadStatusStr.includes('seeding')) triggerState = "Seeding";
                     else if (rawStatusStr.includes('warning') || rawStatusStr.includes('blocked')) triggerState = "Seeding";
 
@@ -205,23 +205,31 @@
             } catch(e) {}
         }
 
+        // --- THE UPGRADED API FALLBACK FUNCTION ---
         async function executeToggleQueueTask(downloadHash, currentStatusStr) {
             let u = localStorage.getItem('radarr_url'); 
             if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
             
             let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
-            let action = isPaused ? 'resume' : 'pause';
+            
+            // Map the actions based on qBittorrent version requirements
+            let actionV5 = isPaused ? 'start' : 'stop';
+            let actionV4 = isPaused ? 'resume' : 'pause';
             let label = isPaused ? 'Started' : 'Stopped';
             
             try {
-                // Force lowercase hash for qBittorrent API compatibility
                 let safeHash = String(downloadHash).toLowerCase();
+                let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+                let body = 'hashes=' + safeHash;
+                let baseUrl = u.replace(/\/$/, "");
+
+                // Try the modern qBittorrent v5.0+ API first
+                let res = await fetch(`${baseUrl}/api/v2/torrents/${actionV5}`, { method: 'POST', headers, body });
                 
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v2/torrents/${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'hashes=' + safeHash
-                });
+                // If the modern endpoint doesn't exist (Error 404), fall back to the v4.x legacy API
+                if (res.status === 404) {
+                    res = await fetch(`${baseUrl}/api/v2/torrents/${actionV4}`, { method: 'POST', headers, body });
+                }
                 
                 if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${label}`);
