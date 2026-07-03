@@ -174,7 +174,6 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // --- UPGRADED: PULLS DIRECTLY FROM QBITTORRENT NOW FOR REAL-TIME STATS ---
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'); if (!u) return;
             try {
@@ -254,6 +253,42 @@
                 } else {
                     showAppNotification("qBittorrent rejected: Error " + res.status);
                 }
+            } catch (e) {
+                showAppNotification("Connection Error");
+            }
+        }
+
+        // --- NEW DELETE TORRENT LOGIC (QBITTORRENT & RADARR SEVERANCE) ---
+        async function executeDeleteTorrent(downloadHash) {
+            let u = localStorage.getItem('radarr_url'); 
+            let k = localStorage.getItem('radarr_key');
+            if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
+            
+            try {
+                let safeHash = String(downloadHash).split('_').pop().toLowerCase();
+                let baseUrl = u.replace(/\/$/, "");
+
+                // 1. Tell Radarr to drop it and blocklist the release so it doesn't immediately re-download
+                if (k) {
+                    try {
+                        let qRes = await fetch(`${baseUrl}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true`);
+                        let qData = await qRes.json();
+                        let records = Array.isArray(qData) ? qData : (qData.records || []);
+                        let match = records.find(r => r.downloadId && r.downloadId.toLowerCase().includes(safeHash));
+                        
+                        if (match && match.id) {
+                            await fetch(`${baseUrl}/api/v3/queue/${match.id}?apiKey=${k}&removeFromClient=true&blocklist=true`, { method: 'DELETE' });
+                        }
+                    } catch(e) { console.error("Radarr queue sync failed", e); }
+                }
+
+                // 2. Force delete from qBittorrent & wipe files from disk instantly
+                let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+                let body = `hashes=${safeHash}&deleteFiles=true`;
+                await fetch(`${baseUrl}/api/v2/torrents/delete`, { method: 'POST', headers, body });
+
+                showAppNotification("Deleted & Blocklisted");
+                setTimeout(syncQBittorrentList, 800);
             } catch (e) {
                 showAppNotification("Connection Error");
             }
@@ -532,10 +567,9 @@
             }).join('') + `</div></div>`;
         }
 
-        // --- UPGRADED TORRENT CARD RENDERER TO SHOW SPEED AND SIZE ---
         function renderTorrentCard(t, idx) {
             let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('paused');
-            let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
+            let triggerLabelText = isCurrentlyPaused ? "▶️ RESUME" : "⏸️ STOP";
             let dlSpeedHtml = t.speedLabel && !isCurrentlyPaused ? `<span style="color:#10b981; margin-left:6px; font-weight:800;">↓ ${t.speedLabel}</span>` : '';
             
             return `
@@ -550,8 +584,9 @@
                     <span>${t.status}</span>
                 </div>
                 
-                <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
+                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="flex:2; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                    <button onclick="if(confirm('Delete torrent, wipe files, and blocklist in Radarr?')) { executeDeleteTorrent('${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none'; }" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ DELETE</button>
                 </div>
             </div>`;
         }
@@ -750,7 +785,6 @@
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
 
-        // Background sync interval configured for true live updates
         setInterval(() => {
             syncQBittorrentList();
         }, 3000);
