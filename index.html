@@ -24,10 +24,10 @@
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
         .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:calc(10px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:4px; flex:1; height:100%; }
+        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:2px; flex:1; height:100%; }
         .nav-btn.active { color:#f97316; }
         .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
-        .nav-svg-icon { width: 28px; height: 28px; fill: currentColor; }
+        .nav-svg-icon { width: 26px; height: 26px; fill: currentColor; }
         .stat-num { font-size: 22px; font-weight: 800; line-height: 1.2; color: #0f172a; }
         .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
         .filter-scroller { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 4px 0; width: 100%; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
@@ -59,7 +59,7 @@
         .settings-container { display:flex; flex-direction:column; gap:16px; padding:4px 0; width:100%; box-sizing:border-box; }
         .form-group { display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box; }
         .form-group label { font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; }
-        .form-group input, .form-group textarea { background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:14px; color:#0f172a; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
+        .form-group input, .form-group textarea, .form-group select { background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:14px; color:#0f172a; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
         .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
         .btn-action { width:100%; padding:16px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:14px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; margin-top:8px; box-shadow: 0 4px 12px rgba(234,88,12,0.15); }
         .btn-sync-pill { display: flex; align-items: center; gap: 6px; background: #ffffff; color: #ea580c; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease; letter-spacing: 0.5px; margin-right: 4px; }
@@ -105,12 +105,20 @@
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
             Downloads
         </button>
+        <button onclick="switchTab('smarthome')" class="nav-btn ${currentTab === 'smarthome' ? 'active' : ''}">
+            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg></div>
+            Home
+        </button>
         <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
             Settings
         </button>
     </div>
     <script>
+        // Automatic setup for your HA Config
+        if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
+        if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
+
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
@@ -124,6 +132,8 @@
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
+        
+        let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
 
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
@@ -136,6 +146,7 @@
         function switchTab(targetTab) { 
             currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); 
             if (targetTab === 'downloads') syncQBittorrentList();
+            if (targetTab === 'smarthome') fetchHAEntities();
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         
@@ -172,6 +183,61 @@
             if (!val) return 0;
             let num = parseInt(String(val).replace(/\D/g, ""), 10);
             return isNaN(num) ? 0 : num;
+        }
+
+        // --- SMART HOME FUNCTIONS ---
+        async function fetchHAEntities() {
+            let u = localStorage.getItem('ha_url');
+            let k = localStorage.getItem('ha_key');
+            if (!u || !k) return;
+            try {
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, {
+                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' }
+                });
+                let data = await res.json();
+                if (Array.isArray(data)) {
+                    haEntities = data;
+                    localStorage.setItem('ha_entities', JSON.stringify(haEntities));
+                    if(currentTab === 'smarthome') render();
+                }
+            } catch(e) { console.error("HA Fetch Error", e); }
+        }
+
+        async function toggleHAEntity(entityId, domain) {
+            let u = localStorage.getItem('ha_url');
+            let k = localStorage.getItem('ha_key');
+            if (!u || !k) return;
+            try {
+                await fetch(`${u.replace(/\/$/, "")}/api/services/${domain}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entity_id: entityId })
+                });
+                
+                let target = haEntities.find(e => e.entity_id === entityId);
+                if (target) {
+                    target.state = target.state === 'on' ? 'off' : 'on';
+                    localStorage.setItem('ha_entities', JSON.stringify(haEntities));
+                    render();
+                }
+                setTimeout(fetchHAEntities, 1000); 
+            } catch(e) {}
+        }
+
+        async function sendHAIntercom(message, entityId) {
+            if (!message.trim()) return showAppNotification("Enter a message!");
+            let u = localStorage.getItem('ha_url');
+            let k = localStorage.getItem('ha_key');
+            if (!u || !k) return;
+            try {
+                await fetch(`${u.replace(/\/$/, "")}/api/services/tts/google_translate_say`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entity_id: entityId, message: message })
+                });
+                showAppNotification("Message Broadcasted!");
+                document.getElementById('ha_tts_message').value = '';
+            } catch(e) { showAppNotification("Failed to broadcast"); }
         }
 
         async function fetchDiskSpace() {
@@ -681,6 +747,41 @@
                     }).join('')}</div>`);
                 }
                 body = inlineCollapsibleFilterHtml + staticMainTabsHtml + bodyContent;
+            
+            // --- NEW: SMART HOME TAB RENDER ---
+            } else if (currentTab === 'smarthome') {
+                let lights = haEntities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
+                let speakers = haEntities.filter(e => e.entity_id.startsWith('media_player.'));
+
+                let lightsHtml = lights.length === 0 ? `<div style="text-align:center; padding:30px; color:#64748b; font-size:12px;">No lights or plugs discovered yet. Ensure Home Assistant is running in Host mode on CasaOS.</div>` : lights.map(l => {
+                    let isOn = l.state === 'on';
+                    let domain = l.entity_id.split('.')[0];
+                    return `<div class="stat-card" style="margin-bottom:10px; flex-direction:row !important; justify-content:space-between !important; padding:16px;">
+                        <div style="font-weight:800; font-size:14px; color:#0f172a; text-transform:capitalize;">${l.attributes.friendly_name || l.entity_id}</div>
+                        <button onclick="toggleHAEntity('${l.entity_id}', '${domain}')" style="background:${isOn ? '#10b981' : '#cbd5e1'}; color:#fff; border:none; padding:10px 20px; border-radius:20px; font-weight:800; font-size:11px; cursor:pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${isOn ? 'ON' : 'OFF'}</button>
+                    </div>`;
+                }).join('');
+
+                let speakerOptions = speakers.map(s => `<option value="${s.entity_id}">${s.attributes.friendly_name || s.entity_id}</option>`).join('');
+                let intercomHtml = speakers.length === 0 ? '' : `
+                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:16px; margin-bottom:16px;">
+                        <h3 style="margin-top:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Intercom Broadcast</h3>
+                        <select id="ha_speaker_select" style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; outline:none;">${speakerOptions}</select>
+                        <input type="text" id="ha_tts_message" placeholder="Type a message to announce..." style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid #cbd5e1; box-sizing:border-box; outline:none;">
+                        <button onclick="sendHAIntercom(document.getElementById('ha_tts_message').value, document.getElementById('ha_speaker_select').value)" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:14px; border-radius:12px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15);">📣 Send Broadcast</button>
+                    </div>
+                `;
+
+                body = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
+                    <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
+                    <button onclick="fetchHAEntities(); showAppNotification('Syncing Devices...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                </div>
+                ${intercomHtml}
+                <h3 style="font-size:12px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:10px; padding-left:4px; letter-spacing:0.5px;">Lights & Plugs</h3>
+                ${lightsHtml}
+                `;
+
             } else if (currentTab === 'foryou') {
                 body = renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
             } else if (currentTab === 'downloads') {
@@ -711,10 +812,12 @@
                 body = `<div class="settings-container" style="padding:4px 4px;">
                     <div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div>
                     <div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div>
+                    <div class="form-group"><label>Home Assistant URL</label><input type="text" id="in_ha_url" value="${localStorage.getItem('ha_url')||''}"></div>
+                    <div class="form-group"><label>Home Assistant Key</label><input type="password" id="in_ha_key" value="${localStorage.getItem('ha_key')||''}"></div>
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace();" class="btn-action">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace();" class="btn-action">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -761,7 +864,7 @@
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
-            let contextualFilterButtonHtml = currentTab === 'collection' ? `<button onclick="toggleFilterPanel()" class="${configGearClassStr}"><svg style="width:24px; height:24px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>` : '';
+            let contextualFilterButtonHtml = currentTab === 'collection' || currentTab === 'smarthome' ? `<button onclick="toggleFilterPanel()" class="${configGearClassStr}"><svg style="width:24px; height:24px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>` : '';
 
             out.innerHTML = `
             <div class="header">
@@ -831,6 +934,9 @@
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) {
             syncRadarrLibrary();
             fetchDiskSpace();
+        }
+        if(localStorage.getItem('ha_key')) {
+            fetchHAEntities();
         }
         syncFeeds(); loadDiscoverTracks(); render();
 
