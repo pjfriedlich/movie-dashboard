@@ -207,8 +207,14 @@
             try {
                 let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`);
                 let data = await res.json();
-                jfActiveSessions = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
-                if(currentTab === 'smarthome' && !modalOpen) render();
+                let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
+                
+                // FIXED: Compares session IDs to prevent drawing over dropdown while interacting
+                let oldIds = jfActiveSessions.map(s => s.Id).join(',');
+                let newIds = filtered.map(s => s.Id).join(',');
+                
+                jfActiveSessions = filtered;
+                if(currentTab === 'smarthome' && !modalOpen && oldIds !== newIds) render();
             } catch(e) {}
         }
         
@@ -951,7 +957,7 @@
                     <div class="remote-box">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                             <h3 style="margin:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Jellyfin Remote</h3>
-                            <button onclick="wakeTvAndLaunchJellyfin(); showAppNotification('Waking TV...'); setTimeout(syncJfSessions, 4000);" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:0;">Wake TV</button>
+                            <button onclick="wakeTvAndLaunchJellyfin(); showAppNotification('Waking TV...');" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:0;">Wake TV</button>
                         </div>
                         <select id="remote_session_select" style="width:100%; padding:14px; margin-bottom:16px; border-radius:12px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; outline:none; background:#f8fafc; appearance:none;">${remoteOptions}</select>
                         
@@ -1042,7 +1048,7 @@
             
             if (modalOpen && activeItem) {
                 let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
+                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1;">Add to Radarr</button>`;
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
@@ -1084,7 +1090,7 @@
                             jellyfinHtml = `<div style="display:flex; gap:10px; width:100%; box-sizing:border-box;"><select id="jf_session_select" style="flex:1; padding:15px; border-radius:12px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc; font-size:12px;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 24px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Cast</button></div>`;
                         }
                     } else {
-                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
+                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:12px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
                     }
                 }
 
