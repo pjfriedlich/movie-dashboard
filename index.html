@@ -174,13 +174,16 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // --- UPGRADED DISK SPACE FUNCTION (SMART DRIVE SELECTOR) ---
         async function fetchDiskSpace() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/diskspace?apiKey=${k}`);
                 let data = await res.json();
                 if(data && data.length > 0) {
-                    let main = data[0]; 
+                    // Scans the array and keeps the drive with the absolute largest capacity (the 2TB drive)
+                    let main = data.reduce((prev, current) => (prev.totalSpace > current.totalSpace) ? prev : current);
+                    
                     let freeGB = (main.freeSpace / 1073741824).toFixed(1);
                     let totalGB = (main.totalSpace / 1073741824).toFixed(1);
                     let pct = Math.round(((main.totalSpace - main.freeSpace) / main.totalSpace) * 100);
@@ -339,6 +342,7 @@
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
+                
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
@@ -744,11 +748,10 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                // --- UPGRADED: TIGHTENED UI SPACING ---
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
                     let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
-                    castHtml = `<div class="detail-synopsis-box" style="margin-bottom:-10px;"><h4>Cast</h4><p style="font-size:13px; color:#475569; line-height:1.6; margin-top:4px;">${castLinks}</p></div>`;
+                    castHtml = `<div class="detail-synopsis-box" style="margin-bottom:-10px;"><h4>Cast (Tap to browse)</h4><p style="font-size:13px; color:#475569; line-height:1.6; margin-top:4px;">${castLinks}</p></div>`;
                 }
 
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
