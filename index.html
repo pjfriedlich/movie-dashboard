@@ -71,7 +71,7 @@
         .btn-unwatch-action { position:absolute; top:20px; left:20px; background:#ef4444; border:none; color:#ffffff; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px 16px; border-radius:20px; cursor:pointer; z-index:115; box-shadow:0 4px 10px rgba(239,68,68,0.2); }
         .trailer-btn { background:#ffffff; color:#334155; border:1px solid #cbd5e1; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px; border-radius:10px; cursor:pointer; text-align:center; box-sizing:border-box; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         
-        /* New Immersive, No-Scroll Modal */
+        /* Updated No-Scroll Modal with Properly Snug Buttons */
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; z-index:100; box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; }
         .modal-bg { position:absolute; top:-30px; left:-30px; right:-30px; bottom:-30px; background-size:cover; background-position:center; filter:blur(25px); opacity:0.5; z-index:1; pointer-events:none; }
         .modal-bg-tint { position:absolute; inset:0; background:rgba(241,245,249,0.85); z-index:2; pointer-events:none; }
@@ -83,10 +83,10 @@
         .detail-meta-block { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; padding-bottom:4px; }
         .detail-heading-title { font-size:24px; font-weight:800; color:#0f172a; line-height:1.2; letter-spacing: -0.5px; margin:0; }
         .detail-sub-specs { font-size:12px; color:#475569; font-weight:700; margin:0; }
-        .detail-synopsis-box { font-size:14px; color:#334155; line-height:1.5; margin:0; display:flex; flex-direction:column; flex:1; min-height:0; }
+        .detail-synopsis-box { font-size:14px; color:#334155; line-height:1.5; margin:0; display:flex; flex-direction:column; flex:0 1 auto; min-height:0; }
         .detail-synopsis-box h4 { font-size:11px; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; margin-top:0; margin-bottom:6px; font-weight:800; }
-        .synopsis-text { flex:1; overflow-y:auto; padding-right:8px; }
-        .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:auto; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
+        .synopsis-text { overflow-y:auto; padding-right:8px; max-height:22vh; }
+        .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:12px; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
     </style>
 </head>
@@ -934,7 +934,7 @@
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace();" class="btn-action">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -951,17 +951,17 @@
             
             if (modalOpen && activeItem) {
                 let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
+                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
                 let isCurrentlyWatched = localWatchedCache.includes(titleLower) || (tmdbIdStr && localWatchedCache.includes(tmdbIdStr));
                 
                 let topUnwatchBadge = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-unwatch-action">Remove From Watched</button>` : ``;
-                let watchButtonHtml = !isCurrentlyWatched ? `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>` : ``;
+                let watchButtonHtml = !isCurrentlyWatched ? `<button onclick="executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:15px;">Mark Watched</button>` : ``;
                 
-                let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn">View Collection</button>` : '';
-                let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="border:2px solid #ea580c; color:#ea580c;">▶️ Play Trailer</button>` : '';
+                let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn" style="flex:1;">View Collection</button>` : '';
+                let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="flex:1; border:2px solid #ea580c; color:#ea580c;">▶️ Play Trailer</button>` : '';
                 let extraBtns = (trailerBtnHtml || collectionButton) ? `<div style="display:flex; gap:12px; width:100%; margin-bottom:4px;">${trailerBtnHtml}${collectionButton}</div>` : '';
 
                 let cleanModalYear = parseNumericYear(activeItem);
@@ -998,7 +998,7 @@
                 }
 
                 modal = `<div class="modal-overlay">
-                    <div class="modal-bg" style="background-image:url('${activeItem.posterPath || ''}');"></div>
+                    <div class="modal-bg" ${activeItem.posterPath ? `style="background-image:url('${activeItem.posterPath}');"` : ''}></div>
                     <div class="modal-bg-tint"></div>
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
                     ${topUnwatchBadge}
