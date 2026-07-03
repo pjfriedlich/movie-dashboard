@@ -174,35 +174,56 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // --- UPGRADED: PULLS DIRECTLY FROM QBITTORRENT NOW FOR REAL-TIME STATS ---
         async function syncQBittorrentList() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
+            let u = localStorage.getItem('radarr_url'); if (!u) return;
             try {
-                let timestamp = new Date().getTime();
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true&pageSize=100&_cb=${timestamp}`);
+                let baseUrl = u.replace(/\/$/, "");
+                let res = await fetch(`${baseUrl}/api/v2/torrents/info`);
                 let list = await res.json();
-                let records = Array.isArray(list) ? list : (list.records || []);
-                activeTorrents = records.map(t => {
-                    let rawStatusStr = String(t.status || '').toLowerCase();
-                    let trackedDownloadStatusStr = String(t.trackedDownloadState || '').toLowerCase();
-                    
-                    let triggerState = "Downloading";
-                    if (rawStatusStr.includes('paused') || trackedDownloadStatusStr.includes('paused') || rawStatusStr.includes('stop')) triggerState = "Stopped";
-                    else if (rawStatusStr.includes('completed') || trackedDownloadStatusStr.includes('completed') || trackedDownloadStatusStr.includes('seeding')) triggerState = "Seeding";
-                    else if (rawStatusStr.includes('warning') || rawStatusStr.includes('blocked')) triggerState = "Seeding";
+                
+                if (Array.isArray(list)) {
+                    activeTorrents = list.map(t => {
+                        let stateStr = String(t.state || '').toLowerCase();
+                        
+                        let triggerState = "Downloading";
+                        if (stateStr.includes('pause') || stateStr.includes('stop')) triggerState = "Stopped";
+                        else if (stateStr.includes('up') || stateStr.includes('complete')) triggerState = "Seeding";
+                        else if (stateStr.includes('check') || stateStr.includes('alloc')) triggerState = "Checking";
+                        else if (stateStr.includes('error') || stateStr.includes('missing')) triggerState = "Error";
 
-                    return {
-                        queueId: t.id,
-                        downloadId: t.downloadId,
-                        name: t.title || "Active Download",
-                        progress: t.sizeleft > 0 ? (((t.size - t.sizeleft) / t.size) * 100).toFixed(1) : "100.0",
-                        size: (t.size / 1073741824).toFixed(2),
-                        speed: triggerState,
-                        status: t.estimatedCompletionTime ? Math.round((new Date(t.estimatedCompletionTime) - new Date()) / 60000) + "m remaining" : "Completed",
-                        rawStatus: rawStatusStr
-                    };
-                });
+                        let progressPct = (t.progress * 100).toFixed(1);
+                        let sizeGB = (t.size / 1073741824).toFixed(2);
+                        let speedMB = (t.dlspeed / 1048576).toFixed(1);
+                        
+                        let etaStr = "Finished";
+                        if (triggerState === "Downloading") {
+                            if (t.eta < 8640000 && t.eta > 0) { 
+                                let mins = Math.round(t.eta / 60);
+                                etaStr = mins > 60 ? Math.floor(mins/60) + "h " + (mins%60) + "m" : mins + "m left";
+                            } else {
+                                etaStr = "Stalled";
+                            }
+                        } else if (triggerState === "Stopped") {
+                            etaStr = "Paused";
+                        }
+
+                        return {
+                            downloadId: t.hash,
+                            name: t.name,
+                            progress: progressPct,
+                            size: sizeGB,
+                            speedLabel: speedMB > 0.0 ? `${speedMB} MB/s` : '',
+                            speed: triggerState,
+                            status: etaStr,
+                            rawStatus: stateStr
+                        };
+                    });
+                }
                 if (currentTab === 'downloads' || currentTab === 'collection') render();
-            } catch(e) {}
+            } catch(e) {
+                console.error("Direct qBT Sync Error", e);
+            }
         }
 
         async function executeToggleQueueTask(downloadHash, currentStatusStr) {
@@ -511,9 +532,12 @@
             }).join('') + `</div></div>`;
         }
 
+        // --- UPGRADED TORRENT CARD RENDERER TO SHOW SPEED AND SIZE ---
         function renderTorrentCard(t, idx) {
             let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('paused');
             let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
+            let dlSpeedHtml = t.speedLabel && !isCurrentlyPaused ? `<span style="color:#10b981; margin-left:6px; font-weight:800;">↓ ${t.speedLabel}</span>` : '';
+            
             return `
             <div class="torrent-card" style="margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
@@ -521,7 +545,10 @@
                     <button onclick="toggleTorrentMenu(event, ${idx})" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
                 </div>
                 <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
-                <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
+                <div class="torrent-meta">
+                    <span>⚙️ ${t.speed} (${t.progress}%) • ${t.size} GB${dlSpeedHtml}</span>
+                    <span>${t.status}</span>
+                </div>
                 
                 <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
                     <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
@@ -723,7 +750,7 @@
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
 
-        // Automatically loop background syncs every 15 seconds
+        // Background sync interval configured for true live updates
         setInterval(() => {
             syncQBittorrentList();
         }, 15000);
