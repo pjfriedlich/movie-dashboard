@@ -307,7 +307,7 @@
                             return { 
                                 isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', 
                                 realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', 
-                                tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' 
+                                tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || ''
                             };
                         }
                     });
@@ -322,21 +322,25 @@
                 let url = `https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tk}`;
                 let data = await (await fetch(url)).json();
                 if (data.cast) {
-                    let sortedCast = data.cast.sort((a,b) => b.popularity - a.popularity).slice(0, 30);
-                    searchResultsData = sortedCast.map(m => ({ 
-                        isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', 
-                        realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', 
-                        tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '' 
+                    // Sort by popularity and pick top 30
+                    let sortedCast = data.cast.sort((a, b) => b.popularity - a.popularity).slice(0, 30);
+                    searchResultsData = sortedCast.map(m => ({
+                        isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A',
+                        realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR',
+                        tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || ''
                     }));
-                    document.getElementById('search-input').value = `Movies featuring ${personName}`;
-                    render();
+                    
+                    const inputEl = document.getElementById('search-input');
+                    if (inputEl) inputEl.value = personName;
                 }
-            } catch(e) {}
+            } catch(e) { console.error("Error loading person filmography", e); }
+            render();
         }
 
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
+                
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
@@ -356,7 +360,6 @@
                 
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem && activeItem.tmdbId) {
-                    // UPGRADED API CALL: Fetching videos AND credits in a single query
                     fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}&append_to_response=videos,credits`)
                     .then(res => res.json())
                     .then(d => {
@@ -372,9 +375,9 @@
                             let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
                             if (trailerObj) activeItem.trailerKey = trailerObj.key;
 
-                            // Extract the top 10 cast members
+                            // UPGRADED: Maps cast to an array of objects to retain unique IDs
                             if (d.credits && d.credits.cast) {
-                                activeItem.cast = d.credits.cast.slice(0, 10).map(c => c.name).join(', ');
+                                activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
                             }
                             
                             render(); 
@@ -738,15 +741,18 @@
                 let watchButtonHtml = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-panel-primary" style="background: #ef4444;">Remove From Watched</button>` : `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>`;
                 let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn" style="width:100%; text-align:center;">View Collection: ${activeItem.collection.name}</button>` : '';
                 
-                // --- UPGRADED: RESTYLED TRAILER BUTTON ---
                 let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" style="width:100%; text-align:center; background:#ffffff; color:#ea580c; border:2px solid #ea580c; padding:12px; border-radius:12px; margin-bottom:8px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; box-shadow: 0 4px 10px rgba(234,88,12,0.15); cursor:pointer;">▶️ Play Trailer</button>` : '';
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                // --- NEW: CAST HTML INJECTED DIRECTLY ABOVE SUMMARY ---
-                let castHtml = activeItem.cast ? `<div class="detail-synopsis-box" style="margin-top:-5px; margin-bottom:10px;"><h4>Cast</h4><p style="font-size:13px; color:#475569;">${activeItem.cast}</p></div>` : '';
+                // --- UPGRADED: REWIRED CAST FIELD TO MAP HIGHLIGHTED TOUCHABLE SPANS ---
+                let castHtml = '';
+                if (activeItem.cast && Array.isArray(activeItem.cast)) {
+                    let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join(', ');
+                    castHtml = `<div class="detail-synopsis-box" style="margin-top:-5px; margin-bottom:10px;"><h4>Cast (Tap to browse)</h4><p style="font-size:13px; color:#475569; line-height:1.5;">${castLinks}</p></div>`;
+                }
 
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             } else if (activeCollection) {
