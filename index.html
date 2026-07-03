@@ -62,28 +62,31 @@
         .form-group input, .form-group textarea, .form-group select { background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:14px; color:#0f172a; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
         .form-group textarea { height:90px; resize:vertical; font-family:sans-serif; }
         
-        /* Modal Redesign for Compactness */
+        /* Restored Beautiful Button Classes */
+        .btn-sync-pill { display: flex; align-items: center; gap: 6px; background: #ffffff; color: #ea580c; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease; letter-spacing: 0.5px; margin-right: 4px; }
+        .btn-sync-pill:active { background: #fff7ed; border-color: #f97316; transform: scale(0.95); }
+        .sync-icon-svg { width: 13px; height: 13px; fill: currentColor; }
+        .btn-panel-primary { padding:15px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15); box-sizing:border-box;}
+        .btn-panel-disabled { padding:15px; background:#cbd5e1; color:#64748b; border:1px solid #cbd5e1; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:not-allowed; box-sizing:border-box; }
+        .btn-unwatch-action { position:absolute; top:20px; left:20px; background:#ef4444; border:none; color:#ffffff; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px 16px; border-radius:20px; cursor:pointer; z-index:115; box-shadow:0 4px 10px rgba(239,68,68,0.2); }
+        .trailer-btn { background:#ffffff; color:#334155; border:1px solid #cbd5e1; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px; border-radius:10px; cursor:pointer; text-align:center; box-sizing:border-box; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        
+        /* Restored Modal Grid With Fit-To-Screen Tweaks */
         .modal-overlay { position:fixed; inset:0; background:#f1f5f9; z-index:100; box-sizing:border-box; overflow-y:auto; display:flex; flex-direction:column; }
-        .detail-hero-backdrop { width:100%; height:150px; background-size:cover; background-position:center; position:relative; flex-shrink:0; }
+        .detail-hero-backdrop { width:100%; height:190px; background-size:cover; background-position:center; position:relative; flex-shrink:0; }
         .detail-hero-backdrop::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom, transparent 10%, #f1f5f9 100%); }
-        .detail-close-trigger { position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:18px; font-weight:bold; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .detail-content-frame { padding: 0 16px 20px 16px; margin-top: -45px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 12px; flex:1; }
-        .detail-main-row { display:flex; gap:14px; align-items:flex-end; margin-bottom:4px; }
-        .detail-poster-wrapper { width:95px; height:142px; border-radius:10px; overflow:hidden; border:3px solid #f1f5f9; background:#ffffff; flex-shrink:0; box-shadow:0 6px 16px rgba(0,0,0,0.12); }
+        .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:20px; font-weight:bold; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; }
+        .detail-content-frame { padding: 0 20px 30px 20px; margin-top: -30px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 14px; flex:1; }
+        .detail-main-row { display:flex; gap:16px; align-items:flex-end; margin-bottom: 4px; }
+        .detail-poster-wrapper { width:100px; height:150px; border-radius:12px; overflow:hidden; border:2px solid #f1f5f9; background:#ffffff; flex-shrink:0; box-shadow:0 6px 16px rgba(0,0,0,0.1); }
         .detail-poster-img { width:100%; height:100%; object-fit: cover; }
         .detail-meta-block { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; padding-bottom:4px; }
-        .detail-heading-title { font-size:20px; font-weight:800; color:#0f172a; line-height:1.1; letter-spacing: -0.5px; margin:0; }
-        .detail-sub-specs { font-size:12px; color:#475569; font-weight:700; margin-bottom:2px; }
-        .detail-synopsis-box { font-size:14px; color:#334155; line-height:1.6; margin-bottom:0; }
+        .detail-heading-title { font-size:22px; font-weight:800; color:#0f172a; line-height:1.2; letter-spacing: -0.5px; margin:0; }
+        .detail-sub-specs { font-size:12px; color:#475569; font-weight:700; }
+        .detail-synopsis-box { font-size:14px; color:#334155; line-height:1.6; margin:0; }
         .detail-synopsis-box h4 { font-size:11px; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; margin-top:0; margin-bottom:4px; font-weight:800; }
         .detail-footer-actions { display:flex; flex-direction:column; gap:8px; margin-top:auto; }
-        
-        /* Unified Button Styling */
-        .btn-panel-primary { flex:1; width:100%; padding:12px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:11px; cursor:pointer; box-shadow: 0 4px 10px rgba(234,88,12,0.15); box-sizing:border-box; letter-spacing:0.5px; }
-        .btn-panel-disabled { flex:1; width:100%; padding:12px; background:#cbd5e1; color:#64748b; border:1px solid #cbd5e1; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:11px; cursor:not-allowed; box-sizing:border-box; letter-spacing:0.5px; }
-        .btn-unwatch-action { flex:1; width:100%; background:#ef4444; border:none; color:#ffffff; font-size:11px; font-weight:800; text-transform:uppercase; padding:12px; border-radius:12px; cursor:pointer; box-shadow:0 4px 10px rgba(239,68,68,0.2); box-sizing:border-box; letter-spacing:0.5px; }
-        .trailer-btn { flex:1; width:100%; background:#ffffff; color:#334155; border:1px solid #cbd5e1; font-size:10px; font-weight:800; text-transform:uppercase; padding:10px; border-radius:10px; cursor:pointer; box-sizing:border-box; text-align:center; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
-        .trailer-video-box { width:100%; height:180px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        .trailer-video-box { width:100%; height:200px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -185,14 +188,17 @@
         }
 
         async function wakeTvAndLaunchJellyfin() {
-            let u = localStorage.getItem('ha_url');
-            let k = localStorage.getItem('ha_key');
+            let u = localStorage.getItem('ha_url') || "";
+            let k = localStorage.getItem('ha_key') || "";
+            u = u.trim().replace(/\/$/, "");
+            k = k.trim();
             let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.living_room_tv';
+            tvEntity = tvEntity.trim();
             if (!u || !k) return showAppNotification("Verify HA Settings First!");
             if (!u.startsWith('http')) u = 'http://' + u;
             showAppNotification("Waking TV & Launching Jellyfin...");
             try {
-                await fetch(`${u.replace(/\/$/, "")}/api/services/media_player/play_media`, {
+                let res = await fetch(`${u}/api/services/media_player/play_media`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -201,16 +207,23 @@
                         media_content_id: 'org.jellyfin.androidtv'
                     })
                 });
+                if(!res.ok) {
+                    showAppNotification("HA Wake failed: HTTP " + res.status);
+                    return;
+                }
                 setTimeout(() => {
                     if (modalOpen && activeItem) launchModalFromAttributes('library', activeItem.id);
                 }, 4000);
-            } catch(e) { showAppNotification("Failed to issue wake command"); }
+            } catch(e) { showAppNotification("Failed to connect to HA"); }
         }
 
         async function castToJellyfin(sessionId) {
             if (!activeItem || !activeItem.jellyfinId) return;
-            let jfUrl = localStorage.getItem('jf_url').replace(/\/$/, "");
-            let jfKey = localStorage.getItem('jf_key');
+            let jfUrl = localStorage.getItem('jf_url') || "";
+            jfUrl = jfUrl.trim().replace(/\/$/, "");
+            if(!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+            let jfKey = localStorage.getItem('jf_key') || "";
+            jfKey = jfKey.trim();
             try {
                 let res = await fetch(`${jfUrl}/Sessions/${sessionId}/Playing?ItemIds=${activeItem.jellyfinId}&PlayCommand=PlayNow&api_key=${jfKey}`, {
                     method: 'POST',
@@ -219,18 +232,23 @@
                 if (res.ok || res.status === 204) {
                     showAppNotification("Casting to TV! 🍿");
                     closeM();
-                } else { showAppNotification("Cast failed: " + res.status); }
-            } catch(e) { showAppNotification("Error contacting Jellyfin"); }
+                } else { 
+                    showAppNotification("Cast failed: HTTP " + res.status); 
+                }
+            } catch(e) { 
+                showAppNotification("Connection Error: Check JF URL"); 
+            }
         }
 
         async function fetchHAEntities() {
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            u = u.trim();
             if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, {
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' }
+                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' }
                 });
                 if (!res.ok) {
                     showAppNotification(`HA Error: ${res.status} (Check Token)`);
@@ -252,11 +270,12 @@
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            u = u.trim();
             if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 await fetch(`${u.replace(/\/$/, "")}/api/services/${domain}/toggle`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ entity_id: entityId })
                 });
                 
@@ -275,11 +294,12 @@
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            u = u.trim();
             if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 await fetch(`${u.replace(/\/$/, "")}/api/services/tts/google_translate_say`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ entity_id: entityId, message: message })
                 });
                 showAppNotification("Message Broadcasted!");
@@ -290,7 +310,7 @@
         async function fetchDiskSpace() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/diskspace?apiKey=${k}`);
+                let res = await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/diskspace?apiKey=${k.trim()}`);
                 let data = await res.json();
                 if(data && data.length > 0) {
                     let main = data.reduce((prev, current) => (prev.totalSpace > current.totalSpace) ? prev : current);
@@ -306,7 +326,7 @@
         async function syncQBittorrentList() {
             let u = localStorage.getItem('radarr_url'); if (!u) return;
             try {
-                let baseUrl = u.replace(/\/$/, "");
+                let baseUrl = u.trim().replace(/\/$/, "");
                 let res = await fetch(`${baseUrl}/api/v2/torrents/info`);
                 let list = await res.json();
                 
@@ -352,7 +372,7 @@
                 let safeHash = String(downloadHash).split('_').pop().toLowerCase();
                 let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
                 let body = 'hashes=' + safeHash;
-                let baseUrl = u.replace(/\/$/, "");
+                let baseUrl = u.trim().replace(/\/$/, "");
 
                 let res = await fetch(`${baseUrl}/api/v2/torrents/${actionV5}`, { method: 'POST', headers, body });
                 if (res.status === 404) res = await fetch(`${baseUrl}/api/v2/torrents/${actionV4}`, { method: 'POST', headers, body });
@@ -374,20 +394,20 @@
 
             try {
                 let safeHash = String(downloadHash).split('_').pop().toLowerCase();
-                let baseUrl = u.replace(/\/$/, "");
+                let baseUrl = u.trim().replace(/\/$/, "");
 
                 if (k) {
                     try {
-                        let qRes = await fetch(`${baseUrl}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true`);
+                        let qRes = await fetch(`${baseUrl}/api/v3/queue?apiKey=${k.trim()}&includeUnknownStatusItems=true`);
                         let qData = await qRes.json();
                         let records = Array.isArray(qData) ? qData : (qData.records || []);
                         let match = records.find(r => r.downloadId && r.downloadId.toLowerCase().includes(safeHash));
                         
                         if (match && match.id) {
                             let blocklistParam = searchForNew ? 'true' : 'false';
-                            await fetch(`${baseUrl}/api/v3/queue/${match.id}?apiKey=${k}&removeFromClient=true&blocklist=${blocklistParam}`, { method: 'DELETE' });
+                            await fetch(`${baseUrl}/api/v3/queue/${match.id}?apiKey=${k.trim()}&removeFromClient=true&blocklist=${blocklistParam}`, { method: 'DELETE' });
                             if (searchForNew && match.movieId) {
-                                await fetch(`${baseUrl}/api/v3/command?apiKey=${k}`, {
+                                await fetch(`${baseUrl}/api/v3/command?apiKey=${k.trim()}`, {
                                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ name: "MoviesSearch", movieIds: [match.movieId] })
                                 });
@@ -407,7 +427,7 @@
         async function triggerUniversalSearch(queryText) {
             let tk = localStorage.getItem('tmdb_key'); if (!queryText.trim() || !tk) { searchResultsData = []; render(); return; }
             try {
-                let url = `https://api.themoviedb.org/3/search/multi?api_key=${tk}&query=${encodeURIComponent(queryText.trim())}`;
+                let url = `https://api.themoviedb.org/3/search/multi?api_key=${tk.trim()}&query=${encodeURIComponent(queryText.trim())}`;
                 let data = await (await fetch(url)).json();
                 if (data.results) {
                     searchResultsData = data.results.filter(m => m.media_type === 'movie' || m.media_type === 'person').map(m => {
@@ -432,7 +452,7 @@
         async function fetchPersonCredits(personId, personName) {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             try {
-                let url = `https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tk}`;
+                let url = `https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tk.trim()}`;
                 let data = await (await fetch(url)).json();
                 if (data.cast) {
                     let sortedCast = data.cast.sort((a, b) => b.popularity - a.popularity).slice(0, 30);
@@ -473,7 +493,7 @@
                 
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem && activeItem.tmdbId) {
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}&append_to_response=videos,credits`)
+                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits`)
                     .then(res => res.json())
                     .then(d => {
                         if (d && modalOpen && activeItem.tmdbId === d.id) { 
@@ -493,8 +513,9 @@
                             }
                             
                             if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
-                                let jfUrl = localStorage.getItem('jf_url').replace(/\/$/, "");
-                                let jfKey = localStorage.getItem('jf_key');
+                                let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
+                                if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                                let jfKey = localStorage.getItem('jf_key').trim();
                                 fetch(`${jfUrl}/Items?IncludeItemTypes=Movie&Recursive=true&searchTerm=${encodeURIComponent(activeItem.title)}&api_key=${jfKey}`)
                                 .then(r => {
                                     if(!r.ok) throw new Error(r.status);
@@ -539,7 +560,7 @@
         async function fetchCollection(collectionId) {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             try {
-                let res = await fetch(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${tk}`);
+                let res = await fetch(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${tk.trim()}`);
                 let data = await res.json();
                 
                 myCollectionsCache[collectionId] = {
@@ -613,14 +634,14 @@
             if (!activeItem) return;
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return showAppNotification("Configure Settings!");
             try {
-                let f = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/rootfolder?apiKey=${k}`)).json();
-                let profiles = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/qualityprofile?apiKey=${k}`)).json();
-                let l = await (await fetch(`${u.replace(/\/$/, "")}/api/v3/movie/lookup?term=tmdb:${activeItem.tmdbId || 238}&apiKey=${k}`)).json();
+                let f = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/rootfolder?apiKey=${k.trim()}`)).json();
+                let profiles = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/qualityprofile?apiKey=${k.trim()}`)).json();
+                let l = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/movie/lookup?term=tmdb:${activeItem.tmdbId || 238}&apiKey=${k.trim()}`)).json();
                 let movieData = Array.isArray(l) ? l[0] : l; if (!movieData) return showAppNotification("Missing metadata.");
                 let matchedProfile = profiles.find(p => p.name && p.name.toLowerCase().trim() === "auto movie");
                 movieData.qualityProfileId = matchedProfile ? matchedProfile.id : profiles[0].id;
                 movieData.rootFolderPath = f[0].path; movieData.monitored = true; movieData.addOptions = { searchForMovie: true };
-                let postRes = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(movieData) });
+                let postRes = await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/movie?apiKey=${k.trim()}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(movieData) });
                 if (postRes.status === 201 || postRes.status === 200) { showAppNotification("Added to Radarr!"); modalOpen = false; await syncRadarrLibrary(); }
             } catch(err) { showAppNotification("Connection Timeout."); }
             render();
@@ -631,7 +652,7 @@
             isRadarrLoading = true; render();
             try {
                 let timestamp = new Date().getTime();
-                let response = await fetch(`${u.replace(/\/$/, "")}/api/v3/movie?apiKey=${k}&_cb=${timestamp}`);
+                let response = await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/movie?apiKey=${k.trim()}&_cb=${timestamp}`);
                 let items = await response.json();
                 
                 if (Array.isArray(items)) {
@@ -664,11 +685,11 @@
             let randomPage = Math.floor(Math.random() * 5) + 1;
             try {
                 for (let [title, gId] of Object.entries(genres)) {
-                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=${gId}&sort_by=popularity.desc&with_original_language=en&page=${randomPage}`)).json();
+                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&with_genres=${gId}&sort_by=popularity.desc&with_original_language=en&page=${randomPage}`)).json();
                     tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
                 }
                 for (let [title, range] of decades) {
-                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=${range[0]}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=${randomPage}`)).json();
+                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&primary_release_date.gte=${range[0]}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=${randomPage}`)).json();
                     tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
                 }
                 render();
@@ -703,7 +724,7 @@
                             
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
-                                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(cleanQuery)}`)
+                                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`)
                                     .then(r => r.json()).then(s => { 
                                         if (s.results?.[0]) { 
                                             itemObj.tmdbId = s.results[0].id; 
@@ -929,19 +950,20 @@
             
             if (modalOpen && activeItem) {
                 let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
+                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:12px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:12px;">Add to Radarr</button>`;
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
                 let isCurrentlyWatched = localWatchedCache.includes(titleLower) || (tmdbIdStr && localWatchedCache.includes(tmdbIdStr));
-                let watchButtonHtml = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-unwatch-action" style="position:relative; top:0; left:0; width:auto;">Unwatch</button>` : `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>`;
                 
-                let extraButtons = '';
-                if (activeItem.trailerKey || activeItem.collection) {
-                    let tBtn = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn">▶️ Trailer</button>` : '';
-                    let cBtn = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn">View Collection</button>` : '';
-                    extraButtons = `<div style="display:flex; gap:8px; width:100%; margin-bottom:8px;">${tBtn}${cBtn}</div>`;
-                }
+                // The Unwatch badge floats at the top left to save layout space!
+                let topUnwatchBadge = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-unwatch-action">Remove From Watched</button>` : ``;
+                // The Mark Watched button goes in the side-by-side flex box if it hasn't been watched yet
+                let watchButtonHtml = !isCurrentlyWatched ? `<button onclick="executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:12px;">Mark Watched</button>` : ``;
+                
+                let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn" style="flex:1; margin-top:0;">View Collection</button>` : '';
+                let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="flex:1; margin-top:0;">▶️ Play Trailer</button>` : '';
+                let extraBtns = (trailerBtnHtml || collectionButton) ? `<div style="display:flex; gap:10px; width:100%; margin-bottom:4px;">${trailerBtnHtml}${collectionButton}</div>` : '';
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
@@ -949,7 +971,7 @@
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
                     let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
-                    castHtml = `<div class="detail-synopsis-box" style="margin-bottom:0;">
+                    castHtml = `<div class="detail-synopsis-box" style="margin-bottom:4px;">
                         <h4 style="margin-bottom:2px;">Cast (Tap to browse)</h4>
                         <p style="font-size:12px; color:#475569; line-height:1.4; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${castLinks}</p>
                     </div>`;
@@ -958,11 +980,11 @@
                 let jellyfinHtml = '';
                 if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
                     if (activeItem.jfError) {
-                        jellyfinHtml = `<div style="background:#fee2e2; color:#ef4444; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #f87171; letter-spacing:0.5px; width:100%; box-sizing:border-box;">❌ JF Error: ${activeItem.jfError}</div>`;
+                        jellyfinHtml = `<div style="background:#fee2e2; color:#ef4444; padding:10px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #f87171; letter-spacing:0.5px; width:100%; box-sizing:border-box;">❌ JF Error: ${activeItem.jfError}</div>`;
                     } else if (activeItem.jfChecked === false) {
-                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #cbd5e1; letter-spacing:0.5px; width:100%; box-sizing:border-box;">⏳ Searching Jellyfin...</div>`;
+                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:10px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #cbd5e1; letter-spacing:0.5px; width:100%; box-sizing:border-box;">⏳ Searching Jellyfin...</div>`;
                     } else if (!activeItem.jellyfinId) {
-                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #cbd5e1; letter-spacing:0.5px; width:100%; box-sizing:border-box;">📁 Not Found In Jellyfin</div>`;
+                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:10px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; border:1px dashed #cbd5e1; letter-spacing:0.5px; width:100%; box-sizing:border-box;">📁 Not Found In Jellyfin</div>`;
                     } else if (activeItem.jfSessions && activeItem.jfSessions.length > 0) {
                         if (activeItem.jfSessions.length === 1) {
                             let s = activeItem.jfSessions[0];
@@ -978,6 +1000,7 @@
 
                 modal = `<div class="modal-overlay">
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
+                    ${topUnwatchBadge}
                     <div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div>
                     <div class="detail-content-frame">
                         <div class="detail-main-row">
@@ -987,16 +1010,16 @@
                                 <div class="detail-sub-specs">${displaySpecsYear}</div>
                             </div>
                         </div>
-                        ${extraButtons}
+                        ${extraBtns}
                         <div id="modal-trailer-frame-box" class="trailer-video-box"></div>
                         ${castHtml}
                         <div class="detail-synopsis-box" style="margin-bottom:0;">
                             <h4 style="margin-bottom:4px;">Summary</h4>
-                            <div style="max-height:90px; overflow-y:auto; font-size:12px; line-height:1.5; color:#475569; padding-right:4px;">${activeItem.overview || 'No overview available.'}</div>
+                            <div style="max-height:85px; overflow-y:auto; padding-right:6px; font-size:12px;">${activeItem.overview || 'No overview available.'}</div>
                         </div>
                         <div class="detail-footer-actions">
                             ${jellyfinHtml}
-                            <div style="display:flex; gap:8px; width:100%;">
+                            <div style="display:flex; gap:10px; width:100%;">
                                 ${watchButtonHtml}
                                 ${radarrButtonHtml}
                             </div>
