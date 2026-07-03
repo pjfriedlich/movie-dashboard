@@ -89,12 +89,18 @@
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
 
         /* NATIVE HA TV REMOTE UI */
-        .remote-box { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
-        .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 24px 0; }
+        .remote-box { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); overflow: hidden; transition: padding 0.2s ease; }
+        .remote-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .remote-header-title { display: flex; align-items: center; gap: 8px; }
+        .remote-header h3 { margin: 0; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .remote-chevron { color: #94a3b8; font-size: 10px; transition: transform 0.2s ease; }
+        .remote-content { padding: 0 16px 16px 16px; display: none; }
+        .remote-content.open { display: block; }
+        .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 12px 0 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
         .dpad-btn:active { background:#e2e8f0; transform:scale(0.95); }
         .dpad-ok { background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:white; border:none; font-weight:800; font-size:14px; box-shadow:0 6px 14px rgba(139,92,246,0.3); }
-        .action-row { display:flex; justify-content:space-between; gap:6px; margin-top:10px; }
+        .action-row { display:flex; justify-content:space-between; gap:6px; }
         .action-btn { flex:1; padding:12px 0; border-radius:10px; border:none; background:#f8fafc; color:#475569; font-weight:800; font-size:10px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #e2e8f0; letter-spacing:0.5px; }
         .action-btn:active { background:#e2e8f0; }
     </style>
@@ -133,6 +139,7 @@
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
+        let remoteExpanded = localStorage.getItem('app_remote_expanded') !== 'false'; 
         let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let openMenuHash = null; 
@@ -166,6 +173,12 @@
         function toggleFilterPanel() {
             filtersExpanded = !filtersExpanded;
             localStorage.setItem('app_filters_expanded', filtersExpanded);
+            render();
+        }
+
+        function toggleRemotePanel() {
+            remoteExpanded = !remoteExpanded;
+            localStorage.setItem('app_remote_expanded', remoteExpanded);
             render();
         }
 
@@ -219,8 +232,6 @@
             if (!textToSend) return;
             
             showAppNotification("Feature currently relies on Jellyfin API.");
-            // Optional: The HA Android TV remote doesn't have a simple text pass-through, so text search 
-            // still requires the active Jellyfin session to hook into if you want to keep it!
         }
 
         async function wakeTvAndLaunchJellyfin() {
@@ -928,30 +939,38 @@
                 let tvName = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
                 tvName = tvName.split('.').pop().replace(/_/g, ' ').toUpperCase();
                 
+                let remoteContentDisplay = remoteExpanded ? 'block' : 'none';
+                let chevron = remoteExpanded ? '▲' : '▼';
+                
                 let tvRemoteHtml = `
-                    <div class="remote-box">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="margin:0; font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">TV Remote (${tvName})</h3>
-                            <button onclick="wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:0;">Wake TV</button>
+                    <div class="remote-box" style="padding-bottom: ${remoteExpanded ? '16px' : '0'};">
+                        <div class="remote-header" style="margin-bottom: ${remoteExpanded ? '12px' : '0'}; padding: ${remoteExpanded ? '0' : '16px'};" onclick="toggleRemotePanel()">
+                            <div class="remote-header-title">
+                                <h3>TV Remote (${tvName})</h3>
+                                <span class="remote-chevron">${chevron}</span>
+                            </div>
+                            <button onclick="event.stopPropagation(); wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">Wake TV</button>
                         </div>
                         
-                        <div class="dpad-grid">
-                            <div></div>
-                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
-                            <div></div>
-                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
-                            <button class="dpad-btn dpad-ok" onclick="sendTvCmd('DPAD_CENTER')">OK</button>
-                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_RIGHT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
-                            <div></div>
-                            <button class="dpad-btn" onclick="sendTvCmd('DPAD_DOWN')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
-                            <div></div>
-                        </div>
-                        
-                        <div class="action-row">
-                            <button class="action-btn" onclick="sendTvCmd('BACK')">⏪ Back</button>
-                            <button class="action-btn" onclick="sendTvCmd('MEDIA_PLAY_PAUSE')">⏯ Play</button>
-                            <button class="action-btn" onclick="sendTvCmd('HOME')">🏠 Home</button>
-                            <button class="action-btn" onclick="sendJfText()">⌨️ Text</button>
+                        <div class="remote-content" style="display:${remoteContentDisplay}; padding:0;">
+                            <div class="dpad-grid">
+                                <div></div>
+                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+                                <div></div>
+                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
+                                <button class="dpad-btn dpad-ok" onclick="sendTvCmd('DPAD_CENTER')">OK</button>
+                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_RIGHT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
+                                <div></div>
+                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_DOWN')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
+                                <div></div>
+                            </div>
+                            
+                            <div class="action-row">
+                                <button class="action-btn" onclick="sendTvCmd('BACK')">⏪ Back</button>
+                                <button class="action-btn" onclick="sendTvCmd('MEDIA_PLAY_PAUSE')">⏯ Play</button>
+                                <button class="action-btn" onclick="sendTvCmd('HOME')">🏠 Home</button>
+                                <button class="action-btn" onclick="sendJfText()">⌨️ Text</button>
+                            </div>
                         </div>
                     </div>
                 `;
