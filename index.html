@@ -444,33 +444,18 @@
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
                 
                 try {
+                    // Use RSS2JSON API instead of a raw CORS proxy to guarantee delivery and avoid Cloudflare blocks
                     let targetUrl = "https://letterboxd.com/" + user + "/rss/";
-                    let textXml = "";
+                    let res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(targetUrl));
+                    let data = await res.json();
                     
-                    // Proxy Bypass 1: CodeTabs (Fastest)
-                    try {
-                        let r1 = await fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl));
-                        if (r1.ok) textXml = await r1.text();
-                        else throw new Error('CodeTabs blocked');
-                    } catch(e1) {
-                        // Proxy Bypass 2: AllOrigins JSON (Stealthier)
-                        try {
-                            let r2 = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl));
-                            let d2 = await r2.json();
-                            if (d2.contents) textXml = d2.contents;
-                            else throw new Error('AllOrigins blocked');
-                        } catch(e2) {
-                            console.error("Letterboxd blocked feed access for user: " + user);
-                            continue;
-                        }
+                    if (data.status !== 'ok' || !data.items) {
+                        console.error("Failed to load feed for: " + user);
+                        continue;
                     }
-
-                    // Failsafe check
-                    if (!textXml || !textXml.includes('<item>')) continue;
                     
-                    let items = new DOMParser().parseFromString(textXml, "text/xml").getElementsByTagName("item");
-                    for (let i = 0; i < Math.min(items.length, 25); i++) {
-                        let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
+                    for (let i = 0; i < Math.min(data.items.length, 25); i++) {
+                        let t = (data.items[i].title || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
                             let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user };
@@ -496,7 +481,9 @@
                             }
                         }
                     }
-                } catch(e) {}
+                } catch(e) {
+                    console.error("Error parsing feed for: " + user, e);
+                }
             }
             
             // Randomize the feed order so it feels organic
@@ -612,6 +599,7 @@
                     <hr class="section-divider">
                     <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button>
                     
+                    <!-- FULL APP BACKUP BUTTONS -->
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
