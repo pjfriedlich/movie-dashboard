@@ -117,6 +117,7 @@
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
+        let openMenuHash = null; // Memory variable to keep specific menus open across auto-refreshes
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
@@ -143,12 +144,10 @@
             render();
         }
 
-        function toggleTorrentMenu(event, index) {
+        function toggleTorrentMenu(event, hash) {
             event.stopPropagation();
-            const targetMenuEl = document.getElementById(`torrent-menu-${index}`);
-            if (targetMenuEl) {
-                targetMenuEl.style.display = targetMenuEl.style.display === 'flex' ? 'none' : 'flex';
-            }
+            openMenuHash = openMenuHash === hash ? null : hash;
+            render();
         }
 
         function clearSearchInput() {
@@ -258,7 +257,6 @@
             }
         }
 
-        // --- NEW SMART DELETE FUNCTION WITH RADARR SEVERANCE ---
         async function executeDeleteTorrent(downloadHash) {
             let u = localStorage.getItem('radarr_url'); 
             let k = localStorage.getItem('radarr_key');
@@ -273,7 +271,6 @@
                 let safeHash = String(downloadHash).split('_').pop().toLowerCase();
                 let baseUrl = u.replace(/\/$/, "");
 
-                // 1. Tell Radarr to drop it from the queue
                 if (k) {
                     try {
                         let qRes = await fetch(`${baseUrl}/api/v3/queue?apiKey=${k}&includeUnknownStatusItems=true`);
@@ -282,12 +279,9 @@
                         let match = records.find(r => r.downloadId && r.downloadId.toLowerCase().includes(safeHash));
                         
                         if (match && match.id) {
-                            // blocklist=true tells Radarr "ban this bad file and search for a replacement"
-                            // blocklist=false tells Radarr "just drop this task completely"
                             let blocklistParam = searchForNew ? 'true' : 'false';
                             await fetch(`${baseUrl}/api/v3/queue/${match.id}?apiKey=${k}&removeFromClient=true&blocklist=${blocklistParam}`, { method: 'DELETE' });
                             
-                            // Explicit failsafe search trigger if the user hit OK
                             if (searchForNew && match.movieId) {
                                 await fetch(`${baseUrl}/api/v3/command?apiKey=${k}`, {
                                     method: 'POST',
@@ -299,7 +293,6 @@
                     } catch(e) { console.error("Radarr queue sync failed", e); }
                 }
 
-                // 2. Force delete from qBittorrent & wipe files from disk instantly (failsafe)
                 let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
                 let body = `hashes=${safeHash}&deleteFiles=true`;
                 await fetch(`${baseUrl}/api/v2/torrents/delete`, { method: 'POST', headers, body });
@@ -584,17 +577,19 @@
             }).join('') + `</div></div>`;
         }
 
-        // --- RENDERER UPDATED TO INCLUDE DELETE AND TOGGLE TEXT ---
-        function renderTorrentCard(t, idx) {
+        function renderTorrentCard(t) {
             let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('paused');
             let triggerLabelText = isCurrentlyPaused ? "▶️ RESUME" : "⏸️ STOP";
             let dlSpeedHtml = t.speedLabel && !isCurrentlyPaused ? `<span style="color:#10b981; margin-left:6px; font-weight:800;">↓ ${t.speedLabel}</span>` : '';
+            
+            // Check if this specific card's menu should be drawn open based on the memory variable
+            let menuDisplay = (openMenuHash === t.downloadId) ? 'flex' : 'none';
             
             return `
             <div class="torrent-card" style="margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
                     <div class="torrent-title" style="flex:1;">${t.name}</div>
-                    <button onclick="toggleTorrentMenu(event, ${idx})" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
+                    <button onclick="toggleTorrentMenu(event, '${t.downloadId}')" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
                 </div>
                 <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
                 <div class="torrent-meta">
@@ -602,9 +597,9 @@
                     <span>${t.status}</span>
                 </div>
                 
-                <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
-                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="flex:2; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
-                    <button onclick="executeDeleteTorrent('${t.downloadId}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ DELETE</button>
+                <div id="torrent-menu-${t.downloadId}" style="display:${menuDisplay}; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
+                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}');" style="flex:2; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                    <button onclick="executeDeleteTorrent('${t.downloadId}');" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ DELETE</button>
                 </div>
             </div>`;
         }
@@ -677,8 +672,8 @@
                 let activeGroup = activeTorrents.filter(t => t.speed !== 'Stopped');
                 let inactiveGroup = activeTorrents.filter(t => t.speed === 'Stopped');
 
-                let activeHtmlBlocks = activeGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px; font-weight:600;">No active transfers running.</div>` : activeGroup.map(t => renderTorrentCard(t, activeTorrents.indexOf(t))).join('');
-                let inactiveHtmlBlocks = inactiveGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No stopped or inactive transfers.</div>` : inactiveGroup.map(t => renderTorrentCard(t, activeTorrents.indexOf(t))).join('');
+                let activeHtmlBlocks = activeGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px; font-weight:600;">No active transfers running.</div>` : activeGroup.map(t => renderTorrentCard(t)).join('');
+                let inactiveHtmlBlocks = inactiveGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No stopped or inactive transfers.</div>` : inactiveGroup.map(t => renderTorrentCard(t)).join('');
 
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
@@ -757,6 +752,7 @@
             `;
         }
 
+        // Global click listener to launch modals, or close the torrent menu if clicked outside
         document.addEventListener('click', function (e) {
             let triggerCard = e.target.closest('.movie-trigger');
             if (triggerCard) {
@@ -766,6 +762,10 @@
                     triggerCard.getAttribute('data-id'), 
                     triggerCard.getAttribute('data-track')
                 );
+            } else if (openMenuHash) {
+                // If the user clicks anywhere else while a menu is open, this collapses it
+                openMenuHash = null;
+                render();
             }
         });
 
