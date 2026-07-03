@@ -471,6 +471,7 @@
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
                 
+                activeItem.jfChecked = false; // Trigger loading diagnostic state
                 modalOpen = true; render();
                 
                 let tk = localStorage.getItem('tmdb_key');
@@ -498,13 +499,19 @@
                                 let jfUrl = localStorage.getItem('jf_url').replace(/\/$/, "");
                                 let jfKey = localStorage.getItem('jf_key');
                                 fetch(`${jfUrl}/Items?IncludeItemTypes=Movie&Recursive=true&searchTerm=${encodeURIComponent(activeItem.title)}&api_key=${jfKey}`)
-                                .then(r => r.json())
+                                .then(r => {
+                                    if(!r.ok) throw new Error("JF API Error");
+                                    return r.json();
+                                })
                                 .then(d => {
+                                    activeItem.jfChecked = true;
                                     let match = d.Items && d.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
                                     if (!match && d.Items && d.Items.length > 0) match = d.Items[0]; 
                                     if (match) {
                                         activeItem.jellyfinId = match.Id;
                                         return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
+                                    } else {
+                                        render();
                                     }
                                 })
                                 .then(r => r ? r.json() : null)
@@ -513,10 +520,15 @@
                                         activeItem.jfSessions = sessions.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
                                         render();
                                     }
-                                }).catch(e => console.error("Jellyfin Error", e));
+                                }).catch(e => {
+                                    console.error("Jellyfin Error", e);
+                                    activeItem.jfChecked = true;
+                                    activeItem.jfError = true;
+                                    render();
+                                });
+                            } else {
+                                render(); // Render if JF isn't configured
                             }
-                            
-                            render(); 
                         }
                     })
                     .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; render(); }});
@@ -929,7 +941,7 @@
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
-                let friendLabelHtml = '';
+                let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
@@ -937,20 +949,29 @@
                     castHtml = `<div class="detail-synopsis-box" style="margin-bottom:-10px;"><h4>Cast (Tap to browse)</h4><p style="font-size:13px; color:#475569; line-height:1.6; margin-top:4px;">${castLinks}</p></div>`;
                 }
 
+                // --- NEW JELLYFIN DIAGNOSTIC UI ---
                 let jellyfinHtml = '';
-                if (activeItem.jellyfinId && activeItem.jfSessions && activeItem.jfSessions.length > 0) {
-                    if (activeItem.jfSessions.length === 1) {
-                        let s = activeItem.jfSessions[0];
-                        jellyfinHtml = `<button onclick="castToJellyfin('${s.Id}')" style="margin-top:8px; width:100%; background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-weight:800; text-transform:uppercase; font-size:11px; cursor:pointer; box-shadow: 0 4px 10px rgba(139,92,246,0.2);">📺 Play on ${s.DeviceName || s.Client}</button>`;
+                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
+                    if (activeItem.jfError) {
+                        jellyfinHtml = `<div style="background:#fee2e2; color:#ef4444; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; margin-bottom:10px; border:1px dashed #f87171; letter-spacing:0.5px;">❌ Jellyfin Connection Error</div>`;
+                    } else if (activeItem.jfChecked === false) {
+                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; margin-bottom:10px; border:1px dashed #cbd5e1; letter-spacing:0.5px;">⏳ Searching Jellyfin...</div>`;
+                    } else if (!activeItem.jellyfinId) {
+                        jellyfinHtml = `<div style="background:#f8fafc; color:#94a3b8; padding:12px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase; text-align:center; margin-bottom:10px; border:1px dashed #cbd5e1; letter-spacing:0.5px;">📁 Not Found In Jellyfin</div>`;
+                    } else if (activeItem.jfSessions && activeItem.jfSessions.length > 0) {
+                        if (activeItem.jfSessions.length === 1) {
+                            let s = activeItem.jfSessions[0];
+                            jellyfinHtml = `<button onclick="castToJellyfin('${s.Id}')" style="margin-top:0px; width:100%; background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; margin-bottom:10px; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Play on ${s.DeviceName || s.Client}</button>`;
+                        } else {
+                            let options = activeItem.jfSessions.map(s => `<option value="${s.Id}">${s.DeviceName || s.Client}</option>`).join('');
+                            jellyfinHtml = `<div style="display:flex; gap:8px; margin-bottom:10px;"><select id="jf_session_select" style="flex:1; padding:14px; border-radius:12px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 20px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Cast</button></div>`;
+                        }
                     } else {
-                        let options = activeItem.jfSessions.map(s => `<option value="${s.Id}">${s.DeviceName || s.Client}</option>`).join('');
-                        jellyfinHtml = `<div style="display:flex; gap:8px; margin-top:8px;"><select id="jf_session_select" style="flex:1; padding:10px; border-radius:8px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 14px; border-radius:8px; font-weight:800; text-transform:uppercase; font-size:11px; cursor:pointer; box-shadow: 0 4px 10px rgba(139,92,246,0.2);">📺 Cast</button></div>`;
+                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="margin-top:0px; width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; margin-bottom:10px; box-shadow: 0 4px 12px rgba(234,88,12,0.25);">📺 Wake TV & Open Jellyfin</button>`;
                     }
-                } else if (activeItem.jellyfinId) {
-                    jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="margin-top:8px; width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-weight:800; text-transform:uppercase; font-size:11px; cursor:pointer; box-shadow: 0 4px 10px rgba(234,88,12,0.2);">📺 Wake TV & Open Jellyfin</button>`;
                 }
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${jellyfinHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${jellyfinHtml}${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             } else if (activeCollection) {
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-content-frame"><h3 class="detail-heading-title" style="margin-top:40px;">${activeCollection.name}</h3><div class="movie-grid">${activeCollection.parts.map(m => `
                     <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
