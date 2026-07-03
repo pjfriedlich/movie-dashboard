@@ -143,7 +143,9 @@
         }
 
         function switchTab(targetTab) { 
-            currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); render(); 
+            currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); 
+            searchResultsData = []; // Clears search results so they don't linger across tabs
+            render(); 
             if (targetTab === 'downloads') syncQBittorrentList();
             if (targetTab === 'smarthome') fetchHAEntities();
         }
@@ -871,18 +873,29 @@
             }
             
             let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
-            let contextualFilterButtonHtml = currentTab === 'collection' || currentTab === 'smarthome' ? `<button onclick="toggleFilterPanel()" class="${configGearClassStr}"><svg style="width:24px; height:24px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>` : '';
+            let contextualFilterButtonHtml = currentTab === 'collection' ? `<button onclick="toggleFilterPanel()" class="${configGearClassStr}"><svg style="width:24px; height:24px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>` : '';
+
+            let searchContainerHtml = currentTab === 'foryou' ? `
+                <div class="search-container-box">
+                    <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
+                    <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
+                </div>
+            ` : '';
+
+            let headerHtml = '';
+            if (searchContainerHtml !== '' || contextualFilterButtonHtml !== '') {
+                headerHtml = `
+                <div class="header" style="${!searchContainerHtml ? 'border-bottom: none; padding-bottom: 0; margin-bottom: 5px;' : ''}">
+                    <div class="search-wrapper" style="${!searchContainerHtml ? 'justify-content: flex-end;' : ''}">
+                        ${searchContainerHtml}
+                        ${contextualFilterButtonHtml}
+                    </div>
+                </div>
+                `;
+            }
 
             out.innerHTML = `
-            <div class="header">
-                <div class="search-wrapper">
-                    <div class="search-container-box">
-                        <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
-                        <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
-                    </div>
-                    ${contextualFilterButtonHtml}
-                </div>
-            </div>
+            ${headerHtml}
             ${searchResultsHtml}${body}${modal}
             `;
         }
