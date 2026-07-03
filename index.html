@@ -344,11 +344,34 @@
             u = u.trim();
             if (!u.startsWith('http')) u = 'http://' + u; 
             try {
-                await fetch(`${u.replace(/\/$/, "")}/api/services/tts/google_translate_say`, {
+                let baseUrl = u.replace(/\/$/, "");
+                let headers = { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' };
+                
+                // Modern HA uses tts.speak with a specific TTS entity
+                let res = await fetch(`${baseUrl}/api/services/tts/speak`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ entity_id: entityId, message: message })
+                    headers: headers,
+                    body: JSON.stringify({ entity_id: 'tts.google_translate_en_com', media_player_entity_id: entityId, message: message })
                 });
+                
+                // Fallback if the entity ID is slightly different
+                if (!res.ok) {
+                    res = await fetch(`${baseUrl}/api/services/tts/speak`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ entity_id: 'tts.google_en_com', media_player_entity_id: entityId, message: message })
+                    });
+                }
+                
+                // Legacy fallback just in case
+                if (!res.ok) {
+                    await fetch(`${baseUrl}/api/services/tts/google_translate_say`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ entity_id: entityId, message: message })
+                    });
+                }
+                
                 showAppNotification("Message Broadcasted!");
                 document.getElementById('ha_tts_message').value = '';
             } catch(e) { showAppNotification("Failed to broadcast"); }
