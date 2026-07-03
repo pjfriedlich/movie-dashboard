@@ -322,7 +322,6 @@
                 let url = `https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tk}`;
                 let data = await (await fetch(url)).json();
                 if (data.cast) {
-                    // Sort by popularity and pick top 30
                     let sortedCast = data.cast.sort((a, b) => b.popularity - a.popularity).slice(0, 30);
                     searchResultsData = sortedCast.map(m => ({
                         isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A',
@@ -340,7 +339,6 @@
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
-                
                 if (poolType === 'search') targetObject = searchResultsData.find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'friend') targetObject = friendRowData.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'discover') targetObject = (tracks[trackName] || []).find(m => String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
@@ -353,7 +351,7 @@
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
-                if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '' }; } 
+                if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
                 
                 modalOpen = true; render();
@@ -375,7 +373,6 @@
                             let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
                             if (trailerObj) activeItem.trailerKey = trailerObj.key;
 
-                            // UPGRADED: Maps cast to an array of objects to retain unique IDs
                             if (d.credits && d.credits.cast) {
                                 activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
                             }
@@ -747,11 +744,11 @@
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                // --- UPGRADED: REWIRED CAST FIELD TO MAP HIGHLIGHTED TOUCHABLE SPANS ---
+                // --- UPGRADED: TIGHTENED UI SPACING ---
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
-                    let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join(', ');
-                    castHtml = `<div class="detail-synopsis-box" style="margin-top:-5px; margin-bottom:10px;"><h4>Cast (Tap to browse)</h4><p style="font-size:13px; color:#475569; line-height:1.5;">${castLinks}</p></div>`;
+                    let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
+                    castHtml = `<div class="detail-synopsis-box" style="margin-bottom:-10px;"><h4>Cast</h4><p style="font-size:13px; color:#475569; line-height:1.6; margin-top:4px;">${castLinks}</p></div>`;
                 }
 
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
