@@ -205,38 +205,31 @@
             } catch(e) {}
         }
 
-        // --- THE UPGRADED API FALLBACK FUNCTION ---
         async function executeToggleQueueTask(downloadHash, currentStatusStr) {
             let u = localStorage.getItem('radarr_url'); 
             if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
             
             let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
             
-            // Map the actions based on qBittorrent version requirements
             let actionV5 = isPaused ? 'start' : 'stop';
             let actionV4 = isPaused ? 'resume' : 'pause';
             let label = isPaused ? 'Started' : 'Stopped';
             
             try {
-                // Scrub the hash! Radarr sometimes adds "ClientName_" to the front.
-                // This forces it to lowercase and strips everything before an underscore.
                 let safeHash = String(downloadHash).split('_').pop().toLowerCase();
-                
                 let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
                 let body = 'hashes=' + safeHash;
                 let baseUrl = u.replace(/\/$/, "");
 
-                // Try the modern qBittorrent v5.0+ API first
                 let res = await fetch(`${baseUrl}/api/v2/torrents/${actionV5}`, { method: 'POST', headers, body });
                 
-                // If the modern endpoint doesn't exist (Error 404), fall back to the v4.x legacy API
                 if (res.status === 404) {
                     res = await fetch(`${baseUrl}/api/v2/torrents/${actionV4}`, { method: 'POST', headers, body });
                 }
                 
                 if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${label}`);
-                    setTimeout(syncQBittorrentList, 1500);
+                    setTimeout(syncQBittorrentList, 800);
                 } else {
                     showAppNotification("qBittorrent rejected: Error " + res.status);
                 }
@@ -518,6 +511,24 @@
             }).join('') + `</div></div>`;
         }
 
+        function renderTorrentCard(t, idx) {
+            let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('paused');
+            let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
+            return `
+            <div class="torrent-card" style="margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                    <div class="torrent-title" style="flex:1;">${t.name}</div>
+                    <button onclick="toggleTorrentMenu(event, ${idx})" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
+                </div>
+                <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
+                <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
+                
+                <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
+                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                </div>
+            </div>`;
+        }
+
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -583,24 +594,26 @@
             } else if (currentTab === 'foryou') {
                 body = renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tracks).map(([title, movies]) => renderRow(title, movies)).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
             } else if (currentTab === 'downloads') {
-                body = `<div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;"><h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeTorrents.length})</h2><button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button></div><hr class="section-divider">` + 
-                (activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b; font-size:13px; font-weight:600;">No active torrent transfers running.</div>` : activeTorrents.map((t, idx) => {
-                    let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('pause');
-                    let triggerLabelText = isCurrentlyPaused ? "▶️ Start" : "⏸️ Stop";
-                    return `
-                    <div class="torrent-card" style="margin-bottom:12px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                            <div class="torrent-title" style="flex:1;">${t.name}</div>
-                            <button onclick="toggleTorrentMenu(event, ${idx})" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
-                        </div>
-                        <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
-                        <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
-                        
-                        <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
-                        </div>
-                    </div>`;
-                }).join(''));
+                let activeGroup = activeTorrents.filter(t => t.speed !== 'Stopped');
+                let inactiveGroup = activeTorrents.filter(t => t.speed === 'Stopped');
+
+                let activeHtmlBlocks = activeGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px; font-weight:600;">No active transfers running.</div>` : activeGroup.map(t => renderTorrentCard(t, activeTorrents.indexOf(t))).join('');
+                let inactiveHtmlBlocks = inactiveGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No stopped or inactive transfers.</div>` : inactiveGroup.map(t => renderTorrentCard(t, activeTorrents.indexOf(t))).join('');
+
+                body = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
+                    <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeGroup.length})</h2>
+                    <button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                </div>
+                ${activeHtmlBlocks}
+                
+                <hr class="section-divider" style="margin: 32px 0 20px 0;">
+                
+                <div style="margin-bottom:16px;">
+                    <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Inactive Transfers (${inactiveGroup.length})</h2>
+                </div>
+                ${inactiveHtmlBlocks}
+                `;
             } else if (currentTab === 'settings') {
                 body = `<div class="settings-container" style="padding:4px 4px;">
                     <div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div>
@@ -618,7 +631,6 @@
                         </div>
                         <textarea id="migrationBox" placeholder="Exported data will appear here..." style="width: 100%; height: 80px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 11px;"></textarea>
                     </div>
-
                 </div>`;
             }
 
@@ -677,50 +689,44 @@
             }
         });
 
-        // UPGRADED FULL APP BACKUP FUNCTIONS
         function exportWatchedList() {
             const backupPayload = {
                 watched: JSON.parse(localStorage.getItem('custom_watched_history') || '[]'),
                 cache: JSON.parse(localStorage.getItem('local_watched_cache') || '[]'),
                 collections: JSON.parse(localStorage.getItem('my_collections_cache') || '{}')
             };
-            
             document.getElementById('migrationBox').value = JSON.stringify(backupPayload);
             document.getElementById('migrationBox').select();
-            alert('All data (Watched & Collections) exported! Copy all the text inside the box now.');
+            alert('All data exported! Copy the text inside the box now.');
         }
 
         function importWatchedList() {
             const dataToImport = document.getElementById('migrationBox').value.trim();
-            if (!dataToImport) {
-                alert('Please paste your exported data into the box first.');
-                return;
-            }
+            if (!dataToImport) return alert('Please paste data into the box first.');
             try {
                 let parsed = JSON.parse(dataToImport); 
-                
-                // Fallback for the old single-array export format
                 if (Array.isArray(parsed)) {
                     localStorage.setItem('custom_watched_history', dataToImport);
                     let cacheArr = parsed.map(m => String(m.title).toLowerCase().trim());
                     parsed.forEach(m => { if(m.tmdbId) cacheArr.push(String(m.tmdbId)); });
                     localStorage.setItem('local_watched_cache', JSON.stringify(cacheArr));
                 } else {
-                    // New comprehensive backup format
                     if (parsed.watched) localStorage.setItem('custom_watched_history', JSON.stringify(parsed.watched));
                     if (parsed.cache) localStorage.setItem('local_watched_cache', JSON.stringify(parsed.cache));
                     if (parsed.collections) localStorage.setItem('my_collections_cache', JSON.stringify(parsed.collections));
                 }
-                
-                alert('Success! All data has been imported. Refreshing the page...');
+                alert('Success! Data imported. Refreshing...');
                 location.reload();
-            } catch (e) {
-                alert('Invalid data format. Make sure you copied the exact text from the export.');
-            }
+            } catch (e) { alert('Invalid format.'); }
         }
 
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) syncRadarrLibrary();
         syncFeeds(); loadDiscoverTracks(); render();
+
+        // Automatically loop background syncs every 15 seconds
+        setInterval(() => {
+            syncQBittorrentList();
+        }, 15000);
     </script>
 </body>
 </html>
