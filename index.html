@@ -210,6 +210,25 @@
             let num = parseInt(String(val).replace(/\D/g, ""), 10);
             return isNaN(num) ? 0 : num;
         }
+
+        async function syncJfSessions() {
+            let u = localStorage.getItem('jf_url');
+            let k = localStorage.getItem('jf_key');
+            if(!u || !k) return;
+            u = u.trim().replace(/\/$/, "");
+            if(!u.startsWith('http')) u = 'http://' + u;
+            try {
+                let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`);
+                let data = await res.json();
+                let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
+                
+                let oldIds = jfActiveSessions.map(s => s.Id).join(',');
+                let newIds = filtered.map(s => s.Id).join(',');
+                
+                jfActiveSessions = filtered;
+                if(currentTab === 'smarthome' && !modalOpen && oldIds !== newIds) render();
+            } catch(e) {}
+        }
         
         async function sendTvCmd(cmd) {
             let u = localStorage.getItem('ha_url') || "";
@@ -337,7 +356,8 @@
         }
 
         async function sendHAIntercom(message, entityId) {
-            if (!message.trim()) return showAppNotification("Enter a message!");
+            message = message.trim();
+            if (!message) return showAppNotification("Enter a message!");
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
@@ -347,27 +367,38 @@
                 let baseUrl = u.replace(/\/$/, "");
                 let headers = { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' };
                 
-                showAppNotification("Broadcasting...");
+                showAppNotification('Sending: "' + message + '"');
                 
-                let res = await fetch(`${baseUrl}/api/services/tts/speak`, {
+                // Force the speaker to wake up from its Off/Idle sleep state
+                await fetch(`${baseUrl}/api/services/media_player/turn_on`, {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ entity_id: 'tts.google_translate_en_com', media_player_entity_id: entityId, message: message.trim(), cache: false })
+                    body: JSON.stringify({ entity_id: entityId })
                 });
                 
-                if (!res.ok) {
+                // Give it a split second to connect before dropping the audio file
+                await new Promise(r => setTimeout(r, 600));
+
+                let ttsEngine = haEntities.find(e => e.entity_id.startsWith('tts.'));
+                let res;
+                
+                if (ttsEngine) {
                     res = await fetch(`${baseUrl}/api/services/tts/speak`, {
                         method: 'POST',
                         headers: headers,
-                        body: JSON.stringify({ entity_id: 'tts.google_en_com', media_player_entity_id: entityId, message: message.trim(), cache: false })
+                        body: JSON.stringify({ 
+                            entity_id: ttsEngine.entity_id, 
+                            media_player_entity_id: entityId, 
+                            message: message 
+                        })
                     });
                 }
                 
-                if (!res.ok) {
+                if (!ttsEngine || !res.ok) {
                     await fetch(`${baseUrl}/api/services/tts/google_translate_say`, {
                         method: 'POST',
                         headers: headers,
-                        body: JSON.stringify({ entity_id: entityId, message: message.trim() })
+                        body: JSON.stringify({ entity_id: entityId, message: message })
                     });
                 }
                 
