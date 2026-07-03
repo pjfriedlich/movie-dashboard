@@ -86,7 +86,7 @@
         .btn-panel-disabled { width:100%; padding:15px; background:#cbd5e1; color:#64748b; border:1px solid #cbd5e1; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:not-allowed; }
         .btn-unwatch-action { position:absolute; top:20px; left:20px; background:#ef4444; border:none; color:#ffffff; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px 16px; border-radius:20px; cursor:pointer; z-index:115; box-shadow:0 4px 10px rgba(239,68,68,0.2); }
         .trailer-btn { background:#ffffff; color:#334155; border:1px solid #cbd5e1; font-size:11px; font-weight:800; text-transform:uppercase; padding:8px 14px; border-radius:8px; cursor:pointer; width:fit-content; margin-top:6px; }
-        .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-top: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-top: 12px; margin-bottom: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -118,7 +118,7 @@
         let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let openMenuHash = null; 
-        let serverDiskSpace = ""; // NEW: Global variable for storing disk space status
+        let serverDiskSpace = ""; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
@@ -174,19 +174,18 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // --- NEW: FETCH DISK SPACE FROM RADARR API ---
         async function fetchDiskSpace() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/diskspace?apiKey=${k}`);
                 let data = await res.json();
                 if(data && data.length > 0) {
-                    let main = data[0]; // Gets the primary root folder storage
+                    let main = data[0]; 
                     let freeGB = (main.freeSpace / 1073741824).toFixed(1);
                     let totalGB = (main.totalSpace / 1073741824).toFixed(1);
                     let pct = Math.round(((main.totalSpace - main.freeSpace) / main.totalSpace) * 100);
                     serverDiskSpace = `💾 Storage: ${freeGB} GB Free / ${totalGB} GB (${pct}% Used)`;
-                    if (currentTab === 'downloads') render(); // Quietly refresh UI if on the downloads tab
+                    if (currentTab === 'downloads') render(); 
                 }
             } catch(e){}
         }
@@ -292,7 +291,6 @@
             } catch (e) { showAppNotification("Connection Error"); }
         }
 
-        // --- UPGRADED: TMDB MULTI-SEARCH (ACTORS, COMEDIANS, DIRECTORS) ---
         async function triggerUniversalSearch(queryText) {
             let tk = localStorage.getItem('tmdb_key'); if (!queryText.trim() || !tk) { searchResultsData = []; render(); return; }
             try {
@@ -318,7 +316,6 @@
             render();
         }
 
-        // --- NEW: FETCH ACTOR/DIRECTOR FILMOGRAPHY ---
         async function fetchPersonCredits(personId, personName) {
             let tk = localStorage.getItem('tmdb_key'); if (!tk) return;
             try {
@@ -353,14 +350,14 @@
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '' }; } 
-                else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; }
+                else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
                 
                 modalOpen = true; render();
                 
                 let tk = localStorage.getItem('tmdb_key');
                 if (tk && activeItem && activeItem.tmdbId) {
-                    // UPGRADED: Added &append_to_response=videos to fetch trailers simultaneously
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}&append_to_response=videos`)
+                    // UPGRADED API CALL: Fetching videos AND credits in a single query
+                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk}&append_to_response=videos,credits`)
                     .then(res => res.json())
                     .then(d => {
                         if (d && modalOpen && activeItem.tmdbId === d.id) { 
@@ -372,9 +369,13 @@
                             }
                             if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                             
-                            // Check for official YouTube trailer
                             let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
                             if (trailerObj) activeItem.trailerKey = trailerObj.key;
+
+                            // Extract the top 10 cast members
+                            if (d.credits && d.credits.cast) {
+                                activeItem.cast = d.credits.cast.slice(0, 10).map(c => c.name).join(', ');
+                            }
                             
                             render(); 
                         }
@@ -725,11 +726,9 @@
                 </div>`;
             }
 
-            // --- UPGRADED: SEARCH RESULTS NOW FLAG PEOPLE ---
             let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="${m.isPerson ? 'person' : 'search'}" data-id="${m.tmdbId || m.title}" data-name="${m.title.replace(/"/g, '&quot;')}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.isPerson ? '👤 ' : ''}${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
             
             if (modalOpen && activeItem) {
-                let displayTmdbScore = activeItem.vote_average || activeItem.rating || '7.4';
                 let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
                 let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary">Add to Radarr</button>`;
                 
@@ -739,14 +738,17 @@
                 let watchButtonHtml = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-panel-primary" style="background: #ef4444;">Remove From Watched</button>` : `<button onclick="executeToggleWatched()" class="btn-panel-primary">Mark Watched</button>`;
                 let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn" style="width:100%; text-align:center;">View Collection: ${activeItem.collection.name}</button>` : '';
                 
-                // --- NEW: YOUTUBE TRAILER AUTO-PLAY BUTTON ---
-                let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="width:100%; text-align:center; background:#0f172a; color:#ffffff; border:none; padding:12px; border-radius:12px; margin-bottom:8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">▶️ Play Trailer</button>` : '';
+                // --- UPGRADED: RESTYLED TRAILER BUTTON ---
+                let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" style="width:100%; text-align:center; background:#ffffff; color:#ea580c; border:2px solid #ea580c; padding:12px; border-radius:12px; margin-bottom:8px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; box-shadow: 0 4px 10px rgba(234,88,12,0.15); cursor:pointer;">▶️ Play Trailer</button>` : '';
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 let friendLabelHtml = activeItem.friend ? `<div style="font-size:11px; color:#ea580c; font-weight:700; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">👋 From ${activeItem.friend}</div>` : '';
 
-                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div><div class="detail-metrics-rack"><div class="metric-pill">⭐ TMDB: <span>${displayTmdbScore}</span></div></div><div class="detail-metrics-rack" style="margin-top:-12px;"><div class="metric-pill"><span style="color:#64748b;">Independent Watch Logger Active</span></div></div><div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
+                // --- NEW: CAST HTML INJECTED DIRECTLY ABOVE SUMMARY ---
+                let castHtml = activeItem.cast ? `<div class="detail-synopsis-box" style="margin-top:-5px; margin-bottom:10px;"><h4>Cast</h4><p style="font-size:13px; color:#475569;">${activeItem.cast}</p></div>` : '';
+
+                modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-hero-backdrop" style="${activeItem.backdrop_path ? `background-image:url('${activeItem.backdrop_path}');` : `background:#cbd5e1;`}"></div><div class="detail-content-frame"><div class="detail-main-row"><div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div><div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><div class="detail-sub-specs">${displaySpecsYear}</div>${friendLabelHtml}</div></div>${trailerBtnHtml}${collectionButton}<div id="modal-trailer-frame-box" class="trailer-video-box"></div>${castHtml}<div class="detail-synopsis-box"><h4>Summary</h4><p>${activeItem.overview || 'No overview available.'}</p></div><div class="detail-footer-actions">${watchButtonHtml}${radarrButtonHtml}</div></div></div>`;
             } else if (activeCollection) {
                 modal = `<div class="modal-overlay"><div class="detail-close-trigger" onclick="closeM()">×</div><div class="detail-content-frame"><h3 class="detail-heading-title" style="margin-top:40px;">${activeCollection.name}</h3><div class="movie-grid">${activeCollection.parts.map(m => `
                     <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
@@ -772,14 +774,12 @@
             `;
         }
 
-        // --- UPGRADED: HANDLES PERSON CLICKS AND MENU CLOSES ---
         document.addEventListener('click', function (e) {
             let triggerCard = e.target.closest('.movie-trigger');
             if (triggerCard) {
                 e.preventDefault();
                 let pool = triggerCard.getAttribute('data-pool');
                 if (pool === 'person') {
-                    // Fetch their filmography if they tapped a person card
                     fetchPersonCredits(triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-name'));
                 } else {
                     launchModalFromAttributes(
@@ -827,11 +827,10 @@
 
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) {
             syncRadarrLibrary();
-            fetchDiskSpace(); // Fetch storage stats on load
+            fetchDiskSpace();
         }
         syncFeeds(); loadDiscoverTracks(); render();
 
-        // Interval checks queue every 3 seconds, and disk space every 15 seconds
         let tickCount = 0;
         setInterval(() => {
             syncQBittorrentList();
