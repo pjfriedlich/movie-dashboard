@@ -214,18 +214,20 @@
             let label = isPaused ? 'Started' : 'Stopped';
             
             try {
-                // Talk directly to qBittorrent through the new API v2 proxy bridge!
+                // Force lowercase hash for qBittorrent API compatibility
+                let safeHash = String(downloadHash).toLowerCase();
+                
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/v2/torrents/${action}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'hashes=' + downloadHash
+                    body: 'hashes=' + safeHash
                 });
                 
                 if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${label}`);
                     setTimeout(syncQBittorrentList, 1500);
                 } else {
-                    showAppNotification("qBittorrent rejected the action.");
+                    showAppNotification("qBittorrent rejected: Error " + res.status);
                 }
             } catch (e) {
                 showAppNotification("Connection Error");
