@@ -115,7 +115,6 @@
         </button>
     </div>
     <script>
-        // Automatic setup for your HA Config
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
 
@@ -185,28 +184,37 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // --- SMART HOME FUNCTIONS ---
+        // --- UPGRADED DIAGNOSTIC HA FETCH ---
         async function fetchHAEntities() {
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, {
                     headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' }
                 });
+                if (!res.ok) {
+                    showAppNotification(`HA Error: ${res.status} (Check Token)`);
+                    return;
+                }
                 let data = await res.json();
                 if (Array.isArray(data)) {
                     haEntities = data;
                     localStorage.setItem('ha_entities', JSON.stringify(haEntities));
                     if(currentTab === 'smarthome') render();
                 }
-            } catch(e) { console.error("HA Fetch Error", e); }
+            } catch(e) { 
+                console.error("HA Fetch Error", e);
+                showAppNotification("HA Connection Blocked (Check CORS/URL)");
+            }
         }
 
         async function toggleHAEntity(entityId, domain) {
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 await fetch(`${u.replace(/\/$/, "")}/api/services/${domain}/toggle`, {
                     method: 'POST',
@@ -229,6 +237,7 @@
             let u = localStorage.getItem('ha_url');
             let k = localStorage.getItem('ha_key');
             if (!u || !k) return;
+            if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 await fetch(`${u.replace(/\/$/, "")}/api/services/tts/google_translate_say`, {
                     method: 'POST',
@@ -291,7 +300,7 @@
                     });
                 }
                 if (currentTab === 'downloads' || currentTab === 'collection') render();
-            } catch(e) { console.error("Direct qBT Sync Error", e); }
+            } catch(e) {}
         }
 
         async function executeToggleQueueTask(downloadHash, currentStatusStr) {
@@ -748,7 +757,6 @@
                 }
                 body = inlineCollapsibleFilterHtml + staticMainTabsHtml + bodyContent;
             
-            // --- NEW: SMART HOME TAB RENDER ---
             } else if (currentTab === 'smarthome') {
                 let lights = haEntities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
                 let speakers = haEntities.filter(e => e.entity_id.startsWith('media_player.'));
