@@ -218,7 +218,10 @@
             let label = isPaused ? 'Started' : 'Stopped';
             
             try {
-                let safeHash = String(downloadHash).toLowerCase();
+                // Scrub the hash! Radarr sometimes adds "ClientName_" to the front.
+                // This forces it to lowercase and strips everything before an underscore.
+                let safeHash = String(downloadHash).split('_').pop().toLowerCase();
+                
                 let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
                 let body = 'hashes=' + safeHash;
                 let baseUrl = u.replace(/\/$/, "");
