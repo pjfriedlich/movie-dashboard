@@ -437,14 +437,37 @@
         async function syncFeeds() {       
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
+            
             for (let l of arr) {
                 let user = l.trim().replace(/\/$/, ""); if (!user) continue;
                 if (user.includes('letterboxd.com/')) user = user.split('letterboxd.com/')[1];
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
+                
                 try {
-                    let targetUrl = "https://letterboxd.com/" + user + "/rss/?_cb=" + new Date().getTime();
-                    let res = await fetch("https://corsproxy.io/?" + encodeURIComponent(targetUrl));
-                    let textXml = await res.text(); if (!textXml || textXml.trim() === '') continue;
+                    let targetUrl = "https://letterboxd.com/" + user + "/rss/";
+                    let textXml = "";
+                    
+                    // Proxy Bypass 1: CodeTabs (Fastest)
+                    try {
+                        let r1 = await fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl));
+                        if (r1.ok) textXml = await r1.text();
+                        else throw new Error('CodeTabs blocked');
+                    } catch(e1) {
+                        // Proxy Bypass 2: AllOrigins JSON (Stealthier)
+                        try {
+                            let r2 = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl));
+                            let d2 = await r2.json();
+                            if (d2.contents) textXml = d2.contents;
+                            else throw new Error('AllOrigins blocked');
+                        } catch(e2) {
+                            console.error("Letterboxd blocked feed access for user: " + user);
+                            continue;
+                        }
+                    }
+
+                    // Failsafe check
+                    if (!textXml || !textXml.includes('<item>')) continue;
+                    
                     let items = new DOMParser().parseFromString(textXml, "text/xml").getElementsByTagName("item");
                     for (let i = 0; i < Math.min(items.length, 25); i++) {
                         let t = (items[i].getElementsByTagName("title")[0]?.textContent || '').split(' - ')[0];
@@ -452,6 +475,8 @@
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
                             let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user };
                             blended.push(itemObj);
+                            
+                            // Fetch TMDB Metadata in the background
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
                                 fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(cleanQuery)}`)
@@ -460,7 +485,7 @@
                                             itemObj.tmdbId = s.results[0].id; 
                                             itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
                                             itemObj.overview = s.results[0].overview || ''; 
-                                            if(s.results[0].release_date) {
+                                            if (s.results[0].release_date) {
                                                 let y = String(s.results[0].release_date.substring(0,4));
                                                 itemObj.realYear = y;
                                                 itemObj.year = y;
@@ -473,8 +498,15 @@
                     }
                 } catch(e) {}
             }
-            for (let i = blended.length - 1; i > 0; i--) { let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; blended[i] = blended[j]; blended[j] = temp; }
-            friendRowData = blended; render();
+            
+            // Randomize the feed order so it feels organic
+            for (let i = blended.length - 1; i > 0; i--) { 
+                let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; 
+                blended[i] = blended[j]; 
+                blended[j] = temp; 
+            }
+            friendRowData = blended; 
+            render();
         }
 
         function renderRow(title, movies, isFriend = false, pool = 'discover') {
@@ -580,7 +612,6 @@
                     <hr class="section-divider">
                     <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button>
                     
-                    <!-- FULL APP BACKUP BUTTONS -->
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
