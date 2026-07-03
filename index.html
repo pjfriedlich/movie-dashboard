@@ -205,26 +205,27 @@
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(queueId, currentStatusStr) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); 
-            if (!u || !k || !queueId) return showAppNotification("Verify Radarr Settings!");
+        async function executeToggleQueueTask(downloadHash, currentStatusStr) {
+            let u = localStorage.getItem('radarr_url'); 
+            if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
             
             let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
             let action = isPaused ? 'resume' : 'pause';
             let label = isPaused ? 'Started' : 'Stopped';
             
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/v3/queue/${action}?apiKey=${k}`, {
+                // Talk directly to qBittorrent through the new API v2 proxy bridge!
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/v2/torrents/${action}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ queueItemIds: [parseInt(queueId)] })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'hashes=' + downloadHash
                 });
                 
                 if (res.status === 200 || res.status === 201) {
                     showAppNotification(`Transfer ${label}`);
-                    setTimeout(syncQBittorrentList, 1000);
+                    setTimeout(syncQBittorrentList, 1500);
                 } else {
-                    showAppNotification("Radarr rejected the action.");
+                    showAppNotification("qBittorrent rejected the action.");
                 }
             } catch (e) {
                 showAppNotification("Connection Error");
@@ -444,7 +445,6 @@
                 user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
                 
                 try {
-                    // Use RSS2JSON API instead of a raw CORS proxy to guarantee delivery and avoid Cloudflare blocks
                     let targetUrl = "https://letterboxd.com/" + user + "/rss/";
                     let res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(targetUrl));
                     let data = await res.json();
@@ -461,7 +461,6 @@
                             let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user };
                             blended.push(itemObj);
                             
-                            // Fetch TMDB Metadata in the background
                             if (tk) {
                                 let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
                                 fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk}&query=${encodeURIComponent(cleanQuery)}`)
@@ -486,7 +485,6 @@
                 }
             }
             
-            // Randomize the feed order so it feels organic
             for (let i = blended.length - 1; i > 0; i--) { 
                 let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; 
                 blended[i] = blended[j]; 
@@ -586,7 +584,7 @@
                         <div class="torrent-meta"><span>⚙️ State: ${t.speed} (${t.progress}%)</span><span>${t.status}</span></div>
                         
                         <div id="torrent-menu-${idx}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%;">
-                            <button onclick="executeToggleQueueTask('${t.queueId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
+                            <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}'); document.getElementById('torrent-menu-${idx}').style.display='none';" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
                         </div>
                     </div>`;
                 }).join(''));
@@ -599,7 +597,6 @@
                     <hr class="section-divider">
                     <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList();" class="btn-action">Save Settings</button>
                     
-                    <!-- FULL APP BACKUP BUTTONS -->
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
