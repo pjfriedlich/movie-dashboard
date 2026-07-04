@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=2">
+    <link rel="manifest" href="manifest.json?v=3">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -97,19 +97,20 @@
         .card-content { padding: 0 16px 16px 16px; display: none; }
         .card-content.open { display: block; }
         
-        /* FULL GRID CALENDAR STYLES */
+        /* COMPACT GRID CALENDAR STYLES */
         .calendar-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding: 0 4px; }
         .calendar-nav-btn { border:none; background:none; font-size:18px; cursor:pointer; font-weight:bold; color:#94a3b8; padding:4px 8px; }
         .calendar-nav-btn:active { color:#f97316; }
         .calendar-nav-title { margin:0; font-size:13px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #cbd5e1; border-radius: 12px; overflow: hidden; margin-top: 4px; border: 1px solid #cbd5e1; }
         .calendar-header-day { background: #f8fafc; padding: 8px 0; text-align: center; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
-        .calendar-cell { background: #ffffff; min-height: 65px; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+        .calendar-cell { background: #ffffff; height: 80px; padding: 2px 4px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+        .calendar-cell::-webkit-scrollbar { display: none; }
         .inactive-cell { background: #f1f5f9; }
         .inactive-cell .calendar-date { color: #94a3b8; }
         .today-cell .calendar-date { background: #ea580c; color: #ffffff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; }
-        .calendar-date { font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px; line-height: 1; align-self: flex-start; padding-left: 2px; }
-        .calendar-event { font-size: 8px; font-weight: 800; padding: 3px 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px; line-height: 1.1; }
+        .calendar-date { font-size: 10px; font-weight: 800; color: #0f172a; margin-bottom: 2px; line-height: 1; align-self: flex-start; }
+        .calendar-event { font-size: 8px; font-weight: 800; padding: 3px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 1px; flex-shrink: 0; }
 
         .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 12px 0 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
@@ -226,7 +227,7 @@
                     }
 
                     if (isMatch) {
-                        dayEventsHTML += `<div class="calendar-event" style="background:${ev.color}; color:${ev.textColor || '#fff'};">${ev.title}</div>`;
+                        dayEventsHTML += `<div class="calendar-event" style="background:${ev.color}; color:${ev.textColor || '#ffffff'};">${ev.title}</div>`;
                     }
                 });
 
@@ -363,6 +364,17 @@
                 { type: 'Holiday', title: 'Independence Day', start: '2026-07-03', end: '2026-07-04', color: '#a7f3d0', textColor: '#065f46' }
             ];
 
+            let seriesMap = {};
+            if (sUrl && sKey) {
+                try {
+                    let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`);
+                    let sData = await sRes.json();
+                    if (Array.isArray(sData)) {
+                        sData.forEach(s => seriesMap[s.id] = s.title);
+                    }
+                } catch(e) {}
+            }
+
             if (rUrl && rKey) {
                 try {
                     let res = await fetch(`${rUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${rKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
@@ -382,11 +394,41 @@
                     let res = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${sKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
                     let eps = await res.json();
                     if (Array.isArray(eps)) {
+                        let sonarrGroups = {};
                         eps.forEach(e => {
                             let dt = new Date(e.airDateUtc || e.airDate);
-                            let sName = e.seriesTitle || (e.series ? e.series.title : 'Unknown Series');
-                            let shortTitle = `📺 ${sName} S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')}`;
-                            newEvents.push({ type: 'TV', title: shortTitle, date: dt, color: '#10b981' });
+                            let dateStr = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+                            let sId = e.seriesId || 0;
+                            let key = `${dateStr}_${sId}`;
+                            
+                            if (!sonarrGroups[key]) {
+                                let fallbackName = (e.series && e.series.title) ? e.series.title : 'Unknown Series';
+                                sonarrGroups[key] = {
+                                    date: dt,
+                                    seriesTitle: seriesMap[sId] || fallbackName,
+                                    episodes: []
+                                };
+                            }
+                            sonarrGroups[key].episodes.push(e);
+                        });
+
+                        Object.values(sonarrGroups).forEach(group => {
+                            group.episodes.sort((a,b) => (a.seasonNumber - b.seasonNumber) || (a.episodeNumber - b.episodeNumber));
+                            let epText = '';
+                            
+                            if (group.episodes.length === 1) {
+                                let ep = group.episodes[0];
+                                epText = `S${String(ep.seasonNumber).padStart(2,'0')}E${String(ep.episodeNumber).padStart(2,'0')}`;
+                            } else {
+                                let first = group.episodes[0];
+                                let last = group.episodes[group.episodes.length-1];
+                                if (first.seasonNumber === last.seasonNumber) {
+                                    epText = `S${String(first.seasonNumber).padStart(2,'0')}E${String(first.episodeNumber).padStart(2,'0')}-E${String(last.episodeNumber).padStart(2,'0')}`;
+                                } else {
+                                    epText = `${group.episodes.length} Eps`;
+                                }
+                            }
+                            newEvents.push({ type: 'TV', title: `📺 ${group.seriesTitle} ${epText}`, date: group.date, color: '#10b981' });
                         });
                     }
                 } catch(e) {}
