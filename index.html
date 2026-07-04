@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=2">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -97,6 +97,16 @@
         .card-content { padding: 0 16px 16px 16px; display: none; }
         .card-content.open { display: block; }
         
+        /* CALENDAR / AGENDA STYLES */
+        .agenda-item { display:flex; align-items:center; border-bottom:1px solid #e2e8f0; padding:12px 0; gap:12px; }
+        .agenda-item:last-child { border-bottom:none; padding-bottom:4px; }
+        .agenda-date-box { display:flex; flex-direction:column; align-items:center; justify-content:center; width:45px; flex-shrink:0; }
+        .agenda-month { font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+        .agenda-day { font-size:18px; font-weight:800; color:#0f172a; line-height:1.1; margin-top:2px; }
+        .agenda-details { display:flex; flex-direction:column; flex:1; min-width:0; }
+        .agenda-title { font-size:13px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .agenda-badge { font-size:9px; font-weight:800; text-transform:uppercase; padding:3px 6px; border-radius:6px; color:#fff; display:inline-block; width:fit-content; margin-bottom:4px; letter-spacing:0.5px;}
+
         .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 12px 0 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
         .dpad-btn:active { background:#e2e8f0; transform:scale(0.95); }
@@ -143,6 +153,7 @@
         let remoteExpanded = localStorage.getItem('app_remote_expanded') !== 'false'; 
         let intercomExpanded = localStorage.getItem('app_intercom_expanded') !== 'false';
         let lightsExpanded = localStorage.getItem('app_lights_expanded') !== 'false';
+        let calendarExpanded = localStorage.getItem('app_calendar_expanded') !== 'false';
         
         let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
@@ -156,6 +167,7 @@
         
         let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
         let jfActiveSessions = [];
+        let calendarEvents = [];
 
         function showAppNotification(messageText) {
             const toastEl = document.getElementById('app-toast-banner');
@@ -170,7 +182,7 @@
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncQBittorrentList();
-            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); }
+            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         
@@ -195,6 +207,12 @@
         function toggleLightsPanel() {
             lightsExpanded = !lightsExpanded;
             localStorage.setItem('app_lights_expanded', lightsExpanded);
+            render();
+        }
+        
+        function toggleCalendarPanel() {
+            calendarExpanded = !calendarExpanded;
+            localStorage.setItem('app_calendar_expanded', calendarExpanded);
             render();
         }
 
@@ -244,6 +262,57 @@
                 jfActiveSessions = filtered;
                 if(currentTab === 'smarthome' && !modalOpen && oldIds !== newIds) render();
             } catch(e) {}
+        }
+        
+        async function fetchMediaCalendars() {
+            let rUrl = localStorage.getItem('radarr_url');
+            let rKey = localStorage.getItem('radarr_key');
+            let sUrl = localStorage.getItem('sonarr_url');
+            let sKey = localStorage.getItem('sonarr_key');
+            
+            let d = new Date();
+            let startStr = d.toISOString().split('T')[0];
+            let dEnd = new Date();
+            dEnd.setDate(dEnd.getDate() + 30); 
+            let endStr = dEnd.toISOString().split('T')[0];
+
+            let newEvents = [];
+            let today = new Date(); today.setHours(0,0,0,0);
+
+            if (rUrl && rKey) {
+                try {
+                    let res = await fetch(`${rUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${rKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
+                    let movies = await res.json();
+                    if (Array.isArray(movies)) {
+                        movies.forEach(m => {
+                            if (m.inCinemas) { let dt = new Date(m.inCinemas); if(dt >= today) newEvents.push({ type: '🍿 Theatrical', title: m.title, date: dt, color: '#f59e0b' }); }
+                            if (m.digitalRelease) { let dt = new Date(m.digitalRelease); if(dt >= today) newEvents.push({ type: '💻 Digital', title: m.title, date: dt, color: '#3b82f6' }); }
+                            if (m.physicalRelease) { let dt = new Date(m.physicalRelease); if(dt >= today) newEvents.push({ type: '💿 Physical', title: m.title, date: dt, color: '#8b5cf6' }); }
+                        });
+                    }
+                } catch(e) {}
+            }
+
+            if (sUrl && sKey) {
+                try {
+                    let res = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${sKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
+                    let eps = await res.json();
+                    if (Array.isArray(eps)) {
+                        eps.forEach(e => {
+                            let dt = new Date(e.airDateUtc || e.airDate);
+                            if (dt >= today) {
+                                let sName = e.series ? e.series.title : 'Show';
+                                let net = e.series && e.series.network ? ` (${e.series.network})` : '';
+                                newEvents.push({ type: `📺 TV${net}`, title: `${sName} - S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')}`, date: dt, color: '#10b981' });
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }
+
+            newEvents.sort((a, b) => a.date - b.date);
+            calendarEvents = newEvents;
+            if (currentTab === 'smarthome' && !modalOpen) render();
         }
         
         async function sendTvCmd(cmd) {
@@ -1070,11 +1139,51 @@
                     </div>
                 `;
 
+                let calendarContentDisplay = calendarExpanded ? 'block' : 'none';
+                let calendarChevron = calendarExpanded ? '▲' : '▼';
+                
+                let calendarHtmlList = '';
+                if (!calendarEvents || calendarEvents.length === 0) {
+                    calendarHtmlList = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px; font-weight:600;">No upcoming releases or airings in the next 30 days.</div>`;
+                } else {
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    calendarHtmlList = calendarEvents.map(ev => {
+                        let mName = monthNames[ev.date.getMonth()];
+                        let dNum = ev.date.getDate();
+                        return `
+                        <div class="agenda-item">
+                            <div class="agenda-date-box">
+                                <span class="agenda-month">${mName}</span>
+                                <span class="agenda-day">${dNum}</span>
+                            </div>
+                            <div class="agenda-details">
+                                <span class="agenda-badge" style="background:${ev.color};">${ev.type}</span>
+                                <span class="agenda-title">${ev.title}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+                
+                let calendarCardHtml = `
+                    <div class="card-box">
+                        <div class="card-header" onclick="toggleCalendarPanel()">
+                            <div class="card-header-title">
+                                <h3>Upcoming Schedule</h3>
+                            </div>
+                            <span class="card-chevron">${calendarChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${calendarContentDisplay};">
+                            ${calendarHtmlList}
+                        </div>
+                    </div>
+                `;
+
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
-                    <button onclick="fetchHAEntities(); syncJfSessions(); showAppNotification('Syncing Devices...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); showAppNotification('Syncing Devices & Schedule...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
+                ${calendarCardHtml}
                 ${tvRemoteHtml}
                 ${intercomCardHtml}
                 ${lightsCardHtml}
@@ -1110,6 +1219,8 @@
                 body = `<div class="settings-container" style="padding:4px 4px;">
                     <div class="form-group"><label>Radarr URL</label><input type="text" id="in_radarr_url" value="${localStorage.getItem('radarr_url')||''}"></div>
                     <div class="form-group"><label>Radarr Key</label><input type="password" id="in_radarr_key" value="${localStorage.getItem('radarr_key')||''}"></div>
+                    <div class="form-group"><label>Sonarr URL</label><input type="text" id="in_sonarr_url" value="${localStorage.getItem('sonarr_url')||''}"></div>
+                    <div class="form-group"><label>Sonarr Key</label><input type="password" id="in_sonarr_key" value="${localStorage.getItem('sonarr_key')||''}"></div>
                     <div class="form-group"><label>Jellyfin URL</label><input type="text" id="in_jf_url" value="${localStorage.getItem('jf_url')||''}"></div>
                     <div class="form-group"><label>Jellyfin API Key</label><input type="password" id="in_jf_key" value="${localStorage.getItem('jf_key')||''}"></div>
                     <div class="form-group"><label>Home Assistant URL</label><input type="text" id="in_ha_url" value="${localStorage.getItem('ha_url')||''}"></div>
@@ -1118,7 +1229,7 @@
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -1300,6 +1411,7 @@
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) {
             syncRadarrLibrary();
             fetchDiskSpace();
+            fetchMediaCalendars();
         }
         if(localStorage.getItem('ha_key')) {
             fetchHAEntities();
@@ -1312,6 +1424,7 @@
             if (currentTab === 'smarthome') syncJfSessions();
             tickCount++;
             if (tickCount % 5 === 0) fetchDiskSpace();
+            if (tickCount % 20 === 0) fetchMediaCalendars();
         }, 3000);
     </script>
 </body>
