@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=8">
+    <link rel="manifest" href="manifest.json?v=9">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -521,7 +521,7 @@
             let jfKey = localStorage.getItem('jf_key') || "";
             jfKey = jfKey.trim();
             try {
-                let res = await fetch(`${u}/Sessions/${sessionId}/Playing?ItemIds=${activeItem.jellyfinId}&PlayCommand=PlayNow&api_key=${jfKey}`, {
+                let res = await fetch(`${jfUrl}/Sessions/${sessionId}/Playing?ItemIds=${activeItem.jellyfinId}&PlayCommand=PlayNow&api_key=${jfKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -1363,9 +1363,9 @@
                         <div class="card-header" onclick="toggleRemotePanel()">
                             <div class="card-header-title">
                                 <h3>TV Remote (${tvName})</h3>
-                                <span class="card-chevron">${remoteChevron}</span>
+                                <button onclick="event.stopPropagation(); wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">WAKE TV</button>
                             </div>
-                            <button onclick="event.stopPropagation(); wakeTvAndLaunchJellyfin();" style="background:none; border:none; color:#ea580c; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">Wake TV</button>
+                            <span class="card-chevron">${remoteChevron}</span>
                         </div>
                         
                         <div class="card-content" style="display:${remoteContentDisplay};">
@@ -1540,7 +1540,7 @@
                             jellyfinHtml = `<div style="display:flex; gap:10px; width:100%; box-sizing:border-box;"><select id="jf_session_select" style="flex:1; padding:15px; border-radius:12px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc; font-size:12px;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 24px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Cast</button></div>`;
                         }
                     } else {
-                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
+                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
                     }
                 }
 
