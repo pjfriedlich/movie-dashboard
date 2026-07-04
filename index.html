@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=3">
+    <link rel="manifest" href="manifest.json?v=4">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -110,7 +110,8 @@
         .inactive-cell .calendar-date { color: #94a3b8; }
         .today-cell .calendar-date { background: #ea580c; color: #ffffff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; }
         .calendar-date { font-size: 10px; font-weight: 800; color: #0f172a; margin-bottom: 2px; line-height: 1; align-self: flex-start; }
-        .calendar-event { font-size: 8px; font-weight: 800; padding: 3px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 1px; flex-shrink: 0; }
+        .calendar-event { cursor: pointer; font-size: 8px; font-weight: 800; padding: 3px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 1px; flex-shrink: 0; transition: all 0.1s ease; }
+        .calendar-event:active { transform: scale(0.95); opacity: 0.8; }
 
         .dpad-grid { display:grid; grid-template-columns: 65px 65px 65px; grid-gap: 8px; justify-content:center; margin: 12px 0 24px 0; }
         .dpad-btn { width:65px; height:65px; border-radius:50%; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:all 0.1s ease; }
@@ -227,7 +228,7 @@
                     }
 
                     if (isMatch) {
-                        dayEventsHTML += `<div class="calendar-event" style="background:${ev.color}; color:${ev.textColor || '#ffffff'};">${ev.title}</div>`;
+                        dayEventsHTML += `<div class="calendar-event movie-trigger" data-pool="calendar" data-id="${ev.id}" style="background:${ev.color}; color:${ev.textColor || '#ffffff'};">${ev.title}</div>`;
                     }
                 });
 
@@ -355,22 +356,15 @@
             let dEnd = new Date(); dEnd.setMonth(dEnd.getMonth() + 3);
             let endStr = dEnd.getFullYear() + '-' + String(dEnd.getMonth() + 1).padStart(2,'0') + '-01';
 
-            let newEvents = [
-                { type: 'Personal', title: 'Abby Time', start: '2026-07-03', end: '2026-07-10', color: '#fde68a', textColor: '#92400e' },
-                { type: 'Personal', title: 'Abby Time', start: '2026-07-17', end: '2026-07-24', color: '#fde68a', textColor: '#92400e' },
-                { type: 'Personal', title: 'Abby Time', start: '2026-07-31', end: '2026-08-01', color: '#fde68a', textColor: '#92400e' },
-                { type: 'Personal', title: 'Travel', start: '2026-06-28', end: '2026-06-28', color: '#a7f3d0', textColor: '#065f46' },
-                { type: 'Personal', title: 'Go on...', start: '2026-06-30', end: '2026-06-30', color: '#a7f3d0', textColor: '#065f46' },
-                { type: 'Holiday', title: 'Independence Day', start: '2026-07-03', end: '2026-07-04', color: '#a7f3d0', textColor: '#065f46' }
-            ];
-
+            let newEvents = [];
             let seriesMap = {};
+
             if (sUrl && sKey) {
                 try {
                     let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`);
                     let sData = await sRes.json();
                     if (Array.isArray(sData)) {
-                        sData.forEach(s => seriesMap[s.id] = s.title);
+                        sData.forEach(s => seriesMap[s.id] = s);
                     }
                 } catch(e) {}
             }
@@ -381,9 +375,12 @@
                     let movies = await res.json();
                     if (Array.isArray(movies)) {
                         movies.forEach(m => {
-                            if (m.inCinemas) { newEvents.push({ type: '🍿 Theatrical', title: `🍿 ${m.title}`, date: new Date(m.inCinemas), color: '#f59e0b' }); }
-                            if (m.digitalRelease) { newEvents.push({ type: '💻 Digital', title: `💻 ${m.title}`, date: new Date(m.digitalRelease), color: '#3b82f6' }); }
-                            if (m.physicalRelease) { newEvents.push({ type: '💿 Physical', title: `💿 ${m.title}`, date: new Date(m.physicalRelease), color: '#8b5cf6' }); }
+                            let posterObj = m.images?.find(i => i.coverType === 'poster') || m.images?.[0];
+                            let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
+                            
+                            if (m.inCinemas) { newEvents.push({ id: 'rad_'+m.id+'_c', type: '🍿 Theatrical', title: `🍿 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.inCinemas), color: '#f59e0b' }); }
+                            if (m.digitalRelease) { newEvents.push({ id: 'rad_'+m.id+'_d', type: '💻 Digital', title: `💻 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.digitalRelease), color: '#3b82f6' }); }
+                            if (m.physicalRelease) { newEvents.push({ id: 'rad_'+m.id+'_p', type: '💿 Physical', title: `💿 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.physicalRelease), color: '#8b5cf6' }); }
                         });
                     }
                 } catch(e) {}
@@ -402,10 +399,21 @@
                             let key = `${dateStr}_${sId}`;
                             
                             if (!sonarrGroups[key]) {
-                                let fallbackName = (e.series && e.series.title) ? e.series.title : 'Unknown Series';
+                                let sObj = seriesMap[sId] || e.series;
+                                let fallbackName = sObj ? (sObj.title || 'Unknown Series') : 'Unknown Series';
+                                let tmdbId = sObj ? sObj.tmdbId : null;
+                                let tvdbId = sObj ? sObj.tvdbId : null;
+                                let posterObj = sObj?.images?.find(i => i.coverType === 'poster') || sObj?.images?.[0];
+                                let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
+                                
                                 sonarrGroups[key] = {
+                                    id: 'son_'+sId+'_'+dateStr,
                                     date: dt,
-                                    seriesTitle: seriesMap[sId] || fallbackName,
+                                    seriesTitle: fallbackName,
+                                    searchTitle: fallbackName,
+                                    tmdbId: tmdbId,
+                                    tvdbId: tvdbId,
+                                    posterPath: poster,
                                     episodes: []
                                 };
                             }
@@ -428,7 +436,18 @@
                                     epText = `${group.episodes.length} Eps`;
                                 }
                             }
-                            newEvents.push({ type: 'TV', title: `📺 ${group.seriesTitle} ${epText}`, date: group.date, color: '#10b981' });
+                            newEvents.push({ 
+                                id: group.id,
+                                type: 'TV', 
+                                title: `📺 ${group.seriesTitle} ${epText}`, 
+                                searchTitle: group.seriesTitle,
+                                tmdbId: group.tmdbId,
+                                tvdbId: group.tvdbId,
+                                mediaType: 'tv',
+                                posterPath: group.posterPath,
+                                date: group.date, 
+                                color: '#10b981' 
+                            });
                         });
                     }
                 } catch(e) {}
@@ -791,6 +810,7 @@
                 }
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
+                else if (poolType === 'calendar') targetObject = calendarEvents.find(m => String(m.id) === cleanId);
                 
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
@@ -799,71 +819,83 @@
                 modalOpen = true; render();
                 
                 let tk = localStorage.getItem('tmdb_key');
-                if (tk && activeItem && activeItem.tmdbId) {
-                    fetch(`https://api.themoviedb.org/3/movie/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits`)
-                    .then(res => res.json())
-                    .then(d => {
-                        if (d && modalOpen && activeItem.tmdbId === d.id) { 
-                            activeItem.overview = d.overview || "No summary available.";
-                            activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
-                            if (d.release_date) {
-                                activeItem.realYear = d.release_date.substring(0, 4);
-                                activeItem.year = d.release_date.substring(0, 4);
-                            }
-                            if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
-                            
-                            let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
-                            if (trailerObj) activeItem.trailerKey = trailerObj.key;
+                if (tk && activeItem && (activeItem.tmdbId || activeItem.tvdbId)) {
+                    let idFetch = Promise.resolve();
+                    if (!activeItem.tmdbId && activeItem.tvdbId) {
+                        idFetch = fetch(`https://api.themoviedb.org/3/find/${activeItem.tvdbId}?api_key=${tk.trim()}&external_source=tvdb_id`)
+                            .then(r => r.json())
+                            .then(d => { if(d.tv_results && d.tv_results[0]) activeItem.tmdbId = d.tv_results[0].id; });
+                    }
+                    
+                    idFetch.then(() => {
+                        if (!activeItem.tmdbId) return;
+                        let endpoint = activeItem.mediaType === 'tv' ? 'tv' : 'movie';
+                        fetch(`https://api.themoviedb.org/3/${endpoint}/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits`)
+                        .then(res => res.json())
+                        .then(d => {
+                            if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
+                                activeItem.overview = d.overview || "No summary available.";
+                                activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
+                                let rDate = d.release_date || d.first_air_date;
+                                if (rDate) {
+                                    activeItem.realYear = rDate.substring(0, 4);
+                                    activeItem.year = rDate.substring(0, 4);
+                                }
+                                if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
+                                
+                                let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
+                                if (trailerObj) activeItem.trailerKey = trailerObj.key;
 
-                            if (d.credits && d.credits.cast) {
-                                activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
-                            }
-                            
-                            if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
-                                let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
-                                if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
-                                let jfKey = localStorage.getItem('jf_key').trim();
-                                fetch(`${jfUrl}/Items?IncludeItemTypes=Movie&Recursive=true&searchTerm=${encodeURIComponent(activeItem.title)}&api_key=${jfKey}`)
-                                .then(r => {
-                                    if(!r.ok) throw new Error(r.status);
-                                    return r.json();
-                                })
-                                .then(d => {
-                                    activeItem.jfChecked = true;
-                                    let match = d.Items && d.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
-                                    if (!match && d.Items && d.Items.length > 0) match = d.Items[0]; 
-                                    if (match) {
-                                        activeItem.jellyfinId = match.Id;
-                                        return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
-                                    } else {
+                                if (d.credits && d.credits.cast) {
+                                    activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
+                                }
+                                
+                                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
+                                    let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
+                                    if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                                    let jfKey = localStorage.getItem('jf_key').trim();
+                                    fetch(`${jfUrl}/Items?IncludeItemTypes=Movie,Series&Recursive=true&searchTerm=${encodeURIComponent(activeItem.searchTitle || activeItem.title)}&api_key=${jfKey}`)
+                                    .then(r => {
+                                        if(!r.ok) throw new Error(r.status);
+                                        return r.json();
+                                    })
+                                    .then(jfData => {
+                                        activeItem.jfChecked = true;
+                                        let match = jfData.Items && jfData.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
+                                        if (!match && jfData.Items && jfData.Items.length > 0) match = jfData.Items[0]; 
+                                        if (match) {
+                                            activeItem.jellyfinId = match.Id;
+                                            return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
+                                        } else {
+                                            render();
+                                        }
+                                    })
+                                    .then(r => {
+                                        if (r && !r.ok) throw new Error(r.status);
+                                        return r ? r.json() : null;
+                                    })
+                                    .then(sessions => {
+                                        if (sessions && modalOpen) {
+                                            activeItem.jfSessions = sessions.filter(s => {
+                                                let client = (s.Client || '').toLowerCase();
+                                                let device = (s.DeviceName || '').toLowerCase();
+                                                return !client.includes('server') && !client.includes('web') && !device.includes('server');
+                                            });
+                                            render();
+                                        }
+                                    }).catch(e => {
+                                        console.error("Jellyfin Error", e);
+                                        activeItem.jfChecked = true;
+                                        activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
                                         render();
-                                    }
-                                })
-                                .then(r => {
-                                    if (r && !r.ok) throw new Error(r.status);
-                                    return r ? r.json() : null;
-                                })
-                                .then(sessions => {
-                                    if (sessions && modalOpen) {
-                                        activeItem.jfSessions = sessions.filter(s => {
-                                            let client = (s.Client || '').toLowerCase();
-                                            let device = (s.DeviceName || '').toLowerCase();
-                                            return !client.includes('server') && !client.includes('web') && !device.includes('server');
-                                        });
-                                        render();
-                                    }
-                                }).catch(e => {
-                                    console.error("Jellyfin Error", e);
-                                    activeItem.jfChecked = true;
-                                    activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
-                                    render();
-                                });
-                            } else {
-                                render(); 
+                                    });
+                                } else {
+                                    render(); 
+                                }
                             }
-                        }
-                    })
-                    .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; render(); }});
+                        })
+                        .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; render(); }});
+                    });
                 }
             } catch (e) { console.error("Modal Launch Error:", e); }
         }
