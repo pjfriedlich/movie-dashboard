@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=10">
+    <link rel="manifest" href="manifest.json?v=11">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -262,7 +262,7 @@
             currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); 
             searchResultsData = []; 
             render(); 
-            if (targetTab === 'downloads') syncQBittorrentList();
+            if (targetTab === 'downloads') syncDownloadQueue();
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
@@ -650,105 +650,68 @@
             } catch(e){}
         }
 
-        async function syncQBittorrentList() {
-            let u = localStorage.getItem('radarr_url'); if (!u) return;
+        async function syncDownloadQueue() {
+            let rUrl = localStorage.getItem('radarr_url'); let rKey = localStorage.getItem('radarr_key');
+            let sUrl = localStorage.getItem('sonarr_url'); let sKey = localStorage.getItem('sonarr_key');
+            let combinedQueue = [];
+
             try {
-                let baseUrl = u.trim().replace(/\/$/, "");
-                let res = await fetch(`${baseUrl}/api/v2/torrents/info`);
-                let list = await res.json();
-                
-                if (Array.isArray(list)) {
-                    activeTorrents = list.map(t => {
-                        let stateStr = String(t.state || '').toLowerCase();
-                        let triggerState = "Downloading";
-                        if (stateStr.includes('pause') || stateStr.includes('stop')) triggerState = "Stopped";
-                        else if (stateStr.includes('up') || stateStr.includes('complete')) triggerState = "Seeding";
-                        else if (stateStr.includes('check') || stateStr.includes('alloc')) triggerState = "Checking";
-                        else if (stateStr.includes('error') || stateStr.includes('missing')) triggerState = "Error";
-
-                        let progressPct = (t.progress * 100).toFixed(1);
-                        let sizeGB = (t.size / 1073741824).toFixed(2);
-                        let speedMB = (t.dlspeed / 1048576).toFixed(1);
-                        
-                        let etaStr = "Finished";
-                        if (triggerState === "Downloading") {
-                            if (t.eta < 8640000 && t.eta > 0) { 
-                                let mins = Math.round(t.eta / 60);
-                                etaStr = mins > 60 ? Math.floor(mins/60) + "h " + (mins%60) + "m" : mins + "m left";
-                            } else { etaStr = "Stalled"; }
-                        } else if (triggerState === "Stopped") { etaStr = "Paused"; }
-
-                        return {
-                            downloadId: t.hash, name: t.name, progress: progressPct, size: sizeGB,
-                            speedLabel: speedMB > 0.0 ? `${speedMB} MB/s` : '', speed: triggerState, status: etaStr, rawStatus: stateStr
-                        };
-                    });
+                if (rUrl && rKey) {
+                    let res = await fetch(`${rUrl.trim().replace(/\/$/, "")}/api/v3/queue?apiKey=${rKey.trim()}`);
+                    let data = await res.json();
+                    if (data.records) {
+                        data.records.forEach(q => {
+                            combinedQueue.push({
+                                id: q.id,
+                                type: 'radarr',
+                                name: q.title || (q.movie ? q.movie.title : 'Unknown Movie'),
+                                progress: q.size > 0 ? (100 - ((q.sizeleft / q.size) * 100)).toFixed(1) : 0,
+                                size: (q.size / 1073741824).toFixed(2),
+                                status: q.status || q.trackedDownloadState,
+                                rawStatus: q.status,
+                                speed: q.status === 'downloading' ? 'Downloading' : (q.status === 'completed' ? 'Importing' : 'Queued'),
+                                speedLabel: q.timeleft ? q.timeleft : 'Processing...'
+                            });
+                        });
+                    }
                 }
-                if (currentTab === 'downloads' || currentTab === 'collection') render();
+                if (sUrl && sKey) {
+                    let res = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/queue?apiKey=${sKey.trim()}`);
+                    let data = await res.json();
+                    if (data.records) {
+                        data.records.forEach(q => {
+                            combinedQueue.push({
+                                id: q.id,
+                                type: 'sonarr',
+                                name: q.title || (q.series ? q.series.title : 'Unknown Series'),
+                                progress: q.size > 0 ? (100 - ((q.sizeleft / q.size) * 100)).toFixed(1) : 0,
+                                size: (q.size / 1073741824).toFixed(2),
+                                status: q.status || q.trackedDownloadState,
+                                rawStatus: q.status,
+                                speed: q.status === 'downloading' ? 'Downloading' : (q.status === 'completed' ? 'Importing' : 'Queued'),
+                                speedLabel: q.timeleft ? q.timeleft : 'Processing...'
+                            });
+                        });
+                    }
+                }
+                activeTorrents = combinedQueue;
+                if (currentTab === 'downloads' || currentTab === 'collection' || currentTab === 'shows') render();
             } catch(e) {}
         }
 
-        async function executeToggleQueueTask(downloadHash, currentStatusStr) {
-            let u = localStorage.getItem('radarr_url'); 
-            if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
-            let isPaused = currentStatusStr.toLowerCase().includes('stop') || currentStatusStr.toLowerCase().includes('paused');
-            let actionV5 = isPaused ? 'start' : 'stop';
-            let actionV4 = isPaused ? 'resume' : 'pause';
-            let label = isPaused ? 'Started' : 'Stopped';
-            try {
-                let safeHash = String(downloadHash).split('_').pop().toLowerCase();
-                let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-                let body = 'hashes=' + safeHash;
-                let baseUrl = u.trim().replace(/\/$/, "");
-
-                let res = await fetch(`${baseUrl}/api/v2/torrents/${actionV5}`, { method: 'POST', headers, body });
-                if (res.status === 404) res = await fetch(`${baseUrl}/api/v2/torrents/${actionV4}`, { method: 'POST', headers, body });
-                
-                if (res.status === 200 || res.status === 201) {
-                    showAppNotification(`Transfer ${label}`); setTimeout(syncQBittorrentList, 800);
-                } else { showAppNotification("qBittorrent rejected: Error " + res.status); }
-            } catch (e) { showAppNotification("Connection Error"); }
-        }
-
-        async function executeDeleteTorrent(downloadHash) {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key');
-            if (!u || !downloadHash) return showAppNotification("Missing Configuration!");
+        async function executeDeleteQueueItem(queueId, type) {
+            let confirmDelete = confirm("Delete this download and blacklist the release?");
+            if (!confirmDelete) return;
             
-            let wipeConfirmed = confirm("Are you sure you want to delete this torrent and wipe the files?");
-            if (!wipeConfirmed) return;
-
-            let searchForNew = confirm("Would you like Radarr to search for a different version automatically?\n\n[OK] = Find another version\n[Cancel] = Just remove and stop");
+            let url = type === 'radarr' ? localStorage.getItem('radarr_url') : localStorage.getItem('sonarr_url');
+            let key = type === 'radarr' ? localStorage.getItem('radarr_key') : localStorage.getItem('sonarr_key');
+            if (!url || !key) return;
 
             try {
-                let safeHash = String(downloadHash).split('_').pop().toLowerCase();
-                let baseUrl = u.trim().replace(/\/$/, "");
-
-                if (k) {
-                    try {
-                        let qRes = await fetch(`${baseUrl}/api/v3/queue?apiKey=${k.trim()}&includeUnknownStatusItems=true`);
-                        let qData = await qRes.json();
-                        let records = Array.isArray(qData) ? qData : (qData.records || []);
-                        let match = records.find(r => r.downloadId && r.downloadId.toLowerCase().includes(safeHash));
-                        
-                        if (match && match.id) {
-                            let blocklistParam = searchForNew ? 'true' : 'false';
-                            await fetch(`${baseUrl}/api/v3/queue/${match.id}?apiKey=${k.trim()}&removeFromClient=true&blocklist=${blocklistParam}`, { method: 'DELETE' });
-                            if (searchForNew && match.movieId) {
-                                await fetch(`${baseUrl}/api/v3/command?apiKey=${k.trim()}`, {
-                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name: "MoviesSearch", movieIds: [match.movieId] })
-                                });
-                            }
-                        }
-                    } catch(e) {}
-                }
-                let headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-                let body = `hashes=${safeHash}&deleteFiles=true`;
-                await fetch(`${baseUrl}/api/v2/torrents/delete`, { method: 'POST', headers, body });
-
-                showAppNotification(searchForNew ? "Deleted & Searching..." : "Deleted & Stopped");
-                setTimeout(syncQBittorrentList, 800);
-            } catch (e) { showAppNotification("Connection Error"); }
+                await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=true&blocklist=true`, { method: 'DELETE' });
+                showAppNotification("Deleted from Queue");
+                setTimeout(syncDownloadQueue, 800);
+            } catch(e) { showAppNotification("Error deleting"); }
         }
 
         async function triggerUniversalSearch(queryText) {
@@ -850,7 +813,6 @@
                                 }
                                 if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                                 
-                                if (d.seasons) activeItem.seasons = d.seasons.filter(s => s.season_number > 0);
                                 if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
 
                                 let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
@@ -858,6 +820,28 @@
 
                                 if (d.credits && d.credits.cast) {
                                     activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
+                                }
+                                
+                                if (activeItem.mediaType === 'tv') {
+                                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                    if (isAlreadyInSonarr) {
+                                        let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                        let sId = existingShow.id.replace('sonarr_', '');
+                                        activeItem.sonarrSeriesId = sId;
+                                        
+                                        let sUrl = localStorage.getItem('sonarr_url');
+                                        let sKey = localStorage.getItem('sonarr_key');
+                                        if (sUrl && sKey) {
+                                            fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/episode?seriesId=${sId}&apiKey=${sKey.trim()}`)
+                                                .then(r => r.json())
+                                                .then(eps => {
+                                                    if (modalOpen && activeItem && activeItem.sonarrSeriesId === sId) {
+                                                        activeItem.sonarrEpisodes = eps;
+                                                        render();
+                                                    }
+                                                }).catch(()=>{});
+                                        }
+                                    }
                                 }
                                 
                                 if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
@@ -1039,6 +1023,19 @@
                 showAppNotification(`Searching Season ${seasonNumber}...`);
             } catch(e) { showAppNotification("Connection Error"); }
         }
+        
+        async function searchSonarrEpisode(episodeId) {
+            let u = localStorage.getItem('sonarr_url'); let k = localStorage.getItem('sonarr_key');
+            if(!u || !k) return;
+            try {
+                await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/command?apiKey=${k.trim()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: "EpisodeSearch", episodeIds: [parseInt(episodeId)] })
+                });
+                showAppNotification("Searching for Episode...");
+            } catch(e) {}
+        }
 
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
@@ -1206,25 +1203,24 @@
         }
 
         function renderTorrentCard(t) {
-            let isCurrentlyPaused = t.speed.toLowerCase().includes('stop') || t.speed.toLowerCase().includes('paused');
-            let triggerLabelText = isCurrentlyPaused ? "▶️ RESUME" : "⏸️ STOP";
-            let dlSpeedHtml = t.speedLabel && !isCurrentlyPaused ? `<span style="color:#10b981; margin-left:6px; font-weight:800;">↓ ${t.speedLabel}</span>` : '';
-            let menuDisplay = (openMenuHash === t.downloadId) ? 'flex' : 'none';
+            let triggerLabelText = "⏳ QUEUED";
+            if (t.speed === 'Downloading') triggerLabelText = "⬇️ DOWNLOADING";
+            else if (t.speed === 'Importing') triggerLabelText = "📦 IMPORTING";
+            let menuDisplay = (openMenuHash === t.id) ? 'flex' : 'none';
             
             return `
             <div class="torrent-card" style="margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
                     <div class="torrent-title" style="flex:1;">${t.name}</div>
-                    <button onclick="toggleTorrentMenu(event, '${t.downloadId}')" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
+                    <button onclick="toggleTorrentMenu(event, '${t.id}')" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
                 </div>
                 <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
                 <div class="torrent-meta">
-                    <span>⚙️ ${t.speed} (${t.progress}%) • ${t.size} GB${dlSpeedHtml}</span>
-                    <span>${t.status}</span>
+                    <span>⚙️ ${t.speed} (${t.progress}%) • ${t.size} GB</span>
+                    <span>${t.speedLabel}</span>
                 </div>
-                <div id="torrent-menu-${t.downloadId}" style="display:${menuDisplay}; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
-                    <button onclick="executeToggleQueueTask('${t.downloadId}', '${t.speed}');" style="flex:2; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">${triggerLabelText}</button>
-                    <button onclick="executeDeleteTorrent('${t.downloadId}');" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ DELETE</button>
+                <div id="torrent-menu-${t.id}" style="display:${menuDisplay}; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
+                    <button onclick="executeDeleteQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ CANCEL & BLACKLIST</button>
                 </div>
             </div>`;
         }
@@ -1456,18 +1452,18 @@
                     body = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                 }
             } else if (currentTab === 'downloads') {
-                let activeGroup = activeTorrents.filter(t => t.speed !== 'Stopped');
-                let inactiveGroup = activeTorrents.filter(t => t.speed === 'Stopped');
+                let activeGroup = activeTorrents.filter(t => t.speed !== 'Queued');
+                let inactiveGroup = activeTorrents.filter(t => t.speed === 'Queued');
 
                 let activeHtmlBlocks = activeGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px; font-weight:600;">No active transfers running.</div>` : activeGroup.map(t => renderTorrentCard(t)).join('');
-                let inactiveHtmlBlocks = inactiveGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No stopped or inactive transfers.</div>` : inactiveGroup.map(t => renderTorrentCard(t)).join('');
+                let inactiveHtmlBlocks = inactiveGroup.length === 0 ? `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No queued transfers.</div>` : inactiveGroup.map(t => renderTorrentCard(t)).join('');
 
                 let storageHtml = serverDiskSpace ? `<div style="font-size:11px; color:#64748b; font-weight:800; margin-top:-10px; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">${serverDiskSpace}</div>` : '';
 
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeGroup.length})</h2>
-                    <button onclick="syncQBittorrentList(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                    <button onclick="syncDownloadQueue(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
                 ${storageHtml}
                 ${activeHtmlBlocks}
@@ -1475,7 +1471,7 @@
                 <hr class="section-divider" style="margin: 32px 0 20px 0;">
                 
                 <div style="margin-bottom:16px;">
-                    <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Inactive Transfers (${inactiveGroup.length})</h2>
+                    <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Queued Transfers (${inactiveGroup.length})</h2>
                 </div>
                 ${inactiveHtmlBlocks}
                 `;
@@ -1493,7 +1489,7 @@
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -1520,25 +1516,51 @@
                         let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
                         let sId = existingShow ? existingShow.id.replace('sonarr_', '') : '';
                         
-                        let seasonRows = (activeItem.seasons || []).map(s => {
-                            return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #e2e8f0;">
-                                <span style="font-size:12px; font-weight:700; color:#334155;">Season ${s.season_number} <span style="color:#94a3b8; font-weight:600; font-size:10px;">(${s.episode_count} eps)</span></span>
-                                <button onclick="searchSonarrSeason('${sId}', ${s.season_number})" style="background:#e0e7ff; color:#0284c7; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow: 0 2px 4px rgba(2,132,199,0.15);">☁️ Download</button>
-                            </div>`;
-                        }).join('');
-                        
-                        if (seasonRows === '') { seasonRows = `<div style="padding:10px 0; font-size:11px; color:#64748b; text-align:center;">No season data available.</div>`; }
+                        let seasonRows = '';
+                        if (activeItem.sonarrEpisodes) {
+                            let seasons = {};
+                            activeItem.sonarrEpisodes.forEach(ep => {
+                                if (!seasons[ep.seasonNumber]) seasons[ep.seasonNumber] = [];
+                                seasons[ep.seasonNumber].push(ep);
+                            });
+                            
+                            seasonRows = Object.keys(seasons).sort((a,b) => b - a).map(sNum => {
+                                let eps = seasons[sNum].sort((a,b) => a.episodeNumber - b.episodeNumber);
+                                let epsHtml = eps.map(ep => {
+                                    let statusIcon = ep.hasFile ? '✅' : '☁️';
+                                    let action = ep.hasFile ? '' : `onclick="searchSonarrEpisode(${ep.id})"`;
+                                    let color = ep.hasFile ? '#10b981' : '#0284c7';
+                                    return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px dashed #e2e8f0;">
+                                        <span style="font-size:11px; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">E${String(ep.episodeNumber).padStart(2,'0')} - ${ep.title}</span>
+                                        <button ${action} style="background:none; border:none; color:${color}; font-size:14px; cursor:${ep.hasFile?'default':'pointer'}; padding:0 4px;">${statusIcon}</button>
+                                    </div>`;
+                                }).join('');
+                                
+                                return `
+                                <div style="border:1px solid #cbd5e1; border-radius:8px; margin-bottom:8px; overflow:hidden; background:#ffffff;">
+                                    <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';" style="background:#f8fafc; padding:12px; font-size:12px; font-weight:800; color:#334155; display:flex; justify-content:space-between; cursor:pointer;">
+                                        Season ${sNum} <span style="color:#94a3b8; font-size:10px;">(${eps.length} eps) ▼</span>
+                                    </div>
+                                    <div style="display:none; padding:0 12px 10px 12px;">
+                                        <div style="display:flex; justify-content:flex-end; padding:10px 0;">
+                                            <button onclick="searchSonarrSeason('${sId}', ${sNum})" style="background:#e0e7ff; color:#0284c7; border:none; padding:8px 14px; border-radius:8px; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(2,132,199,0.15);">☁️ Search Entire Season</button>
+                                        </div>
+                                        ${epsHtml}
+                                    </div>
+                                </div>`;
+                            }).join('');
+                        } else {
+                            seasonRows = `<div style="padding:20px; font-size:11px; color:#64748b; text-align:center; border:1px dashed #cbd5e1; border-radius:12px;">Loading episodes from Sonarr...</div>`;
+                        }
 
-                        addServerButtonHtml = `
-                            <button onclick="document.getElementById('season-drawer').style.display = document.getElementById('season-drawer').style.display === 'none' ? 'block' : 'none';" class="btn-panel-primary" style="flex:1; padding:15px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; box-shadow:none;">Manage Seasons ▼</button>
-                        `;
-                        drawerHtml = `<div id="season-drawer" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:0 12px; margin-top:8px;">${seasonRows}</div>`;
+                        addServerButtonHtml = `<button onclick="document.getElementById('season-drawer').style.display = document.getElementById('season-drawer').style.display === 'none' ? 'block' : 'none';" class="btn-panel-primary" style="flex:1; padding:15px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; box-shadow:none;">✅ Tracked In Sonarr</button>`;
+                        drawerHtml = `<div id="season-drawer" style="display:none; margin-top:16px;"><h4 style="font-size:11px; text-transform:uppercase; color:#64748b; margin:0 0 8px 0; font-weight:800; letter-spacing:0.5px;">Episodes & Downloads</h4>${seasonRows}</div>`;
                     } else {
                         addServerButtonHtml = `<button onclick="sendToSonarr('all')" class="btn-panel-primary" style="flex:1; padding:15px;">Add All Seasons</button>`;
                     }
                 } else {
                     let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                    addServerButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
+                    addServerButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>✅ Tracked in Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
                 }
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
@@ -1723,7 +1745,7 @@
 
         let tickCount = 0;
         setInterval(() => {
-            syncQBittorrentList();
+            syncDownloadQueue();
             if (currentTab === 'smarthome') syncJfSessions();
             tickCount++;
             if (tickCount % 5 === 0) fetchDiskSpace();
