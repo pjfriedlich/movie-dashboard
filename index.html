@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=4">
+    <link rel="manifest" href="manifest.json?v=5">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -23,8 +23,8 @@
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; margin-bottom: 16px; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding-bottom:calc(10px + env(safe-area-inset-bottom)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:2px; flex:1; height:100%; }
+        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-between; align-items:center; z-index:40; box-sizing:border-box; padding:0 8px calc(10px + env(safe-area-inset-bottom)) 8px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); gap: 4px; }
+        .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:2px; flex:1; height:100%; padding: 0;}
         .nav-btn.active { color:#f97316; }
         .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
         .nav-svg-icon { width: 26px; height: 26px; fill: currentColor; }
@@ -138,6 +138,10 @@
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></div>
             Movies
         </button>
+        <button onclick="switchTab('shows')" class="nav-btn ${currentTab === 'shows' ? 'active' : ''}">
+            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-2-2H5V7h14v10z"/></svg></div>
+            Shows
+        </button>
         <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
             Downloads
@@ -154,6 +158,7 @@
 
         let currentTab = localStorage.getItem('app_current_tab') || 'collection';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
+        let currentShowSubTab = localStorage.getItem('app_current_show_sub_tab') || 'downloaded';
         let watchedSortMode = localStorage.getItem('watched_sort_mode') || 'recent'; 
         let filtersExpanded = localStorage.getItem('app_filters_expanded') === 'true'; 
         let remoteExpanded = localStorage.getItem('app_remote_expanded') !== 'false'; 
@@ -166,6 +171,7 @@
         let openMenuHash = null; 
         let serverDiskSpace = ""; 
         let myCollection = JSON.parse(localStorage.getItem('local_collection')) || [];
+        let myShows = JSON.parse(localStorage.getItem('local_shows')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
         let tracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
@@ -218,14 +224,7 @@
                     let isMatch = false;
                     let evDateStr = ev.date ? `${ev.date.getFullYear()}-${String(ev.date.getMonth()+1).padStart(2,'0')}-${String(ev.date.getDate()).padStart(2,'0')}` : null;
 
-                    if (ev.start && ev.end) {
-                        let dCheck = new Date(displayYear, displayMonth, i);
-                        let s = new Date(ev.start + 'T00:00:00');
-                        let e = new Date(ev.end + 'T23:59:59');
-                        if (dCheck >= s && dCheck <= e) isMatch = true;
-                    } else if (evDateStr === dateStr) {
-                        isMatch = true;
-                    }
+                    if (evDateStr === dateStr) isMatch = true;
 
                     if (isMatch) {
                         dayEventsHTML += `<div class="calendar-event movie-trigger" data-pool="calendar" data-id="${ev.id}" style="background:${ev.color}; color:${ev.textColor || '#ffffff'};">${ev.title}</div>`;
@@ -265,6 +264,7 @@
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
+        function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
         
         function toggleFilterPanel() {
             filtersExpanded = !filtersExpanded;
@@ -596,14 +596,12 @@
                 
                 showAppNotification('Sending: "' + message + '"');
                 
-                // Force the speaker to wake up from its Off/Idle sleep state
                 await fetch(`${baseUrl}/api/services/media_player/turn_on`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({ entity_id: entityId })
                 });
                 
-                // Give it a split second to connect before dropping the audio file
                 await new Promise(r => setTimeout(r, 600));
 
                 let ttsEngine = haEntities.find(e => e.entity_id.startsWith('tts.'));
@@ -756,17 +754,20 @@
                 let url = `https://api.themoviedb.org/3/search/multi?api_key=${tk.trim()}&query=${encodeURIComponent(queryText.trim())}`;
                 let data = await (await fetch(url)).json();
                 if (data.results) {
-                    searchResultsData = data.results.filter(m => m.media_type === 'movie' || m.media_type === 'person').map(m => {
+                    searchResultsData = data.results.filter(m => m.media_type === 'movie' || m.media_type === 'tv' || m.media_type === 'person').map(m => {
                         if (m.media_type === 'person') {
                             return {
                                 isPerson: true, title: m.name, year: m.known_for_department || 'Person', 
                                 tmdbId: m.id, posterPath: m.profile_path ? "https://image.tmdb.org/t/p/w200" + m.profile_path : ''
                             };
                         } else {
+                            let title = m.title || m.name;
+                            let releaseDate = m.release_date || m.first_air_date;
                             return { 
-                                isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A', 
-                                realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', 
-                                tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || ''
+                                isPerson: false, title: title, year: releaseDate ? releaseDate.substring(0,4) : 'N/A', 
+                                realYear: releaseDate ? releaseDate.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR', 
+                                tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '',
+                                mediaType: m.media_type === 'tv' ? 'tv' : 'movie'
                             };
                         }
                     });
@@ -785,7 +786,8 @@
                     searchResultsData = sortedCast.map(m => ({
                         isPerson: false, title: m.title, year: m.release_date ? m.release_date.substring(0,4) : 'N/A',
                         realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : 'NR',
-                        tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || ''
+                        tmdbId: m.id, posterPath: m.poster_path ? "https://image.tmdb.org/t/p/w200" + m.poster_path : '', overview: m.overview || '',
+                        mediaType: 'movie'
                     }));
                     
                     const inputEl = document.getElementById('search-input');
@@ -811,6 +813,7 @@
                 else if (poolType === 'library') targetObject = myCollection.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'watched_track') targetObject = customWatchedHistory.find(m => String(m.id) === cleanId || String(m.tmdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 else if (poolType === 'calendar') targetObject = calendarEvents.find(m => String(m.id) === cleanId);
+                else if (poolType === 'shows') targetObject = myShows.find(m => String(m.id) === cleanId || String(m.tvdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
@@ -990,6 +993,26 @@
             render();
         }
 
+        async function sendToSonarr() {
+            if (!activeItem) return;
+            let u = localStorage.getItem('sonarr_url'), k = localStorage.getItem('sonarr_key'); if (!u || !k) return showAppNotification("Configure Sonarr Settings!");
+            try {
+                let f = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/rootfolder?apiKey=${k.trim()}`)).json();
+                let profiles = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/qualityprofile?apiKey=${k.trim()}`)).json();
+                let lookupTerm = activeItem.tvdbId ? `tvdb:${activeItem.tvdbId}` : `tmdb:${activeItem.tmdbId}`;
+                let l = await (await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/series/lookup?term=${lookupTerm}&apiKey=${k.trim()}`)).json();
+                let showData = Array.isArray(l) ? l[0] : l; if (!showData) return showAppNotification("Missing metadata.");
+                let matchedProfile = profiles.find(p => p.name && p.name.toLowerCase().trim() === "any");
+                showData.qualityProfileId = matchedProfile ? matchedProfile.id : profiles[0].id;
+                showData.rootFolderPath = f[0].path; 
+                showData.monitored = true; 
+                showData.addOptions = { searchForMissingEpisodes: true };
+                let postRes = await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${k.trim()}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(showData) });
+                if (postRes.status === 201 || postRes.status === 200) { showAppNotification("Added to Sonarr!"); modalOpen = false; await syncSonarrLibrary(); }
+            } catch(err) { showAppNotification("Connection Timeout."); }
+            render();
+        }
+
         async function syncRadarrLibrary() {
             let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if (!u || !k) return;
             isRadarrLoading = true; render();
@@ -1011,13 +1034,42 @@
                             tmdbId: item.tmdbId || null, 
                             played: item.hasFile, 
                             hasFile: item.hasFile, 
-                            posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '' 
+                            posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '',
+                            mediaType: 'movie'
                         };
                     });
                     localStorage.setItem('local_collection', JSON.stringify(myCollection));
                 }
             } catch(e) {}
             isRadarrLoading = false; render();
+        }
+
+        async function syncSonarrLibrary() {
+            let u = localStorage.getItem('sonarr_url'), k = localStorage.getItem('sonarr_key'); if (!u || !k) return;
+            try {
+                let response = await fetch(`${u.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${k.trim()}`);
+                let items = await response.json();
+                if (Array.isArray(items)) {
+                    myShows = items.map((item) => {
+                        let posterObj = item.images?.find(i => i.coverType === 'poster');
+                        return { 
+                            id: 'sonarr_' + item.id, 
+                            title: item.title, 
+                            year: String(item.year || ''), 
+                            realYear: String(item.year || ''),
+                            overview: item.overview || '', 
+                            rating: item.ratings?.value ? item.ratings.value.toFixed(1) : '7.5', 
+                            tmdbId: item.tmdbId || null,
+                            tvdbId: item.tvdbId || null, 
+                            hasFile: (item.statistics && item.statistics.episodeFileCount > 0), 
+                            posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '',
+                            mediaType: 'tv'
+                        };
+                    });
+                    localStorage.setItem('local_shows', JSON.stringify(myShows));
+                }
+            } catch(e) {}
+            if (currentTab === 'shows') render();
         }
         
         async function loadDiscoverTracks() {
@@ -1029,11 +1081,11 @@
             try {
                 for (let [title, gId] of Object.entries(genres)) {
                     let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&with_genres=${gId}&sort_by=popularity.desc&with_original_language=en&page=${randomPage}`)).json();
-                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '', mediaType: 'movie' }));
                 }
                 for (let [title, range] of decades) {
                     let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&primary_release_date.gte=${range[0]}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&page=${randomPage}`)).json();
-                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '' }));
+                    tracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '', mediaType: 'movie' }));
                 }
                 render();
             } catch(e) {}
@@ -1062,7 +1114,7 @@
                         let t = (data.items[i].title || '').split(' - ')[0];
                         if (t && !blended.some(m => m.title === t)) {
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
-                            let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user };
+                            let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user, mediaType: 'movie' };
                             blended.push(itemObj);
                             
                             if (tk) {
@@ -1205,6 +1257,30 @@
                 }
                 body = staticMainTabsHtml + bodyContent;
             
+            } else if (currentTab === 'shows') {
+                let downloadedShows = myShows.filter(m => m.hasFile === true);
+                let comingSoonShows = myShows.filter(m => !m.hasFile);
+                let filteredShows = currentShowSubTab === 'downloaded' ? downloadedShows : comingSoonShows;
+                
+                let staticMainTabsHtml = `
+                    <div class="stats-grid">
+                        <div onclick="switchShowSubTab('downloaded')" class="stat-card ${currentShowSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedShows.length}</div><div class="stat-lbl">Downloaded</div></div>
+                        <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
+                    </div>
+                `;
+                
+                let bodyContent = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
+                        <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">TV Library (${filteredShows.length})</h2>
+                    </div>
+                    ` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map((m) => {
+                    let cleanYearNumeric = parseNumericYear(m);
+                    let displayYearLabel = cleanYearNumeric > 0 ? `, ${cleanYearNumeric}` : '';
+                    return `<div class="movie-card movie-trigger" data-pool="shows" data-id="${m.id}"><div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
+                }).join('')}</div>`);
+                
+                body = staticMainTabsHtml + bodyContent;
+                
             } else if (currentTab === 'smarthome') {
                 let lights = haEntities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
                 let speakers = haEntities.filter(e => e.entity_id.startsWith('media_player.'));
@@ -1362,7 +1438,7 @@
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncQBittorrentList(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -1378,8 +1454,14 @@
             let searchResultsHtml = searchResultsData.length > 0 ? `<div class="row-container" style="margin-top: 10px;"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map((m) => `<div class="scroll-card movie-trigger" data-pool="${m.isPerson ? 'person' : 'search'}" data-id="${m.tmdbId || m.title}" data-name="${m.title.replace(/"/g, '&quot;')}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : ''}</div><div class="card-details"><div class="card-title">${m.isPerson ? '👤 ' : ''}${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
             
             if (modalOpen && activeItem) {
-                let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                let radarrButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
+                let addServerButtonHtml = '';
+                if (activeItem.mediaType === 'tv') {
+                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                    addServerButtonHtml = isAlreadyInSonarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Sonarr</button>` : `<button onclick="sendToSonarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Sonarr</button>`;
+                } else {
+                    let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
+                    addServerButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>🔒 In Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
+                }
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
@@ -1449,7 +1531,7 @@
                             ${jellyfinHtml}
                             <div style="display:flex; gap:12px; width:100%;">
                                 ${watchButtonHtml}
-                                ${radarrButtonHtml}
+                                ${addServerButtonHtml}
                             </div>
                         </div>
                     </div>
@@ -1471,7 +1553,7 @@
             
             let searchContainerHtml = currentTab === 'foryou' ? `
                 <div class="search-container-box">
-                    <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
+                    <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie or show..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
                     <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
                 </div>
             ` : '';
@@ -1543,6 +1625,7 @@
 
         if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) {
             syncRadarrLibrary();
+            syncSonarrLibrary();
             fetchDiskSpace();
             fetchMediaCalendars();
         }
