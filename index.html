@@ -1211,9 +1211,10 @@
 
         async function syncFeeds() {       
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
-            let arr = links.split(','), blended = [];
+            let arr = links.split(',');
+            let allItems = [];
             
-            let feedPromises = arr.map(async (l, idxOffset) => {
+            let feedPromises = arr.map(async (l) => {
                 let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) return;
                 if (rawUser.includes('letterboxd.com/')) rawUser = rawUser.split('letterboxd.com/')[1];
                 rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) return;
@@ -1233,60 +1234,80 @@
                         let t = (data.items[i].title || '').split(' - ')[0];
                         if (t) {
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
-                            let existingItem = blended.find(m => m.title.toLowerCase() === cleanTitleStr.toLowerCase());
-                            
-                            if (!existingItem) {
-                                let itemObj = { id: 'lb_'+actualUsername+'_'+i+'_'+idxOffset, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: null, posterPath: '', overview: '', friend: '@' + actualUsername, mediaType: 'movie' };
-                                blended.push(itemObj);
-                                
-                                if (tk) {
-                                    let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
-                                    try {
-                                        let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`);
-                                        let s = await searchRes.json();
-                                        if (s.results && s.results[0]) { 
-                                            let fetchedTmdbId = s.results[0].id;
-                                            let duplicate = blended.find(m => m.tmdbId === fetchedTmdbId && m.id !== itemObj.id);
-                                            
-                                            if (duplicate) {
-                                                let lowerUser = ('@' + actualUsername).toLowerCase();
-                                                if (!duplicate.friend.toLowerCase().includes(lowerUser)) {
-                                                    duplicate.friend += ', @' + actualUsername;
-                                                }
-                                                let rmIdx = blended.findIndex(m => m.id === itemObj.id);
-                                                if(rmIdx !== -1) blended.splice(rmIdx, 1);
-                                            } else {
-                                                itemObj.tmdbId = fetchedTmdbId; 
-                                                itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
-                                                itemObj.overview = s.results[0].overview || ''; 
-                                                if (s.results[0].release_date) {
-                                                    let y = String(s.results[0].release_date.substring(0,4));
-                                                    itemObj.realYear = y;
-                                                    itemObj.year = y;
-                                                }
-                                            }
-                                        }
-                                    } catch(err){}
-                                }
-                            } else {
-                                let lowerUser = ('@' + actualUsername).toLowerCase();
-                                if (!existingItem.friend.toLowerCase().includes(lowerUser)) {
-                                    existingItem.friend += ', @' + actualUsername;
-                                }
-                            }
+                            allItems.push({ title: cleanTitleStr, friend: '@' + actualUsername });
                         }
                     }
-                } catch(e) { console.error(e); }
+                } catch(e) { console.error("Error parsing feed for: " + actualUsername, e); }
             });
             
             await Promise.all(feedPromises);
-            
-            for (let i = blended.length - 1; i > 0; i--) { 
-                let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; 
-                blended[i] = blended[j]; 
-                blended[j] = temp; 
+
+            let blendedMap = {};
+            allItems.forEach(item => {
+                let lowerTitle = item.title.toLowerCase();
+                if (!blendedMap[lowerTitle]) {
+                    blendedMap[lowerTitle] = {
+                        id: 'lb_' + item.friend.substring(1) + '_' + Math.random().toString(36).substr(2, 5),
+                        title: item.title,
+                        year: '', realYear: '', rating: 'Pick', tmdbId: null, posterPath: '', overview: '',
+                        friends: new Set([item.friend]),
+                        mediaType: 'movie'
+                    };
+                } else {
+                    blendedMap[lowerTitle].friends.add(item.friend);
+                }
+            });
+
+            let blended = Object.values(blendedMap).map(m => {
+                m.friend = Array.from(m.friends).join(', ');
+                delete m.friends;
+                return m;
+            });
+
+            if (tk) {
+                let tmdbPromises = blended.map(async (itemObj) => {
+                    let cleanQuery = itemObj.title.match(/^(.+?),\s*(\d{4})$/) ? itemObj.title.match(/^(.+?),\s*(\d{4})$/)[1].trim() : itemObj.title;
+                    try {
+                        let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`);
+                        let s = await searchRes.json();
+                        if (s.results && s.results[0]) {
+                            itemObj.tmdbId = s.results[0].id; 
+                            itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
+                            itemObj.overview = s.results[0].overview || ''; 
+                            if (s.results[0].release_date) {
+                                let y = String(s.results[0].release_date.substring(0,4));
+                                itemObj.realYear = y;
+                                itemObj.year = y;
+                            }
+                        }
+                    } catch(e) {}
+                });
+                await Promise.all(tmdbPromises);
             }
-            friendRowData = blended; 
+
+            let finalBlended = [];
+            let tmdbMap = {};
+            blended.forEach(item => {
+                if (item.tmdbId) {
+                    if (tmdbMap[item.tmdbId]) {
+                        let existing = tmdbMap[item.tmdbId];
+                        let combinedFriends = new Set([...existing.friend.split(', '), ...item.friend.split(', ')]);
+                        existing.friend = Array.from(combinedFriends).join(', ');
+                    } else {
+                        tmdbMap[item.tmdbId] = item;
+                        finalBlended.push(item);
+                    }
+                } else {
+                    finalBlended.push(item);
+                }
+            });
+            
+            for (let i = finalBlended.length - 1; i > 0; i--) { 
+                let j = Math.floor(Math.random() * (i + 1)), temp = finalBlended[i]; 
+                finalBlended[i] = finalBlended[j]; 
+                finalBlended[j] = temp; 
+            }
+            friendRowData = finalBlended; 
             render();
         }
 
