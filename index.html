@@ -167,7 +167,7 @@
         let lightsExpanded = localStorage.getItem('app_lights_expanded') !== 'false';
         let calendarExpanded = localStorage.getItem('app_calendar_expanded') !== 'false';
         
-        let modalOpen = false, activeItem = null, activeCollection = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
+        let modalOpen = false, activeItem = null, activeCollection = null, activeFriendList = null, activeFriendName = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
         let openMenuHash = null; 
         let serverDiskSpace = ""; 
@@ -318,7 +318,27 @@
             render();
         }
         
-        function closeM() { modalOpen = false; activeItem = null; activeCollection = null; render(); }
+        function closeM() { modalOpen = false; activeItem = null; activeCollection = null; activeFriendList = null; activeFriendName = null; render(); }
+
+        window.openFriendList = function(fName) {
+            activeItem = null;
+            modalOpen = false;
+            activeCollection = null;
+            activeFriendName = fName;
+            
+            let fList = [];
+            let seen = new Set();
+            friendRowData.forEach(m => {
+                if (m.friend && m.friend.toLowerCase().includes(fName.toLowerCase())) {
+                    if (!seen.has(m.title)) {
+                        seen.add(m.title);
+                        fList.push(m);
+                    }
+                }
+            });
+            activeFriendList = fList;
+            render();
+        };
 
         function parseNumericYear(item) {
             if (!item) return 0;
@@ -826,6 +846,22 @@
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
                 
+                let aggregatedFriends = [];
+                if (activeItem.friend) aggregatedFriends = activeItem.friend.split(', ');
+                friendRowData.forEach(f => {
+                    let isMatch = (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) || (f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim());
+                    if (isMatch && f.friend) {
+                        f.friend.split(', ').forEach(fr => {
+                            if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
+                                aggregatedFriends.push(fr);
+                            }
+                        });
+                    }
+                });
+                if (aggregatedFriends.length > 0) {
+                    activeItem.friend = aggregatedFriends.join(', ');
+                }
+
                 activeItem.jfChecked = false; 
                 modalOpen = true; render();
                 
@@ -1196,7 +1232,7 @@
                         let t = (data.items[i].title || '').split(' - ')[0];
                         if (t) {
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
-                            let existingItem = blended.find(m => m.title === cleanTitleStr);
+                            let existingItem = blended.find(m => m.title.toLowerCase() === cleanTitleStr.toLowerCase());
                             
                             if (!existingItem) {
                                 let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user, mediaType: 'movie' };
@@ -1220,7 +1256,8 @@
                                         }).catch(()=>{});
                                 }
                             } else {
-                                if (!existingItem.friend.includes('@' + user)) {
+                                let lowerUser = ('@' + user).toLowerCase();
+                                if (!existingItem.friend.toLowerCase().includes(lowerUser)) {
                                     existingItem.friend += ', @' + user;
                                 }
                             }
@@ -1628,7 +1665,11 @@
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
                 
-                let friendBadgeHtml = activeItem.friend ? `<span style="display:inline-block; margin-left:8px; background:#fef08a; color:#b45309; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; vertical-align: middle;">🔥 Picked by ${activeItem.friend}</span>` : '';
+                let friendBadgeHtml = '';
+                if (activeItem.friend) {
+                    let friendArr = activeItem.friend.split(', ');
+                    friendBadgeHtml = '<br>' + friendArr.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="display:inline-block; margin-top:6px; margin-right:6px; background:#fef08a; color:#b45309; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('');
+                }
 
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
@@ -1703,6 +1744,20 @@
                         <div class="movie-grid">${activeCollection.parts.map(m => `
                             <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
                                 <div class="poster-slot"><img src="${m.posterPath}" class="grid-poster-img"></div>
+                                <div class="grid-card-details">${m.title}</div>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            } else if (activeFriendList) {
+                modal = `<div class="modal-overlay">
+                    <div class="modal-bg-tint" style="background:#f1f5f9;"></div>
+                    <div class="detail-close-trigger" onclick="closeM()">×</div>
+                    <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
+                        <h3 class="detail-heading-title" style="margin-bottom:16px;">🔥 Picks by ${activeFriendName}</h3>
+                        <div class="movie-grid">${activeFriendList.map(m => `
+                            <div class="movie-card movie-trigger" data-pool="friend" data-id="${m.tmdbId || m.title}">
+                                <div class="poster-slot">${m.posterPath ? `<img src="${m.posterPath}" class="grid-poster-img">` : `<div style="font-weight:bold; font-size:10px; padding:12px; color:#0f172a;">${m.title}</div>`}</div>
                                 <div class="grid-card-details">${m.title}</div>
                             </div>`).join('')}
                         </div>
