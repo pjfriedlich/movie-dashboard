@@ -661,6 +661,27 @@
                     let data = await res.json();
                     if (data.records) {
                         data.records.forEach(q => {
+                            let speedStr = '';
+                            let timeLabel = q.timeleft ? q.timeleft : 'Processing...';
+                            
+                            if (q.timeleft && q.timeleft.includes(':') && q.sizeleft) {
+                                let parts = q.timeleft.split(/[:\.]/); 
+                                let days = 0, h = 0, m = 0, s = 0;
+                                if (parts.length === 4) { days = parseInt(parts[0]); h = parseInt(parts[1]); m = parseInt(parts[2]); s = parseInt(parts[3]); }
+                                else if (parts.length === 3) { h = parseInt(parts[0]); m = parseInt(parts[1]); s = parseInt(parts[2]); }
+                                
+                                let totalSecs = (days * 86400) + (h * 3600) + (m * 60) + s;
+                                if (totalSecs > 0) {
+                                    let mbps = (q.sizeleft / totalSecs) / 1048576;
+                                    speedStr = ` <span style="color:#10b981; font-weight:800;">↓ ${mbps.toFixed(1)} MB/s</span>`;
+                                }
+                                
+                                if (days > 0) timeLabel = `${days}d ${h}h`;
+                                else if (h > 0) timeLabel = `${h}h ${m}m`;
+                                else if (m > 0) timeLabel = `${m}m`;
+                                else timeLabel = `< 1m`;
+                            }
+
                             combinedQueue.push({
                                 id: q.id,
                                 type: 'radarr',
@@ -670,7 +691,8 @@
                                 status: q.status || q.trackedDownloadState,
                                 rawStatus: q.status,
                                 speed: q.status === 'downloading' ? 'Downloading' : (q.status === 'completed' ? 'Importing' : 'Queued'),
-                                speedLabel: q.timeleft ? q.timeleft : 'Processing...'
+                                speedLabel: timeLabel,
+                                speedTag: speedStr
                             });
                         });
                     }
@@ -680,6 +702,27 @@
                     let data = await res.json();
                     if (data.records) {
                         data.records.forEach(q => {
+                            let speedStr = '';
+                            let timeLabel = q.timeleft ? q.timeleft : 'Processing...';
+                            
+                            if (q.timeleft && q.timeleft.includes(':') && q.sizeleft) {
+                                let parts = q.timeleft.split(/[:\.]/); 
+                                let days = 0, h = 0, m = 0, s = 0;
+                                if (parts.length === 4) { days = parseInt(parts[0]); h = parseInt(parts[1]); m = parseInt(parts[2]); s = parseInt(parts[3]); }
+                                else if (parts.length === 3) { h = parseInt(parts[0]); m = parseInt(parts[1]); s = parseInt(parts[2]); }
+                                
+                                let totalSecs = (days * 86400) + (h * 3600) + (m * 60) + s;
+                                if (totalSecs > 0) {
+                                    let mbps = (q.sizeleft / totalSecs) / 1048576;
+                                    speedStr = ` <span style="color:#10b981; font-weight:800;">↓ ${mbps.toFixed(1)} MB/s</span>`;
+                                }
+                                
+                                if (days > 0) timeLabel = `${days}d ${h}h`;
+                                else if (h > 0) timeLabel = `${h}h ${m}m`;
+                                else if (m > 0) timeLabel = `${m}m`;
+                                else timeLabel = `< 1m`;
+                            }
+
                             combinedQueue.push({
                                 id: q.id,
                                 type: 'sonarr',
@@ -689,7 +732,8 @@
                                 status: q.status || q.trackedDownloadState,
                                 rawStatus: q.status,
                                 speed: q.status === 'downloading' ? 'Downloading' : (q.status === 'completed' ? 'Importing' : 'Queued'),
-                                speedLabel: q.timeleft ? q.timeleft : 'Processing...'
+                                speedLabel: timeLabel,
+                                speedTag: speedStr
                             });
                         });
                     }
@@ -699,19 +743,16 @@
             } catch(e) {}
         }
 
-        async function executeDeleteQueueItem(queueId, type) {
-            let confirmDelete = confirm("Delete this download and blacklist the release?");
-            if (!confirmDelete) return;
-            
+        async function executeStopQueueItem(queueId, type) {
             let url = type === 'radarr' ? localStorage.getItem('radarr_url') : localStorage.getItem('sonarr_url');
             let key = type === 'radarr' ? localStorage.getItem('radarr_key') : localStorage.getItem('sonarr_key');
             if (!url || !key) return;
 
             try {
-                await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=true&blocklist=true`, { method: 'DELETE' });
-                showAppNotification("Deleted from Queue");
+                await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=false&blocklist=false`, { method: 'DELETE' });
+                showAppNotification("Untracked From Radarr/Sonarr");
                 setTimeout(syncDownloadQueue, 800);
-            } catch(e) { showAppNotification("Error deleting"); }
+            } catch(e) { showAppNotification("Error stopping"); }
         }
 
         async function triggerUniversalSearch(queryText) {
@@ -1203,9 +1244,6 @@
         }
 
         function renderTorrentCard(t) {
-            let triggerLabelText = "⏳ QUEUED";
-            if (t.speed === 'Downloading') triggerLabelText = "⬇️ DOWNLOADING";
-            else if (t.speed === 'Importing') triggerLabelText = "📦 IMPORTING";
             let menuDisplay = (String(openMenuHash) === String(t.id)) ? 'flex' : 'none';
             
             return `
@@ -1216,11 +1254,11 @@
                 </div>
                 <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
                 <div class="torrent-meta">
-                    <span>⚙️ ${t.speed} (${t.progress}%) • ${t.size} GB</span>
+                    <span>⚙️ ${t.speed} (${t.progress}%) • ${t.size} GB${t.speedTag || ''}</span>
                     <span>${t.speedLabel}</span>
                 </div>
                 <div id="torrent-menu-${t.id}" style="display:${menuDisplay}; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
-                    <button onclick="executeDeleteQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#ef4444; color:#ffffff; border:none; padding:10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">🗑️ CANCEL & BLACKLIST</button>
+                    <button onclick="executeStopQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#f97316; color:#ffffff; border:none; padding:12px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">⏸ STOP</button>
                 </div>
             </div>`;
         }
