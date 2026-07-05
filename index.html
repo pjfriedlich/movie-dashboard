@@ -1206,7 +1206,7 @@
             let triggerLabelText = "⏳ QUEUED";
             if (t.speed === 'Downloading') triggerLabelText = "⬇️ DOWNLOADING";
             else if (t.speed === 'Importing') triggerLabelText = "📦 IMPORTING";
-            let menuDisplay = (openMenuHash === t.id) ? 'flex' : 'none';
+            let menuDisplay = (String(openMenuHash) === String(t.id)) ? 'flex' : 'none';
             
             return `
             <div class="torrent-card" style="margin-bottom:12px;">
