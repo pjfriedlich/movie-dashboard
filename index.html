@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=17">
+    <link rel="manifest" href="manifest.json?v=18">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -23,7 +23,7 @@
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; margin-bottom: 16px; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
         .stat-card.active-sub-tab { border-color: #f97316 !important; background: #fff7ed !important; box-shadow: 0 4px 12px rgba(249,115,22,0.12); }
-        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-around; align-items:center; z-index:40; box-sizing:border-box; padding:0 8px calc(10px + env(safe-area-inset-bottom)) 8px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); gap: 4px; }
+        .nav-footer { position:fixed; bottom:0; left:0; right:0; height:86px; background:rgba(255, 255, 255, 0.9); border-top:1px solid #cbd5e1; display:flex; justify-content:space-between; align-items:center; z-index:40; box-sizing:border-box; padding:0 8px calc(10px + env(safe-area-inset-bottom)) 8px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); gap: 4px; }
         .nav-btn { background:none; border:none; color:#64748b; font-weight:800; font-size:10px; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; gap:2px; flex:1; height:100%; padding: 0;}
         .nav-btn.active { color:#f97316; }
         .nav-icon-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
@@ -813,7 +813,6 @@
                                 }
                                 if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                                 
-                                if (d.seasons) activeItem.seasons = d.seasons.filter(s => s.season_number > 0);
                                 if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
 
                                 let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
@@ -1281,7 +1280,7 @@
                     }).join('') + `</div>`;
                 } else {
                     let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
-                    let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>';
+                    let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>`;
 
                     bodyContent = `
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
@@ -1393,7 +1392,7 @@
                                 <div></div>
                                 <button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
                                 <div></div>
-                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83(12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
+                                <button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
                                 <button class="dpad-btn dpad-ok" onclick="sendTvCmd('DPAD_CENTER')">OK</button>
                                 <button class="dpad-btn" onclick="sendTvCmd('DPAD_RIGHT')"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
                                 <div></div>
