@@ -1198,22 +1198,11 @@
             let arr = links.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
             let allItems = [];
             
-            let feedPromises = arr.map(async (l) => {
-                let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) return;
-                if (rawUser.includes('letterboxd.com/')) rawUser = rawUser.split('letterboxd.com/')[1];
-                rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) return;
-                
-                let actualUsername = rawUser.split('/')[0];
-                let feedType = rawUser.includes('list') || rawUser.includes('watchlist') ? `/${rawUser.split('/').slice(1).join('/')}/rss/` : '/rss/';
-                if (feedType === '//rss/') feedType = '/rss/'; 
-                let targetUrl = "https://letterboxd.com/" + actualUsername + feedType.replace('//', '/');
-                
+            let fetchFeed = async (targetUrl, actualUsername) => {
                 try {
                     let res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(targetUrl));
                     let data = await res.json();
-                    
                     if (data.status !== 'ok' || !data.items) return;
-                    
                     for (let i = 0; i < Math.min(data.items.length, 25); i++) {
                         let t = (data.items[i].title || '').split(' - ')[0];
                         if (t) {
@@ -1221,7 +1210,23 @@
                             allItems.push({ title: cleanTitleStr, friend: '@' + actualUsername });
                         }
                     }
-                } catch(e) { console.error("Error parsing feed for: " + actualUsername, e); }
+                } catch(e) { console.error("Feed error:", e); }
+            };
+
+            let feedPromises = [];
+            arr.forEach(l => {
+                let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) return;
+                if (rawUser.includes('letterboxd.com/')) rawUser = rawUser.split('letterboxd.com/')[1];
+                rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) return;
+                
+                let actualUsername = rawUser.split('/')[0];
+                if (rawUser.includes('list') || rawUser.includes('watchlist')) {
+                    let customPath = rawUser.split('/').slice(1).join('/');
+                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/" + customPath + "/rss/", actualUsername));
+                } else {
+                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/rss/", actualUsername));
+                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/watchlist/rss/", actualUsername));
+                }
             });
             
             await Promise.all(feedPromises);
