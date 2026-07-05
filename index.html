@@ -824,6 +824,35 @@
             render();
         }
 
+        function getFriendBadgeHtml() {
+            let aggregatedFriends = [];
+            if (activeItem.friend) {
+                aggregatedFriends = activeItem.friend.split(',').map(s=>s.trim()).filter(Boolean);
+            }
+            
+            friendRowData.forEach(f => {
+                let isMatch = false;
+                if (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) isMatch = true;
+                if (!isMatch && f.title && activeItem.title && f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim()) isMatch = true;
+                
+                if (isMatch && f.friend) {
+                    f.friend.split(',').map(s=>s.trim()).filter(Boolean).forEach(fr => {
+                        if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
+                            aggregatedFriends.push(fr);
+                        }
+                    });
+                }
+            });
+
+            if (aggregatedFriends.length > 0) {
+                activeItem.friend = aggregatedFriends.join(', ');
+                return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
+                    aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
+                    '</div>';
+            }
+            return '';
+        }
+
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
                 let targetObject = null; let cleanId = String(identifier).toLowerCase().trim();
@@ -1214,22 +1243,23 @@
             };
 
             let feedPromises = [];
-            arr.forEach(l => {
-                let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) return;
+            for (let l of arr) {
+                let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) continue;
                 if (rawUser.includes('letterboxd.com/')) rawUser = rawUser.split('letterboxd.com/')[1];
-                rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) return;
+                rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) continue;
                 
                 let actualUsername = rawUser.split('/')[0];
                 if (rawUser.includes('list') || rawUser.includes('watchlist')) {
                     let customPath = rawUser.split('/').slice(1).join('/');
-                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/" + customPath + "/rss/", actualUsername));
+                    await fetchFeed("https://letterboxd.com/" + actualUsername + "/" + customPath + "/rss/", actualUsername);
+                    await new Promise(r => setTimeout(r, 400));
                 } else {
-                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/rss/", actualUsername));
-                    feedPromises.push(fetchFeed("https://letterboxd.com/" + actualUsername + "/watchlist/rss/", actualUsername));
+                    await fetchFeed("https://letterboxd.com/" + actualUsername + "/rss/", actualUsername);
+                    await new Promise(r => setTimeout(r, 400));
+                    await fetchFeed("https://letterboxd.com/" + actualUsername + "/watchlist/rss/", actualUsername);
+                    await new Promise(r => setTimeout(r, 400));
                 }
-            });
-            
-            await Promise.all(feedPromises);
+            }
 
             let blendedMap = {};
             allItems.forEach(item => {
@@ -1280,8 +1310,10 @@
                 if (item.tmdbId) {
                     if (tmdbMap[item.tmdbId]) {
                         let existing = tmdbMap[item.tmdbId];
-                        let combinedFriends = new Set([...existing.friend.split(', '), ...item.friend.split(', ')]);
-                        existing.friend = Array.from(combinedFriends).join(', ');
+                        let combinedFriends = new Set();
+                        existing.friend.split(',').forEach(f => combinedFriends.add(f.trim()));
+                        item.friend.split(',').forEach(f => combinedFriends.add(f.trim()));
+                        existing.friend = Array.from(combinedFriends).filter(Boolean).join(', ');
                     } else {
                         tmdbMap[item.tmdbId] = item;
                         finalBlended.push(item);
@@ -1329,6 +1361,35 @@
                     <button onclick="executeStopQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#f97316; color:#ffffff; border:none; padding:12px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">⏸ STOP</button>
                 </div>
             </div>`;
+        }
+        
+        function getFriendBadgeHtml() {
+            let aggregatedFriends = [];
+            if (activeItem.friend) {
+                aggregatedFriends = activeItem.friend.split(',').map(s=>s.trim()).filter(Boolean);
+            }
+            
+            friendRowData.forEach(f => {
+                let isMatch = false;
+                if (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) isMatch = true;
+                if (!isMatch && f.title && activeItem.title && f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim()) isMatch = true;
+                
+                if (isMatch && f.friend) {
+                    f.friend.split(',').map(s=>s.trim()).filter(Boolean).forEach(fr => {
+                        if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
+                            aggregatedFriends.push(fr);
+                        }
+                    });
+                }
+            });
+
+            if (aggregatedFriends.length > 0) {
+                activeItem.friend = aggregatedFriends.join(', ');
+                return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
+                    aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
+                    '</div>';
+            }
+            return '';
         }
 
         function render() {
@@ -1615,31 +1676,7 @@
                 let drawerHtml = '';
                 let isAlreadyInSonarr = false;
                 
-                let aggregatedFriends = [];
-                if (activeItem.friend) {
-                    aggregatedFriends = activeItem.friend.split(',').map(s=>s.trim()).filter(Boolean);
-                }
-                
-                friendRowData.forEach(f => {
-                    let isMatch = false;
-                    if (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) isMatch = true;
-                    if (!isMatch && f.title && activeItem.title && f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim()) isMatch = true;
-                    
-                    if (isMatch && f.friend) {
-                        f.friend.split(',').map(s=>s.trim()).filter(Boolean).forEach(fr => {
-                            if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
-                                aggregatedFriends.push(fr);
-                            }
-                        });
-                    }
-                });
-
-                let friendBadgeHtml = '';
-                if (aggregatedFriends.length > 0) {
-                    friendBadgeHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
-                        aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
-                        '</div>';
-                }
+                let friendBadgeHtml = getFriendBadgeHtml();
 
                 if (activeItem.mediaType === 'tv') {
                     isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
@@ -1778,6 +1815,150 @@
                         </div>
                     </div>
                 </div>`;
+                
+                // If TMDB completes, update the modal contents dynamically 
+                let updateModalContents = function() {
+                    let newFriendBadgeHtml = getFriendBadgeHtml();
+                    modal = `<div class="modal-overlay">
+                        <div class="modal-bg" ${activeItem.posterPath ? `style="background-image:url('${activeItem.posterPath}');"` : ''}></div>
+                        <div class="modal-bg-tint"></div>
+                        <div class="detail-close-trigger" onclick="closeM()">×</div>
+                        ${topUnwatchBadge}
+                        <div class="detail-content-frame">
+                            ${newFriendBadgeHtml}
+                            <div class="detail-main-row">
+                                <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
+                                <div class="detail-meta-block">
+                                    <h3 class="detail-heading-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                        ${activeItem.title}
+                                        ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
+                                    </h3>
+                                    <p class="detail-sub-specs">${displaySpecsYear}</p>
+                                </div>
+                            </div>
+                            ${extraBtns}
+                            <div id="modal-trailer-frame-box" class="trailer-video-box"></div>
+                            ${castHtml}
+                            <div class="detail-synopsis-box">
+                                <h4>Summary</h4>
+                                <div class="synopsis-text">${activeItem.overview || 'No overview available.'}</div>
+                            </div>
+                            <div class="detail-footer-actions">
+                                ${jellyfinHtml}
+                                <div style="display:flex; gap:12px; width:100%;">
+                                    ${watchButtonHtml}
+                                    ${addServerButtonHtml}
+                                </div>
+                                ${drawerHtml}
+                            </div>
+                        </div>
+                    </div>`;
+                    render();
+                };
+
+                let tk = localStorage.getItem('tmdb_key');
+                if (tk && activeItem && (activeItem.tmdbId || activeItem.tvdbId)) {
+                    let idFetch = Promise.resolve();
+                    if (!activeItem.tmdbId && activeItem.tvdbId) {
+                        idFetch = fetch(`https://api.themoviedb.org/3/find/${activeItem.tvdbId}?api_key=${tk.trim()}&external_source=tvdb_id`)
+                            .then(r => r.json())
+                            .then(d => { if(d.tv_results && d.tv_results[0]) activeItem.tmdbId = d.tv_results[0].id; });
+                    }
+                    
+                    idFetch.then(() => {
+                        if (!activeItem.tmdbId) return;
+                        let endpoint = activeItem.mediaType === 'tv' ? 'tv' : 'movie';
+                        fetch(`https://api.themoviedb.org/3/${endpoint}/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits,external_ids`)
+                        .then(res => res.json())
+                        .then(d => {
+                            if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
+                                activeItem.overview = d.overview || "No summary available.";
+                                activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
+                                let rDate = d.release_date || d.first_air_date;
+                                if (rDate) {
+                                    activeItem.realYear = rDate.substring(0, 4);
+                                    activeItem.year = rDate.substring(0, 4);
+                                }
+                                if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
+                                
+                                if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
+
+                                let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
+                                if (trailerObj) activeItem.trailerKey = trailerObj.key;
+
+                                if (d.credits && d.credits.cast) {
+                                    activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
+                                }
+                                
+                                if (activeItem.mediaType === 'tv') {
+                                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                    if (isAlreadyInSonarr) {
+                                        let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                        let sId = existingShow.id.replace('sonarr_', '');
+                                        activeItem.sonarrSeriesId = sId;
+                                        
+                                        let sUrl = localStorage.getItem('sonarr_url');
+                                        let sKey = localStorage.getItem('sonarr_key');
+                                        if (sUrl && sKey) {
+                                            fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/episode?seriesId=${sId}&apiKey=${sKey.trim()}`)
+                                                .then(r => r.json())
+                                                .then(eps => {
+                                                    if (modalOpen && activeItem && activeItem.sonarrSeriesId === sId) {
+                                                        activeItem.sonarrEpisodes = eps;
+                                                        updateModalContents();
+                                                    }
+                                                }).catch(()=>{});
+                                        }
+                                    }
+                                }
+                                
+                                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
+                                    let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
+                                    if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                                    let jfKey = localStorage.getItem('jf_key').trim();
+                                    fetch(`${jfUrl}/Items?IncludeItemTypes=Movie,Series&Recursive=true&searchTerm=${encodeURIComponent(activeItem.searchTitle || activeItem.title)}&api_key=${jfKey}`)
+                                    .then(r => {
+                                        if(!r.ok) throw new Error(r.status);
+                                        return r.json();
+                                    })
+                                    .then(jfData => {
+                                        activeItem.jfChecked = true;
+                                        let match = jfData.Items && jfData.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
+                                        if (!match && jfData.Items && jfData.Items.length > 0) match = jfData.Items[0]; 
+                                        if (match) {
+                                            activeItem.jellyfinId = match.Id;
+                                            return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
+                                        } else {
+                                            updateModalContents();
+                                        }
+                                    })
+                                    .then(r => {
+                                        if (r && !r.ok) throw new Error(r.status);
+                                        return r ? r.json() : null;
+                                    })
+                                    .then(sessions => {
+                                        if (sessions && modalOpen) {
+                                            activeItem.jfSessions = sessions.filter(s => {
+                                                let client = (s.Client || '').toLowerCase();
+                                                let device = (s.DeviceName || '').toLowerCase();
+                                                return !client.includes('server') && !client.includes('web') && !device.includes('server');
+                                            });
+                                            updateModalContents();
+                                        }
+                                    }).catch(e => {
+                                        console.error("Jellyfin Error", e);
+                                        activeItem.jfChecked = true;
+                                        activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
+                                        updateModalContents();
+                                    });
+                                } else {
+                                    updateModalContents(); 
+                                }
+                            }
+                        })
+                        .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; updateModalContents(); }});
+                    });
+                }
             } else if (activeCollection) {
                 modal = `<div class="modal-overlay">
                     <div class="modal-bg" ${activeCollection.posterPath ? `style="background-image:url('${activeCollection.posterPath}');"` : ''}></div>
