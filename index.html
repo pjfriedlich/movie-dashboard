@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Movie Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=12">
+    <link rel="manifest" href="manifest.json?v=13">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; overscroll-behavior-y: contain !important; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -75,7 +75,7 @@
         .modal-bg { position:absolute; top:-30px; left:-30px; right:-30px; bottom:-30px; background-size:cover; background-position:center; filter:blur(25px); opacity:0.5; z-index:1; pointer-events:none; }
         .modal-bg-tint { position:absolute; inset:0; background:rgba(241,245,249,0.85); z-index:2; pointer-events:none; }
         .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:20px; font-weight:bold; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-        .detail-content-frame { padding: 80px 24px 20px 24px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 14px; height: 100%; box-sizing:border-box; overflow:hidden; }
+        .detail-content-frame { padding: 80px 24px 20px 24px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 14px; height: 100%; box-sizing:border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .detail-main-row { display:flex; gap:18px; align-items:flex-end; margin-bottom: 4px; flex-shrink:0; }
         .detail-poster-wrapper { width:115px; height:172px; border-radius:14px; overflow:hidden; border:1px solid #cbd5e1; background:#ffffff; flex-shrink:0; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
         .detail-poster-img { width:100%; height:100%; object-fit: cover; }
@@ -84,7 +84,7 @@
         .detail-sub-specs { font-size:12px; color:#475569; font-weight:700; margin:0; }
         .detail-synopsis-box { font-size:14px; color:#334155; line-height:1.5; margin:0; display:flex; flex-direction:column; flex:0 1 auto; min-height:0; }
         .detail-synopsis-box h4 { font-size:11px; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; margin-top:0; margin-bottom:6px; font-weight:800; }
-        .synopsis-text { overflow-y:auto; padding-right:8px; max-height:22vh; }
+        .synopsis-text { padding-right:8px; }
         .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:12px; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
 
@@ -147,7 +147,7 @@
             Downloads
         </button>
         <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.59.24-1.13.56-1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
             Settings
         </button>
     </div>
@@ -813,7 +813,6 @@
                                 }
                                 if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
                                 
-                                if (d.seasons) activeItem.seasons = d.seasons.filter(s => s.season_number > 0);
                                 if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
 
                                 let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
@@ -1609,7 +1608,7 @@
                             jellyfinHtml = `<div style="display:flex; gap:10px; width:100%; box-sizing:border-box;"><select id="jf_session_select" style="flex:1; padding:15px; border-radius:12px; border:1px solid #cbd5e1; outline:none; font-weight:700; color:#0f172a; background:#f8fafc; font-size:12px;">${options}</select><button onclick="castToJellyfin(document.getElementById('jf_session_select').value)" style="background:linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%); color:#ffffff; border:none; padding:0 24px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25);">📺 Cast</button></div>`;
                         }
                     } else {
-                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(139,92,246,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
+                        jellyfinHtml = `<button onclick="wakeTvAndLaunchJellyfin()" style="width:100%; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; padding:15px; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.25); box-sizing:border-box;">📺 Wake TV & Open Jellyfin</button>`;
                     }
                 }
 
