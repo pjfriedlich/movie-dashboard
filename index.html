@@ -846,22 +846,6 @@
                 if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
                 else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
                 
-                let aggregatedFriends = [];
-                if (activeItem.friend) aggregatedFriends = activeItem.friend.split(', ');
-                friendRowData.forEach(f => {
-                    let isMatch = (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) || (f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim());
-                    if (isMatch && f.friend) {
-                        f.friend.split(', ').forEach(fr => {
-                            if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
-                                aggregatedFriends.push(fr);
-                            }
-                        });
-                    }
-                });
-                if (aggregatedFriends.length > 0) {
-                    activeItem.friend = aggregatedFriends.join(', ');
-                }
-
                 activeItem.jfChecked = false; 
                 modalOpen = true; render();
                 
@@ -1626,6 +1610,32 @@
                 let drawerHtml = '';
                 let isAlreadyInSonarr = false;
                 
+                let aggregatedFriends = [];
+                if (activeItem.friend) {
+                    aggregatedFriends = activeItem.friend.split(',').map(s=>s.trim()).filter(Boolean);
+                }
+                
+                friendRowData.forEach(f => {
+                    let isMatch = false;
+                    if (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) isMatch = true;
+                    if (!isMatch && f.title && activeItem.title && f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim()) isMatch = true;
+                    
+                    if (isMatch && f.friend) {
+                        f.friend.split(',').map(s=>s.trim()).filter(Boolean).forEach(fr => {
+                            if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
+                                aggregatedFriends.push(fr);
+                            }
+                        });
+                    }
+                });
+
+                let friendBadgeHtml = '';
+                if (aggregatedFriends.length > 0) {
+                    friendBadgeHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
+                        aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
+                        '</div>';
+                }
+
                 if (activeItem.mediaType === 'tv') {
                     isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
                     
@@ -1698,12 +1708,6 @@
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
-                
-                let friendBadgeHtml = '';
-                if (activeItem.friend) {
-                    let friendArr = activeItem.friend.split(', ');
-                    friendBadgeHtml = '<br>' + friendArr.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="display:inline-block; margin-top:6px; margin-right:6px; background:#fef08a; color:#b45309; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('');
-                }
 
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
@@ -1741,6 +1745,7 @@
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
                     ${topUnwatchBadge}
                     <div class="detail-content-frame">
+                        ${friendBadgeHtml}
                         <div class="detail-main-row">
                             <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
                             <div class="detail-meta-block">
@@ -1748,7 +1753,7 @@
                                     ${activeItem.title}
                                     ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
                                 </h3>
-                                <p class="detail-sub-specs">${displaySpecsYear}${friendBadgeHtml}</p>
+                                <p class="detail-sub-specs">${displaySpecsYear}</p>
                             </div>
                         </div>
                         ${extraBtns}
