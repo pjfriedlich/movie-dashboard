@@ -750,7 +750,7 @@
 
             try {
                 await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=false&blocklist=false`, { method: 'DELETE' });
-                showAppNotification("Untracked From Radarr/Sonarr");
+                showAppNotification("Cleared from Download Queue");
                 setTimeout(syncDownloadQueue, 800);
             } catch(e) { showAppNotification("Error stopping"); }
         }
