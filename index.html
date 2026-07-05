@@ -1212,7 +1212,7 @@
             <div class="torrent-card" style="margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
                     <div class="torrent-title" style="flex:1;">${t.name}</div>
-                    <button class="menu-toggle-btn" data-id="${t.id}" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
+                    <button class="menu-toggle-btn" onclick="toggleTorrentMenu(event, '${t.id}')" data-id="${t.id}" style="background:none; border:none; color:#ea580c; font-size:18px; padding:0 6px; font-weight:bold; cursor:pointer; line-height:1;">⋮</button>
                 </div>
                 <div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.progress}%;"></div></div>
                 <div class="torrent-meta">
