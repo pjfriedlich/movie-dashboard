@@ -1194,27 +1194,35 @@
                     
                     for (let i = 0; i < Math.min(data.items.length, 25); i++) {
                         let t = (data.items[i].title || '').split(' - ')[0];
-                        if (t && !blended.some(m => m.title === t)) {
+                        if (t) {
                             let cleanTitleStr = t.replace(/,\s*\d{4}$/, "").trim();
-                            let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user, mediaType: 'movie' };
-                            blended.push(itemObj);
+                            let existingItem = blended.find(m => m.title === cleanTitleStr);
                             
-                            if (tk) {
-                                let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
-                                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`)
-                                    .then(r => r.json()).then(s => { 
-                                        if (s.results?.[0]) { 
-                                            itemObj.tmdbId = s.results[0].id; 
-                                            itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
-                                            itemObj.overview = s.results[0].overview || ''; 
-                                            if (s.results[0].release_date) {
-                                                let y = String(s.results[0].release_date.substring(0,4));
-                                                itemObj.realYear = y;
-                                                itemObj.year = y;
-                                            }
-                                            render(); 
-                                        } 
-                                    }).catch(()=>{});
+                            if (!existingItem) {
+                                let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user, mediaType: 'movie' };
+                                blended.push(itemObj);
+                                
+                                if (tk) {
+                                    let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
+                                    fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`)
+                                        .then(r => r.json()).then(s => { 
+                                            if (s.results?.[0]) { 
+                                                itemObj.tmdbId = s.results[0].id; 
+                                                itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
+                                                itemObj.overview = s.results[0].overview || ''; 
+                                                if (s.results[0].release_date) {
+                                                    let y = String(s.results[0].release_date.substring(0,4));
+                                                    itemObj.realYear = y;
+                                                    itemObj.year = y;
+                                                }
+                                                render(); 
+                                            } 
+                                        }).catch(()=>{});
+                                }
+                            } else {
+                                if (!existingItem.friend.includes('@' + user)) {
+                                    existingItem.friend += ', @' + user;
+                                }
                             }
                         }
                     }
@@ -1619,6 +1627,8 @@
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
+                
+                let friendBadgeHtml = activeItem.friend ? `<span style="display:inline-block; margin-left:8px; background:#fef08a; color:#b45309; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; vertical-align: middle;">🔥 Picked by ${activeItem.friend}</span>` : '';
 
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
@@ -1663,7 +1673,7 @@
                                     ${activeItem.title}
                                     ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
                                 </h3>
-                                <p class="detail-sub-specs">${displaySpecsYear}</p>
+                                <p class="detail-sub-specs">${displaySpecsYear}${friendBadgeHtml}</p>
                             </div>
                         </div>
                         ${extraBtns}
