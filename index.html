@@ -1213,20 +1213,21 @@
             let links = localStorage.getItem('lb_links'), tk = localStorage.getItem('tmdb_key'); if (!links) return;
             let arr = links.split(','), blended = [];
             
-            for (let l of arr) {
-                let user = l.trim().replace(/\/$/, ""); if (!user) continue;
-                if (user.includes('letterboxd.com/')) user = user.split('letterboxd.com/')[1];
-                user = user.replace(/^\//, "").trim().toLowerCase(); if (!user) continue;
+            let feedPromises = arr.map(async (l, idxOffset) => {
+                let rawUser = l.trim().replace(/\/$/, ""); if (!rawUser) return;
+                if (rawUser.includes('letterboxd.com/')) rawUser = rawUser.split('letterboxd.com/')[1];
+                rawUser = rawUser.replace(/^\//, "").trim().toLowerCase(); if (!rawUser) return;
+                
+                let actualUsername = rawUser.split('/')[0];
+                let feedType = rawUser.includes('list') || rawUser.includes('watchlist') ? `/${rawUser.split('/').slice(1).join('/')}/rss/` : '/rss/';
+                if (feedType === '//rss/') feedType = '/rss/'; 
+                let targetUrl = "https://letterboxd.com/" + actualUsername + feedType.replace('//', '/');
                 
                 try {
-                    let targetUrl = "https://letterboxd.com/" + user + "/rss/";
                     let res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(targetUrl));
                     let data = await res.json();
                     
-                    if (data.status !== 'ok' || !data.items) {
-                        console.error("Failed to load feed for: " + user);
-                        continue;
-                    }
+                    if (data.status !== 'ok' || !data.items) return;
                     
                     for (let i = 0; i < Math.min(data.items.length, 25); i++) {
                         let t = (data.items[i].title || '').split(' - ')[0];
@@ -1235,15 +1236,27 @@
                             let existingItem = blended.find(m => m.title.toLowerCase() === cleanTitleStr.toLowerCase());
                             
                             if (!existingItem) {
-                                let itemObj = { id: 'lb_'+user+'_'+i, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: 238, posterPath: '', overview: '', friend: '@' + user, mediaType: 'movie' };
+                                let itemObj = { id: 'lb_'+actualUsername+'_'+i+'_'+idxOffset, title: cleanTitleStr, year: '', realYear: '', rating: 'Pick', tmdbId: null, posterPath: '', overview: '', friend: '@' + actualUsername, mediaType: 'movie' };
                                 blended.push(itemObj);
                                 
                                 if (tk) {
                                     let cleanQuery = cleanTitleStr.match(/^(.+?),\s*(\d{4})$/) ? cleanTitleStr.match(/^(.+?),\s*(\d{4})$/)[1].trim() : cleanTitleStr;
-                                    fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`)
-                                        .then(r => r.json()).then(s => { 
-                                            if (s.results?.[0]) { 
-                                                itemObj.tmdbId = s.results[0].id; 
+                                    try {
+                                        let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(cleanQuery)}`);
+                                        let s = await searchRes.json();
+                                        if (s.results && s.results[0]) { 
+                                            let fetchedTmdbId = s.results[0].id;
+                                            let duplicate = blended.find(m => m.tmdbId === fetchedTmdbId && m.id !== itemObj.id);
+                                            
+                                            if (duplicate) {
+                                                let lowerUser = ('@' + actualUsername).toLowerCase();
+                                                if (!duplicate.friend.toLowerCase().includes(lowerUser)) {
+                                                    duplicate.friend += ', @' + actualUsername;
+                                                }
+                                                let rmIdx = blended.findIndex(m => m.id === itemObj.id);
+                                                if(rmIdx !== -1) blended.splice(rmIdx, 1);
+                                            } else {
+                                                itemObj.tmdbId = fetchedTmdbId; 
                                                 itemObj.posterPath = "https://image.tmdb.org/t/p/w200" + s.results[0].poster_path; 
                                                 itemObj.overview = s.results[0].overview || ''; 
                                                 if (s.results[0].release_date) {
@@ -1251,22 +1264,22 @@
                                                     itemObj.realYear = y;
                                                     itemObj.year = y;
                                                 }
-                                                render(); 
-                                            } 
-                                        }).catch(()=>{});
+                                            }
+                                        }
+                                    } catch(err){}
                                 }
                             } else {
-                                let lowerUser = ('@' + user).toLowerCase();
+                                let lowerUser = ('@' + actualUsername).toLowerCase();
                                 if (!existingItem.friend.toLowerCase().includes(lowerUser)) {
-                                    existingItem.friend += ', @' + user;
+                                    existingItem.friend += ', @' + actualUsername;
                                 }
                             }
                         }
                     }
-                } catch(e) {
-                    console.error("Error parsing feed for: " + user, e);
-                }
-            }
+                } catch(e) { console.error(e); }
+            });
+            
+            await Promise.all(feedPromises);
             
             for (let i = blended.length - 1; i > 0; i--) { 
                 let j = Math.floor(Math.random() * (i + 1)), temp = blended[i]; 
@@ -1751,13 +1764,13 @@
                 </div>`;
             } else if (activeFriendList) {
                 modal = `<div class="modal-overlay">
-                    <div class="modal-bg-tint" style="background:#f1f5f9;"></div>
+                    <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
                     <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
                         <h3 class="detail-heading-title" style="margin-bottom:16px;">🔥 Picks by ${activeFriendName}</h3>
                         <div class="movie-grid">${activeFriendList.map(m => `
                             <div class="movie-card movie-trigger" data-pool="friend" data-id="${m.tmdbId || m.title}">
-                                <div class="poster-slot">${m.posterPath ? `<img src="${m.posterPath}" class="grid-poster-img">` : `<div style="font-weight:bold; font-size:10px; padding:12px; color:#0f172a;">${m.title}</div>`}</div>
+                                <div class="poster-slot">${m.posterPath ? `<img src="${m.posterPath}" class="grid-poster-img" style="object-fit:cover; width:100%; height:100%;">` : `<div style="font-weight:bold; font-size:10px; padding:12px; color:#0f172a;">${m.title}</div>`}</div>
                                 <div class="grid-card-details">${m.title}</div>
                             </div>`).join('')}
                         </div>
