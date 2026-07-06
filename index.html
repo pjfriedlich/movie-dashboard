@@ -295,6 +295,7 @@
             render(); 
             if (targetTab === 'downloads') syncDownloadQueue();
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); }
+            if (targetTab === 'foryou') { loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing For You...'); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
@@ -2021,7 +2022,7 @@
                 `;
 
                 if (currentForYouSubTab === 'movies') {
-                    body = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                    body = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                 } else {
                     body = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                 }
