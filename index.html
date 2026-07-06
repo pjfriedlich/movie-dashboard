@@ -131,6 +131,7 @@
     <div id="app-toast-banner" class="toast-notification-banner"></div>
     <div id="view-root"></div>
     
+    <!-- INJECTED SPORTS MODAL (WITH BOXSCORE) -->
     <div id="sportsModal" class="modal-overlay" style="display:none; z-index:150;">
         <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;" onclick="document.getElementById('sportsModal').style.display='none'"></div>
         <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
@@ -373,6 +374,58 @@
             render();
         };
 
+        async function fetchSportsScores() {
+            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
+            try {
+                isSportsLoading = true;
+                if(currentTab === 'smarthome') render(); 
+                let res = await fetch(url);
+                let data = await res.json();
+                
+                sportsData = data.events.map(event => {
+                    let comp = event.competitions[0];
+                    let home = comp.competitors.find(c => c.homeAway === 'home');
+                    let away = comp.competitors.find(c => c.homeAway === 'away');
+                    let status = event.status.type.detail; 
+                    
+                    if (event.status.type.state === 'pre') {
+                        let d = new Date(event.date);
+                        status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    }
+
+                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
+                    
+                    return {
+                        id: event.id,
+                        status: status,
+                        isLive: event.status.type.state === 'in',
+                        homeTeam: home.team.shortDisplayName,
+                        homeScore: home.score,
+                        homeLogo: home.team.logo,
+                        homeWinner: home.winner,
+                        awayTeam: away.team.shortDisplayName,
+                        awayScore: away.score,
+                        awayLogo: away.team.logo,
+                        awayWinner: away.winner,
+                        isMets: isMets
+                    };
+                });
+                
+                sportsData.sort((a, b) => {
+                    if (a.isMets && !b.isMets) return -1;
+                    if (!a.isMets && b.isMets) return 1;
+                    if (a.isLive && !b.isLive) return -1;
+                    if (!a.isLive && b.isLive) return 1;
+                    return 0;
+                });
+                
+            } catch(e) {
+                console.error("Sports fetch error", e);
+            } finally {
+                isSportsLoading = false;
+                if (currentTab === 'smarthome') render();
+            }
+        }
         window.openSportsModal = async function(gameId) {
             document.getElementById('sportsModal').style.display = 'block';
             document.getElementById('sports-modal-content').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading summary...</div>';
@@ -543,59 +596,6 @@
             return isNaN(num) ? 0 : num;
         }
 
-        async function fetchSportsScores() {
-            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
-            try {
-                isSportsLoading = true;
-                if(currentTab === 'smarthome') render(); 
-                let res = await fetch(url);
-                let data = await res.json();
-                
-                sportsData = data.events.map(event => {
-                    let comp = event.competitions[0];
-                    let home = comp.competitors.find(c => c.homeAway === 'home');
-                    let away = comp.competitors.find(c => c.homeAway === 'away');
-                    let status = event.status.type.detail; 
-                    
-                    if (event.status.type.state === 'pre') {
-                        let d = new Date(event.date);
-                        status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-                    }
-
-                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
-                    
-                    return {
-                        id: event.id,
-                        status: status,
-                        isLive: event.status.type.state === 'in',
-                        homeTeam: home.team.shortDisplayName,
-                        homeScore: home.score,
-                        homeLogo: home.team.logo,
-                        homeWinner: home.winner,
-                        awayTeam: away.team.shortDisplayName,
-                        awayScore: away.score,
-                        awayLogo: away.team.logo,
-                        awayWinner: away.winner,
-                        isMets: isMets
-                    };
-                });
-                
-                sportsData.sort((a, b) => {
-                    if (a.isMets && !b.isMets) return -1;
-                    if (!a.isMets && b.isMets) return 1;
-                    if (a.isLive && !b.isLive) return -1;
-                    if (!a.isLive && b.isLive) return 1;
-                    return 0;
-                });
-                
-            } catch(e) {
-                console.error("Sports fetch error", e);
-            } finally {
-                isSportsLoading = false;
-                if (currentTab === 'smarthome') render();
-            }
-        }
-        
         function getWeatherIcon(code) {
             if (code === 0) return '☀️'; 
             if ([1,2,3].includes(code)) return '⛅'; 
@@ -1328,6 +1328,7 @@
                     }))
                 };
                 localStorage.setItem('my_collections_cache', JSON.stringify(myCollectionsCache));
+                activeCollection = myCollectionsCache[collectionId];
                 render();
             } catch(e) {}
         }
@@ -2153,7 +2154,7 @@
                     watchButtonHtml = !isCurrentlyWatched ? `<button onclick="executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:15px;">Mark Watched</button>` : ``;
                 }
                 
-                let collectionButton = activeItem.collection ? `<button onclick="fetchCollection(${activeItem.collection.id}); showAppNotification('Loading Collection...'); closeM();" class="trailer-btn" style="flex:1;">View Collection</button>` : '';
+                let collectionButton = activeItem.collection ? `<button onclick="closeM(); showAppNotification('Loading Collection...'); fetchCollection(${activeItem.collection.id});" class="trailer-btn" style="flex:1;">View Collection</button>` : '';
                 let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="flex:1; border:2px solid #ea580c; color:#ea580c;">▶️ Play Trailer</button>` : '';
                 let extraBtns = (trailerBtnHtml || collectionButton) ? `<div style="display:flex; gap:12px; width:100%; margin-bottom:4px;">${trailerBtnHtml}${collectionButton}</div>` : '';
 
@@ -2237,6 +2238,31 @@
                                 ${addServerButtonHtml}
                             </div>
                             ${drawerHtml}
+                        </div>
+                    </div>
+                </div>`;
+            } else if (activeCollection) {
+                modal = `<div class="modal-overlay">
+                    <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
+                    <div class="detail-close-trigger" onclick="closeM()">×</div>
+                    <div class="detail-content-frame" style="margin-top:0; padding: 64px 20px 20px 20px; overflow-y:auto; display:flex; flex-direction:column; box-sizing:border-box;">
+                        <div style="display:flex; gap:16px; align-items:flex-end; margin-bottom: 20px;">
+                            <div style="width:100px; height:150px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1; background:#ffffff; flex-shrink:0; box-shadow:0 6px 12px rgba(0,0,0,0.08);">
+                                ${activeCollection.posterPath ? `<img src="${activeCollection.posterPath}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px; display:flex; align-items:center; justify-content:center; height:100%;">📁</div>`}
+                            </div>
+                            <div style="flex:1; padding-bottom:4px;">
+                                <h3 style="font-size:20px; font-weight:800; color:#0f172a; margin:0; line-height:1.2;">${activeCollection.name}</h3>
+                                <p style="font-size:12px; color:#64748b; font-weight:700; margin:6px 0 0 0;">${activeCollection.parts.length} Movies in Collection</p>
+                            </div>
+                        </div>
+                        <div class="movie-grid" style="margin-bottom: 30px;">
+                            ${activeCollection.parts.map(m => {
+                                let lookupKey = m.tmdbId || m.title;
+                                return `<div class="movie-card movie-trigger" data-pool="collection_part" data-id="${lookupKey}">
+                                    <div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div>
+                                    <div class="grid-card-details">${m.title}</div>
+                                </div>`;
+                            }).join('')}
                         </div>
                     </div>
                 </div>`;
