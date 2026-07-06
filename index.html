@@ -419,20 +419,21 @@
                 }
                 
                 // ---- KEY PLAYS DRAWER HTML ----
+                let scoringPlays = (data.plays || []).filter(p => p.scoringPlay);
                 let scoringPlaysHtml = '';
-                if (data.scoringPlays && data.scoringPlays.length > 0) {
-                    let playsList = data.scoringPlays.map(p => {
-                        let teamAbbr = p.team?.abbreviation || '';
-                        let inningStr = p.period?.number ? `Inning ${p.period.number}` : '';
+                
+                if (scoringPlays.length > 0) {
+                    let playsList = scoringPlays.map(p => {
+                        let inningStr = p.period?.number ? (p.period.number + (p.period.number===1?'st':p.period.number===2?'nd':p.period.number===3?'rd':'th')) : '';
                         return `<div style="padding:10px 0; border-bottom:1px solid #e2e8f0; font-size:12px; color:#334155; line-height:1.4;">
-                                    <strong style="color:#0f172a;">${teamAbbr} (${inningStr}):</strong> ${p.text}
+                                    <strong style="color:#0f172a;">Inning ${inningStr || ''}:</strong> ${p.text}
                                 </div>`;
                     }).join('');
                     
                     scoringPlaysHtml = `
                     <div id="key-plays-drawer" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:#ffffff; z-index:200; padding:24px; overflow-y:auto; border-radius:16px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:12px;">
-                            <h3 style="margin:0; font-size:14px; font-weight:800; color:#0f172a; text-transform:uppercase;">Key Plays</h3>
+                            <h3 style="margin:0; font-size:14px; font-weight:800; color:#0f172a; text-transform:uppercase;">Scoring Plays</h3>
                             <button onclick="document.getElementById('key-plays-drawer').style.display='none'" style="background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-weight:bold; color:#64748b; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">×</button>
                         </div>
                         ${playsList}
@@ -443,7 +444,7 @@
                 let playsHtml = '';
                 if (data.plays && data.plays.length > 0) {
                     let lastPlay = data.plays[data.plays.length - 1];
-                    let keyPlaysBtn = (data.scoringPlays && data.scoringPlays.length > 0) ? `<button onclick="document.getElementById('key-plays-drawer').style.display='block'" style="background:#ea580c; color:#ffffff; border:none; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; box-shadow: 0 2px 4px rgba(234,88,12,0.2); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Key Plays</button>` : '';
+                    let keyPlaysBtn = scoringPlays.length > 0 ? `<button onclick="document.getElementById('key-plays-drawer').style.display='block'" style="background:#ea580c; color:#ffffff; border:none; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; box-shadow: 0 2px 4px rgba(234,88,12,0.2); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Scoring Plays</button>` : '';
 
                     playsHtml = `<div style="margin-top:20px; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -533,7 +534,7 @@
             }
         };
 
-              function parseNumericYear(item) {
+        function parseNumericYear(item) {
             if (!item) return 0;
             let val = item.realYear || item.year;
             if (!val) return 0;
@@ -2020,7 +2021,7 @@
                 `;
 
                 if (currentForYouSubTab === 'movies') {
-                    body = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                    body = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                 } else {
                     body = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                 }
@@ -2398,4 +2399,3 @@
     </script>
 </body>
 </html>
-  
