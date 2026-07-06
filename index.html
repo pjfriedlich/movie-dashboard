@@ -68,14 +68,14 @@
         .sync-icon-svg { width: 13px; height: 13px; fill: currentColor; }
         .btn-panel-primary { padding:15px; background:linear-gradient(90deg, #f97316 0%, #ea580c 100%); color:#ffffff; border:none; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:pointer; box-shadow: 0 4px 12px rgba(234,88,12,0.15); box-sizing:border-box;}
         .btn-panel-disabled { padding:15px; background:#cbd5e1; color:#64748b; border:1px solid #cbd5e1; border-radius:12px; font-weight:800; text-transform:uppercase; font-size:12px; cursor:not-allowed; box-sizing:border-box; }
-        .btn-unwatch-action { position:absolute; top:20px; left:20px; background:#ef4444; border:none; color:#ffffff; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px 16px; border-radius:20px; cursor:pointer; z-index:115; box-shadow:0 4px 10px rgba(239,68,68,0.2); }
+        .btn-unwatch-action { position:absolute; top:16px; left:16px; background:#ef4444; border:none; color:#ffffff; font-size:10px; font-weight:800; text-transform:uppercase; padding:10px 14px; border-radius:20px; cursor:pointer; z-index:115; box-shadow:0 4px 10px rgba(239,68,68,0.2); }
         .trailer-btn { background:#ffffff; color:#334155; border:1px solid #cbd5e1; font-size:11px; font-weight:800; text-transform:uppercase; padding:10px; border-radius:10px; cursor:pointer; text-align:center; box-sizing:border-box; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; z-index:100; box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; background: #f1f5f9; }
         .modal-bg { position:absolute; top:-30px; left:-30px; right:-30px; bottom:-30px; background-size:cover; background-position:center; filter:blur(25px); opacity:0.5; z-index:1; pointer-events:none; }
         .modal-bg-tint { position:absolute; inset:0; background:rgba(241,245,249,0.85); z-index:2; pointer-events:none; }
-        .detail-close-trigger { position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:20px; font-weight:bold; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-        .detail-content-frame { padding: 80px 24px 20px 24px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 14px; height: 100%; box-sizing:border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .detail-close-trigger { position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.9); border:1px solid #cbd5e1; color:#0f172a; font-size:20px; font-weight:bold; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+        .detail-content-frame { padding: 64px 20px 20px 20px; position: relative; z-index: 105; display: flex; flex-direction: column; gap: 14px; height: 100%; box-sizing:border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .detail-main-row { display:flex; gap:18px; align-items:flex-end; margin-bottom: 4px; flex-shrink:0; }
         .detail-poster-wrapper { width:115px; height:172px; border-radius:14px; overflow:hidden; border:1px solid #cbd5e1; background:#ffffff; flex-shrink:0; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
         .detail-poster-img { width:100%; height:100%; object-fit: cover; }
@@ -134,7 +134,7 @@
     <div id="sportsModal" class="modal-overlay" style="display:none; z-index:150;">
         <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;" onclick="document.getElementById('sportsModal').style.display='none'"></div>
         <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
-            <div onclick="document.getElementById('sportsModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:#f1f5f9; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:18px; font-weight:bold; cursor:pointer; z-index:10;">×</div>
+            <div onclick="document.getElementById('sportsModal').style.display='none'" style="position:absolute; top:16px; right:16px; background:#f1f5f9; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:18px; font-weight:bold; cursor:pointer; z-index:10;">×</div>
             <h3 id="sports-modal-title" style="margin-top:0; font-size:16px; font-weight:800; color:#0f172a; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-right:40px; flex-shrink:0;">Game Summary</h3>
             <div id="sports-modal-content" style="flex:1; overflow-y:auto; padding-bottom: 30px; font-size:13px; color:#334155;">
                Loading summary...
@@ -1053,9 +1053,9 @@
 
             if (aggregatedFriends.length > 0) {
                 activeItem.friend = aggregatedFriends.join(', ');
-                return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
+                return '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top: 8px; width: 100%;">' + 
                     aggregatedFriends.map(f => `
-                    <span onclick="openFriendProfile('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👤 View ${f}'s Profile</span>
+                    <span onclick="openFriendProfile('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👤 ${f}</span>
                     `).join('') + 
                     '</div>';
             }
@@ -2144,7 +2144,6 @@
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
                     ${topUnwatchBadge}
                     <div class="detail-content-frame">
-                        ${friendBadgeHtml}
                         <div class="detail-main-row">
                             <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
                             <div class="detail-meta-block">
@@ -2154,6 +2153,7 @@
                                 </h3>
                                 <p class="detail-sub-specs">${displaySpecsYear}${runtimeStr}</p>
                                 ${extraRatingsHtml}
+                                ${friendBadgeHtml}
                             </div>
                         </div>
                         ${extraBtns}
@@ -2218,7 +2218,7 @@
                 modal = `<div class="modal-overlay">
                     <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
-                    <div class="detail-content-frame" style="margin-top:0; padding-top:70px; overflow-y:hidden; display:flex; flex-direction:column; box-sizing:border-box;">
+                    <div class="detail-content-frame" style="margin-top:0; padding: 64px 20px 20px 20px; overflow-y:hidden; display:flex; flex-direction:column; box-sizing:border-box;">
                         <h3 class="detail-heading-title" style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">👤 ${activeFriendName}</h3>
                         ${tabNavHtml}
                         <div style="flex:1; overflow-y:auto; padding-bottom: 30px;">
