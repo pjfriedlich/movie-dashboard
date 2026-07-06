@@ -120,11 +120,41 @@
         .action-row { display:flex; justify-content:space-between; gap:6px; }
         .action-btn { flex:1; padding:12px 0; border-radius:10px; border:none; background:#f8fafc; color:#475569; font-weight:800; font-size:10px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #e2e8f0; letter-spacing:0.5px; }
         .action-btn:active { background:#e2e8f0; }
+
+        /* LETTERBOXD JSON MODAL STYLES */
+        .lb-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15,23,42,0.85); z-index: 1000; backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; }
+        .lb-modal-content { background-color: #1e293b; color: white; padding: 20px; width: 90%; max-width: 500px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); max-height: 80vh; display: flex; flex-direction: column; }
+        .lb-tab-container { display: flex; border-bottom: 2px solid #334155; margin-bottom: 15px; flex-shrink: 0; }
+        .lb-tab-btn { flex: 1; background: none; color: #94a3b8; border: none; padding: 12px 10px; cursor: pointer; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.2s ease; }
+        .lb-tab-btn.active { color: #00e676; border-bottom: 2px solid #00e676; margin-bottom: -2px; }
+        .lb-tab-content { overflow-y: auto; flex: 1; padding-right: 5px; }
+        .lb-tab-content ul { list-style-type: none; padding: 0; margin: 0; }
+        .lb-tab-content li { background: #334155; margin-bottom: 10px; padding: 12px; border-radius: 8px; font-size: 13px; border-left: 4px solid #00e676; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .lb-close-btn { position: absolute; right: 20px; top: 20px; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
     </style>
 </head>
 <body>
     <div id="app-toast-banner" class="toast-notification-banner"></div>
+
+    <div id="letterboxdModal" class="lb-modal" style="display: none;">
+      <div class="lb-modal-content" style="position: relative;">
+        <span class="lb-close-btn" onclick="closeLetterboxdModal()">&times;</span>
+        <h2 id="modalTitle" style="margin-top: 0; font-size: 16px; margin-bottom: 16px; padding-right: 20px;">Friend's Recent Movies</h2>
+        <div class="lb-tab-container">
+          <button id="btn-highlyRated" class="lb-tab-btn active" onclick="switchLetterboxdTab('highlyRated', event)">Highly Rated</button>
+          <button class="lb-tab-btn" onclick="switchLetterboxdTab('otherMovies', event)">Other Watches</button>
+        </div>
+        <div id="highlyRated" class="lb-tab-content" style="display: block;">
+          <ul id="highlyRatedList"></ul>
+        </div>
+        <div id="otherMovies" class="lb-tab-content" style="display: none;">
+          <ul id="otherMoviesList"></ul>
+        </div>
+      </div>
+    </div>
+
     <div id="view-root"></div>
+    
     <div class="nav-footer">
         <button onclick="switchTab('smarthome')" class="nav-btn ${currentTab === 'smarthome' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg></div>
@@ -151,7 +181,47 @@
             Settings
         </button>
     </div>
+    
     <script>
+        // INJECTED LETTERBOXD JS LOGIC
+        let letterboxdData = {};
+        fetch('/letterboxd_likes.json') 
+          .then(response => response.json())
+          .then(data => { letterboxdData = data; })
+          .catch(err => console.error("Error loading JSON:", err));
+
+        window.openFriendModal = function(username) {
+            document.getElementById('modalTitle').innerText = `@${username}'s Recent Movies`;
+            const highlyRatedList = document.getElementById('highlyRatedList');
+            const otherMoviesList = document.getElementById('otherMoviesList');
+            highlyRatedList.innerHTML = ''; otherMoviesList.innerHTML = '';
+
+            if (letterboxdData[username]) {
+                const friendData = letterboxdData[username];
+                if (friendData.highly_rated.length === 0) { highlyRatedList.innerHTML = '<li>No recent highly rated movies.</li>'; }
+                else { friendData.highly_rated.forEach(movie => { highlyRatedList.innerHTML += `<li><strong>${movie.title}</strong> - ${movie.rating} ⭐${movie.review ? `<br><em style="color:#94a3b8; font-size:11px; font-weight:normal; margin-top:4px; display:block; line-height: 1.4;">"${movie.review}"</em>`:''}</li>`; }); }
+
+                if (friendData.other.length === 0) { otherMoviesList.innerHTML = '<li>No other recent movies.</li>'; }
+                else { friendData.other.forEach(movie => { otherMoviesList.innerHTML += `<li style="border-left-color: #f97316;"><strong>${movie.title}</strong> - ${movie.rating} ⭐${movie.review ? `<br><em style="color:#94a3b8; font-size:11px; font-weight:normal; margin-top:4px; display:block; line-height: 1.4;">"${movie.review}"</em>`:''}</li>`; }); }
+            } else {
+                highlyRatedList.innerHTML = '<li>No data found for this user. Ensure they are listed in the python script.</li>';
+            }
+            document.getElementById('letterboxdModal').style.display = 'flex';
+            document.getElementById('btn-highlyRated').click();
+        };
+
+        window.switchLetterboxdTab = function(tabId, event) {
+            document.querySelectorAll('.lb-tab-content').forEach(tab => tab.style.display = 'none');
+            document.querySelectorAll('.lb-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).style.display = 'block';
+            if(event) event.currentTarget.classList.add('active');
+        };
+
+        window.closeLetterboxdModal = function() {
+            document.getElementById('letterboxdModal').style.display = 'none';
+        };
+        // END INJECTED LOGIC
+
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
         if (!localStorage.getItem('ha_tv_entity')) localStorage.setItem('ha_tv_entity', 'media_player.chromecast');
@@ -824,6 +894,7 @@
             render();
         }
 
+        // INJECTED FRIEND BADGE LOGIC
         function getFriendBadgeHtml() {
             let aggregatedFriends = [];
             if (activeItem.friend) {
@@ -847,11 +918,15 @@
             if (aggregatedFriends.length > 0) {
                 activeItem.friend = aggregatedFriends.join(', ');
                 return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
-                    aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
+                    aggregatedFriends.map(f => `
+                    <span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>
+                    <span onclick="openFriendModal('${f.replace('@', '')}'); event.stopPropagation();" style="background:#e0e7ff; color:#4338ca; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👀 View ${f}'s Diary</span>
+                    `).join('') + 
                     '</div>';
             }
             return '';
         }
+        // END INJECTED BADGE LOGIC
 
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
@@ -1202,7 +1277,7 @@
                     movieTracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '', mediaType: 'movie' }));
                 }
                 for (let [title, range] of decades) {
-                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&primary_release_date.gte=${range[0]}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&watch_region=US&page=${randomPage}`)).json();
+                    let res1 = await (await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk.trim()}&primary_release_date.gte=${range[0]-1}-01-01&primary_release_date.lte=${range[1]}-12-31&sort_by=vote_average.desc&vote_count.gte=500&with_original_language=en&watch_region=US&page=${randomPage}`)).json();
                     movieTracks[title] = (res1.results || []).slice(0, 20).map(m => ({ title: m.title, year: m.release_date ? m.release_date.substring(0,4) : '', realYear: m.release_date ? m.release_date.substring(0,4) : '', rating: m.vote_average ? m.vote_average.toFixed(1) : '7.0', tmdbId: m.id, posterPath: "https://image.tmdb.org/t/p/w200" + m.poster_path, overview: m.overview || '', mediaType: 'movie' }));
                 }
                 
@@ -1361,35 +1436,6 @@
                     <button onclick="executeStopQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#f97316; color:#ffffff; border:none; padding:12px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">⏸ STOP</button>
                 </div>
             </div>`;
-        }
-        
-        function getFriendBadgeHtml() {
-            let aggregatedFriends = [];
-            if (activeItem.friend) {
-                aggregatedFriends = activeItem.friend.split(',').map(s=>s.trim()).filter(Boolean);
-            }
-            
-            friendRowData.forEach(f => {
-                let isMatch = false;
-                if (f.tmdbId && activeItem.tmdbId && String(f.tmdbId) === String(activeItem.tmdbId)) isMatch = true;
-                if (!isMatch && f.title && activeItem.title && f.title.toLowerCase().trim() === activeItem.title.toLowerCase().trim()) isMatch = true;
-                
-                if (isMatch && f.friend) {
-                    f.friend.split(',').map(s=>s.trim()).filter(Boolean).forEach(fr => {
-                        if (!aggregatedFriends.some(existing => existing.toLowerCase() === fr.toLowerCase())) {
-                            aggregatedFriends.push(fr);
-                        }
-                    });
-                }
-            });
-
-            if (aggregatedFriends.length > 0) {
-                activeItem.friend = aggregatedFriends.join(', ');
-                return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
-                    aggregatedFriends.map(f => `<span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>`).join('') + 
-                    '</div>';
-            }
-            return '';
         }
 
         function render() {
