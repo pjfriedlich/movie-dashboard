@@ -333,24 +333,14 @@
         
         function closeM() { modalOpen = false; activeItem = null; activeCollection = null; activeFriendList = null; activeFriendName = null; render(); }
 
-        window.openFriendList = function(fName) {
+        window.openFriendProfile = function(fName) {
             activeItem = null;
             modalOpen = false;
             activeCollection = null;
             activeFriendName = fName;
             
-            let fList = [];
-            let seen = new Set();
-            friendRowData.forEach(m => {
-                if (m.friend && m.friend.toLowerCase().includes(fName.toLowerCase())) {
-                    if (!seen.has(m.title)) {
-                        seen.add(m.title);
-                        fList.push(m);
-                    }
-                }
-            });
-            activeFriendList = fList;
-            window.currentFriendTab = 'watchlist'; 
+            // Set the default tab to Highly Rated instead of Watchlist
+            window.currentFriendTab = 'highlyRated'; 
             render();
         };
 
@@ -862,7 +852,7 @@
                 activeItem.friend = aggregatedFriends.join(', ');
                 return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
                     aggregatedFriends.map(f => `
-                    <span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👤 View ${f}'s Profile</span>
+                    <span onclick="openFriendProfile('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👤 View ${f}'s Profile</span>
                     `).join('') + 
                     '</div>';
             }
@@ -888,8 +878,41 @@
                 else if (poolType === 'calendar') targetObject = calendarEvents.find(m => String(m.id) === cleanId);
                 else if (poolType === 'shows') targetObject = myShows.find(m => String(m.id) === cleanId || String(m.tvdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
-                if (!targetObject) { activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; } 
-                else { activeItem = JSON.parse(JSON.stringify(targetObject)); activeItem.trailerKey = null; activeItem.cast = null; }
+                // --- TMDB TITLE SEARCH FALLBACK ---
+                if (!targetObject) { 
+                    activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; 
+                    let tmdbKey = localStorage.getItem('tmdb_key');
+                    if (tmdbKey) {
+                        fetch(`https://api.themoviedb.org/3/search/multi?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(identifier)}`)
+                        .then(r => r.json())
+                        .then(d => {
+                            let first = d.results && d.results.find(m => m.media_type === 'movie' || m.media_type === 'tv');
+                            if (first && modalOpen && activeItem && activeItem.title === identifier) {
+                                let mockObj = {
+                                    id: 'temp_' + first.id,
+                                    title: first.title || first.name,
+                                    year: (first.release_date || first.first_air_date || '').substring(0,4),
+                                    realYear: (first.release_date || first.first_air_date || '').substring(0,4),
+                                    rating: first.vote_average ? first.vote_average.toFixed(1) : 'NR',
+                                    tmdbId: first.id,
+                                    posterPath: first.poster_path ? "https://image.tmdb.org/t/p/w200" + first.poster_path : '',
+                                    overview: first.overview || '',
+                                    mediaType: first.media_type
+                                };
+                                friendRowData.push(mockObj);
+                                launchModalFromAttributes('friend', mockObj.tmdbId);
+                            } else if (!first && modalOpen && activeItem && activeItem.title === identifier) {
+                                activeItem.overview = "Title not found on TMDB.";
+                                render();
+                            }
+                        }).catch(()=>{});
+                    }
+                } else { 
+                    activeItem = JSON.parse(JSON.stringify(targetObject)); 
+                    activeItem.trailerKey = null; 
+                    activeItem.cast = null; 
+                }
+                // ------------------------------------
 
                 activeItem.jfChecked = false; 
                 modalOpen = true; render();
@@ -1802,195 +1825,24 @@
                         </div>
                     </div>
                 </div>`;
-                
-                // If TMDB completes, update the modal contents dynamically 
-                let updateModalContents = function() {
-                    let newFriendBadgeHtml = getFriendBadgeHtml();
-                    modal = `<div class="modal-overlay">
-                        <div class="modal-bg" ${activeItem.posterPath ? `style="background-image:url('${activeItem.posterPath}');"` : ''}></div>
-                        <div class="modal-bg-tint"></div>
-                        <div class="detail-close-trigger" onclick="closeM()">×</div>
-                        ${topUnwatchBadge}
-                        <div class="detail-content-frame">
-                            ${newFriendBadgeHtml}
-                            <div class="detail-main-row">
-                                <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
-                                <div class="detail-meta-block">
-                                    <h3 class="detail-heading-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                        ${activeItem.title}
-                                        ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
-                                    </h3>
-                                    <p class="detail-sub-specs">${displaySpecsYear}</p>
-                                </div>
-                            </div>
-                            ${extraBtns}
-                            <div id="modal-trailer-frame-box" class="trailer-video-box"></div>
-                            ${castHtml}
-                            <div class="detail-synopsis-box">
-                                <h4>Summary</h4>
-                                <div class="synopsis-text">${activeItem.overview || 'No overview available.'}</div>
-                            </div>
-                            <div class="detail-footer-actions">
-                                ${jellyfinHtml}
-                                <div style="display:flex; gap:12px; width:100%;">
-                                    ${watchButtonHtml}
-                                    ${addServerButtonHtml}
-                                </div>
-                                ${drawerHtml}
-                            </div>
-                        </div>
-                    </div>`;
-                    render();
-                };
-
-                let tk = localStorage.getItem('tmdb_key');
-                if (tk && activeItem && (activeItem.tmdbId || activeItem.tvdbId)) {
-                    let idFetch = Promise.resolve();
-                    if (!activeItem.tmdbId && activeItem.tvdbId) {
-                        idFetch = fetch(`https://api.themoviedb.org/3/find/${activeItem.tvdbId}?api_key=${tk.trim()}&external_source=tvdb_id`)
-                            .then(r => r.json())
-                            .then(d => { if(d.tv_results && d.tv_results[0]) activeItem.tmdbId = d.tv_results[0].id; });
-                    }
-                    
-                    idFetch.then(() => {
-                        if (!activeItem.tmdbId) return;
-                        let endpoint = activeItem.mediaType === 'tv' ? 'tv' : 'movie';
-                        fetch(`https://api.themoviedb.org/3/${endpoint}/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits,external_ids`)
-                        .then(res => res.json())
-                        .then(d => {
-                            if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
-                                activeItem.overview = d.overview || "No summary available.";
-                                activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
-                                let rDate = d.release_date || d.first_air_date;
-                                if (rDate) {
-                                    activeItem.realYear = rDate.substring(0, 4);
-                                    activeItem.year = rDate.substring(0, 4);
-                                }
-                                if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
-                                
-                                if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
-
-                                let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
-                                if (trailerObj) activeItem.trailerKey = trailerObj.key;
-
-                                if (d.credits && d.credits.cast) {
-                                    activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
-                                }
-                                
-                                if (activeItem.mediaType === 'tv') {
-                                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
-                                    if (isAlreadyInSonarr) {
-                                        let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
-                                        let sId = existingShow.id.replace('sonarr_', '');
-                                        activeItem.sonarrSeriesId = sId;
-                                        
-                                        let sUrl = localStorage.getItem('sonarr_url');
-                                        let sKey = localStorage.getItem('sonarr_key');
-                                        if (sUrl && sKey) {
-                                            fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/episode?seriesId=${sId}&apiKey=${sKey.trim()}`)
-                                                .then(r => r.json())
-                                                .then(eps => {
-                                                    if (modalOpen && activeItem && activeItem.sonarrSeriesId === sId) {
-                                                        activeItem.sonarrEpisodes = eps;
-                                                        updateModalContents();
-                                                    }
-                                                }).catch(()=>{});
-                                        }
-                                    }
-                                }
-                                
-                                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
-                                    let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
-                                    if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
-                                    let jfKey = localStorage.getItem('jf_key').trim();
-                                    fetch(`${jfUrl}/Items?IncludeItemTypes=Movie,Series&Recursive=true&searchTerm=${encodeURIComponent(activeItem.searchTitle || activeItem.title)}&api_key=${jfKey}`)
-                                    .then(r => {
-                                        if(!r.ok) throw new Error(r.status);
-                                        return r.json();
-                                    })
-                                    .then(jfData => {
-                                        activeItem.jfChecked = true;
-                                        let match = jfData.Items && jfData.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
-                                        if (!match && jfData.Items && jfData.Items.length > 0) match = jfData.Items[0]; 
-                                        if (match) {
-                                            activeItem.jellyfinId = match.Id;
-                                            return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
-                                        } else {
-                                            updateModalContents();
-                                        }
-                                    })
-                                    .then(r => {
-                                        if (r && !r.ok) throw new Error(r.status);
-                                        return r ? r.json() : null;
-                                    })
-                                    .then(sessions => {
-                                        if (sessions && modalOpen) {
-                                            activeItem.jfSessions = sessions.filter(s => {
-                                                let client = (s.Client || '').toLowerCase();
-                                                let device = (s.DeviceName || '').toLowerCase();
-                                                return !client.includes('server') && !client.includes('web') && !device.includes('server');
-                                            });
-                                            updateModalContents();
-                                        }
-                                    }).catch(e => {
-                                        console.error("Jellyfin Error", e);
-                                        activeItem.jfChecked = true;
-                                        activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
-                                        updateModalContents();
-                                    });
-                                } else {
-                                    updateModalContents(); 
-                                }
-                            }
-                        })
-                        .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; updateModalContents(); }});
-                    });
-                }
-            } else if (activeCollection) {
-                modal = `<div class="modal-overlay">
-                    <div class="modal-bg" ${activeCollection.posterPath ? `style="background-image:url('${activeCollection.posterPath}');"` : ''}></div>
-                    <div class="modal-bg-tint"></div>
-                    <div class="detail-close-trigger" onclick="closeM()">×</div>
-                    <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
-                        <h3 class="detail-heading-title" style="margin-bottom:16px;">${activeCollection.name}</h3>
-                        <div class="movie-grid">${activeCollection.parts.map(m => `
-                            <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
-                                <div class="poster-slot"><img src="${m.posterPath}" class="grid-poster-img"></div>
-                                <div class="grid-card-details">${m.title}</div>
-                            </div>`).join('')}
-                        </div>
-                    </div>
-                </div>`;
             } else if (activeFriendName) {
                 let username = activeFriendName.replace('@', '');
                 let friendData = letterboxdData[username] || { highly_rated: [], other: [] };
 
                 let tabNavHtml = `
                     <div class="profile-tab-container">
-                        <button class="profile-tab-btn ${window.currentFriendTab === 'watchlist' ? 'active' : ''}" onclick="window.currentFriendTab='watchlist'; render();">Watchlist (${activeFriendList.length})</button>
                         <button class="profile-tab-btn ${window.currentFriendTab === 'highlyRated' ? 'active' : ''}" onclick="window.currentFriendTab='highlyRated'; render();">Highly Rated (${friendData.highly_rated.length})</button>
                         <button class="profile-tab-btn ${window.currentFriendTab === 'recent' ? 'active' : ''}" onclick="window.currentFriendTab='recent'; render();">Recent (${friendData.other.length})</button>
                     </div>
                 `;
 
                 let tabContentHtml = '';
-                if (window.currentFriendTab === 'watchlist') {
-                    if (activeFriendList.length === 0) {
-                        tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:20px;">No watchlist items currently tracked.</div>`;
-                    } else {
-                        tabContentHtml = `<div class="movie-grid">${activeFriendList.map(m => `
-                            <div class="movie-card movie-trigger" data-pool="friend" data-id="${m.tmdbId || m.title}">
-                                <div class="poster-slot">${m.posterPath ? `<img src="${m.posterPath}" class="grid-poster-img" style="object-fit:cover; width:100%; height:100%;">` : `<div style="font-weight:bold; font-size:10px; padding:12px; color:#0f172a;">${m.title}</div>`}</div>
-                                <div class="grid-card-details">${m.title}</div>
-                            </div>`).join('')}
-                        </div>`;
-                    }
-                } else if (window.currentFriendTab === 'highlyRated') {
+                if (window.currentFriendTab === 'highlyRated') {
                     if (friendData.highly_rated.length === 0) {
                         tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:40px 20px;">No highly rated movies recently logged.</div>`;
                     } else {
                         tabContentHtml = `<ul style="list-style-type:none; padding:0; margin:0;">` + friendData.highly_rated.map(movie => `
-                            <li style="background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #10b981; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a;">
+                            <li class="movie-trigger" data-pool="friend" data-id="${movie.title.replace(/"/g, '&quot;')}" style="cursor:pointer; background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #10b981; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a; transition: transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                     <strong style="font-size:14px;">${movie.title}</strong>
                                     <span style="background:#f0fdf4; color:#15803d; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:800; white-space:nowrap; margin-left:8px;">${movie.rating} ⭐</span>
@@ -2004,7 +1856,7 @@
                         tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:40px 20px;">No other recent movies.</div>`;
                     } else {
                         tabContentHtml = `<ul style="list-style-type:none; padding:0; margin:0;">` + friendData.other.map(movie => `
-                            <li style="background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #f97316; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a;">
+                            <li class="movie-trigger" data-pool="friend" data-id="${movie.title.replace(/"/g, '&quot;')}" style="cursor:pointer; background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #f97316; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a; transition: transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                     <strong style="font-size:14px;">${movie.title}</strong>
                                     <span style="background:#fff7ed; color:#c2410c; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:800; white-space:nowrap; margin-left:8px;">${movie.rating} ⭐</span>
