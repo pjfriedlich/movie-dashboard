@@ -168,7 +168,8 @@
             Settings
         </button>
     </div>
-        <script>
+    
+    <script>
         let letterboxdData = {};
         fetch('/letterboxd_likes.json') 
           .then(response => response.json())
@@ -501,7 +502,7 @@
             }
         };
 
-        function parseNumericYear(item) {
+              function parseNumericYear(item) {
             if (!item) return 0;
             let val = item.realYear || item.year;
             if (!val) return 0;
@@ -560,7 +561,9 @@
                 isSportsLoading = false;
                 if (currentTab === 'smarthome') render();
             }
-               function getWeatherIcon(code) {
+        }
+        
+        function getWeatherIcon(code) {
             if (code === 0) return '☀️'; 
             if ([1,2,3].includes(code)) return '⛅'; 
             if ([45,48].includes(code)) return '🌫️'; 
@@ -2363,4 +2366,5 @@
         }, 3000);
     </script>
 </body>
-</html> }
+</html>
+  
