@@ -179,6 +179,7 @@
         let intercomExpanded = localStorage.getItem('app_intercom_expanded') !== 'false';
         let lightsExpanded = localStorage.getItem('app_lights_expanded') !== 'false';
         let calendarExpanded = localStorage.getItem('app_calendar_expanded') !== 'false';
+        let sportsExpanded = localStorage.getItem('app_sports_expanded') !== 'false';
         
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendList = null, activeFriendName = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
@@ -195,6 +196,9 @@
         let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
         let jfActiveSessions = [];
         let calendarEvents = [];
+        
+        let sportsData = [];
+        let isSportsLoading = false;
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
@@ -276,7 +280,7 @@
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncDownloadQueue();
-            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); }
+            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
@@ -309,6 +313,12 @@
         function toggleCalendarPanel() {
             calendarExpanded = !calendarExpanded;
             localStorage.setItem('app_calendar_expanded', calendarExpanded);
+            render();
+        }
+        
+        function toggleSportsPanel() {
+            sportsExpanded = !sportsExpanded;
+            localStorage.setItem('app_sports_expanded', sportsExpanded);
             render();
         }
 
@@ -350,6 +360,53 @@
             if (!val) return 0;
             let num = parseInt(String(val).replace(/\D/g, ""), 10);
             return isNaN(num) ? 0 : num;
+        }
+
+        async function fetchSportsScores() {
+            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
+            try {
+                isSportsLoading = true;
+                if(currentTab === 'smarthome') render(); 
+                let res = await fetch(url);
+                let data = await res.json();
+                
+                sportsData = data.events.map(event => {
+                    let comp = event.competitions[0];
+                    let home = comp.competitors.find(c => c.homeAway === 'home');
+                    let away = comp.competitors.find(c => c.homeAway === 'away');
+                    let status = event.status.type.detail; 
+                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
+                    
+                    return {
+                        id: event.id,
+                        status: status,
+                        isLive: event.status.type.state === 'in',
+                        homeTeam: home.team.shortDisplayName,
+                        homeScore: home.score,
+                        homeLogo: home.team.logo,
+                        homeWinner: home.winner,
+                        awayTeam: away.team.shortDisplayName,
+                        awayScore: away.score,
+                        awayLogo: away.team.logo,
+                        awayWinner: away.winner,
+                        isMets: isMets
+                    };
+                });
+                
+                sportsData.sort((a, b) => {
+                    if (a.isMets && !b.isMets) return -1;
+                    if (!a.isMets && b.isMets) return 1;
+                    if (a.isLive && !b.isLive) return -1;
+                    if (!a.isLive && b.isLive) return 1;
+                    return 0;
+                });
+                
+            } catch(e) {
+                console.error("Sports fetch error", e);
+            } finally {
+                isSportsLoading = false;
+                if (currentTab === 'smarthome') render();
+            }
         }
 
         async function syncJfSessions() {
@@ -1603,12 +1660,64 @@
                         </div>
                     </div>
                 `;
+                
+                let sportsContentDisplay = sportsExpanded ? 'block' : 'none';
+                let sportsChevron = sportsExpanded ? '▲' : '▼';
+                
+                let sportsHtml = '';
+                if (isSportsLoading && sportsData.length === 0) {
+                     sportsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Loading live scores...</div>`;
+                } else if (sportsData.length === 0) {
+                     sportsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No games currently scheduled.</div>`;
+                } else {
+                     sportsHtml = `<div style="display:flex; flex-direction:column; gap:8px; padding:4px;">` + sportsData.map(g => {
+                         let liveIndicator = g.isLive ? `<span style="color:#ef4444; font-size:20px; line-height:0; margin-right:4px;">•</span>` : '';
+                         let bgStyle = g.isMets ? 'background:#fff7ed; border-color:#fed7aa;' : 'background:#f8fafc; border-color:#e2e8f0;';
+                         
+                         return `<div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border:1px solid #cbd5e1; border-radius:12px; ${bgStyle}">
+                             <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+                                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                                     <div style="display:flex; align-items:center; gap:8px;">
+                                         <img src="${g.awayLogo}" style="width:20px; height:20px; object-fit:contain;">
+                                         <span style="font-size:13px; font-weight:800; color:${g.awayWinner ? '#0f172a' : '#64748b'};">${g.awayTeam}</span>
+                                     </div>
+                                     <span style="font-size:14px; font-weight:800; color:${g.awayWinner ? '#0f172a' : '#64748b'};">${g.awayScore || ''}</span>
+                                 </div>
+                                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                                     <div style="display:flex; align-items:center; gap:8px;">
+                                         <img src="${g.homeLogo}" style="width:20px; height:20px; object-fit:contain;">
+                                         <span style="font-size:13px; font-weight:800; color:${g.homeWinner ? '#0f172a' : '#64748b'};">${g.homeTeam}</span>
+                                     </div>
+                                     <span style="font-size:14px; font-weight:800; color:${g.homeWinner ? '#0f172a' : '#64748b'};">${g.homeScore || ''}</span>
+                                 </div>
+                             </div>
+                             <div style="text-align:right; min-width:70px; padding-left:12px; border-left:1px solid #e2e8f0; margin-left:12px;">
+                                 <span style="font-size:10px; font-weight:800; color:${g.isLive ? '#ef4444' : '#64748b'}; text-transform:uppercase;">${liveIndicator}${g.status}</span>
+                             </div>
+                         </div>`;
+                     }).join('') + `</div>`;
+                }
+
+                let sportsCardHtml = `
+                    <div class="card-box">
+                        <div class="card-header" onclick="toggleSportsPanel()">
+                            <div class="card-header-title">
+                                <h3>Live MLB Scores</h3>
+                            </div>
+                            <span class="card-chevron">${sportsChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${sportsContentDisplay}; padding: 0 16px 16px 16px;">
+                            ${sportsHtml}
+                        </div>
+                    </div>
+                `;
 
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
-                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); showAppNotification('Syncing Devices & Schedule...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
+                ${sportsCardHtml}
                 ${calendarCardHtml}
                 ${tvRemoteHtml}
                 ${intercomCardHtml}
@@ -1825,6 +1934,165 @@
                         </div>
                     </div>
                 </div>`;
+                
+                // If TMDB completes, update the modal contents dynamically 
+                let updateModalContents = function() {
+                    let newFriendBadgeHtml = getFriendBadgeHtml();
+                    modal = `<div class="modal-overlay">
+                        <div class="modal-bg" ${activeItem.posterPath ? `style="background-image:url('${activeItem.posterPath}');"` : ''}></div>
+                        <div class="modal-bg-tint"></div>
+                        <div class="detail-close-trigger" onclick="closeM()">×</div>
+                        ${topUnwatchBadge}
+                        <div class="detail-content-frame">
+                            ${newFriendBadgeHtml}
+                            <div class="detail-main-row">
+                                <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
+                                <div class="detail-meta-block">
+                                    <h3 class="detail-heading-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                        ${activeItem.title}
+                                        ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
+                                    </h3>
+                                    <p class="detail-sub-specs">${displaySpecsYear}</p>
+                                </div>
+                            </div>
+                            ${extraBtns}
+                            <div id="modal-trailer-frame-box" class="trailer-video-box"></div>
+                            ${castHtml}
+                            <div class="detail-synopsis-box">
+                                <h4>Summary</h4>
+                                <div class="synopsis-text">${activeItem.overview || 'No overview available.'}</div>
+                            </div>
+                            <div class="detail-footer-actions">
+                                ${jellyfinHtml}
+                                <div style="display:flex; gap:12px; width:100%;">
+                                    ${watchButtonHtml}
+                                    ${addServerButtonHtml}
+                                </div>
+                                ${drawerHtml}
+                            </div>
+                        </div>
+                    </div>`;
+                    render();
+                };
+
+                let tk = localStorage.getItem('tmdb_key');
+                if (tk && activeItem && (activeItem.tmdbId || activeItem.tvdbId)) {
+                    let idFetch = Promise.resolve();
+                    if (!activeItem.tmdbId && activeItem.tvdbId) {
+                        idFetch = fetch(`https://api.themoviedb.org/3/find/${activeItem.tvdbId}?api_key=${tk.trim()}&external_source=tvdb_id`)
+                            .then(r => r.json())
+                            .then(d => { if(d.tv_results && d.tv_results[0]) activeItem.tmdbId = d.tv_results[0].id; });
+                    }
+                    
+                    idFetch.then(() => {
+                        if (!activeItem.tmdbId) return;
+                        let endpoint = activeItem.mediaType === 'tv' ? 'tv' : 'movie';
+                        fetch(`https://api.themoviedb.org/3/${endpoint}/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits,external_ids`)
+                        .then(res => res.json())
+                        .then(d => {
+                            if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
+                                activeItem.overview = d.overview || "No summary available.";
+                                activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
+                                let rDate = d.release_date || d.first_air_date;
+                                if (rDate) {
+                                    activeItem.realYear = rDate.substring(0, 4);
+                                    activeItem.year = rDate.substring(0, 4);
+                                }
+                                if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
+                                
+                                if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
+
+                                let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
+                                if (trailerObj) activeItem.trailerKey = trailerObj.key;
+
+                                if (d.credits && d.credits.cast) {
+                                    activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
+                                }
+                                
+                                if (activeItem.mediaType === 'tv') {
+                                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                    if (isAlreadyInSonarr) {
+                                        let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
+                                        let sId = existingShow.id.replace('sonarr_', '');
+                                        activeItem.sonarrSeriesId = sId;
+                                        
+                                        let sUrl = localStorage.getItem('sonarr_url');
+                                        let sKey = localStorage.getItem('sonarr_key');
+                                        if (sUrl && sKey) {
+                                            fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/episode?seriesId=${sId}&apiKey=${sKey.trim()}`)
+                                                .then(r => r.json())
+                                                .then(eps => {
+                                                    if (modalOpen && activeItem && activeItem.sonarrSeriesId === sId) {
+                                                        activeItem.sonarrEpisodes = eps;
+                                                        updateModalContents();
+                                                    }
+                                                }).catch(()=>{});
+                                        }
+                                    }
+                                }
+                                
+                                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
+                                    let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
+                                    if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                                    let jfKey = localStorage.getItem('jf_key').trim();
+                                    fetch(`${jfUrl}/Items?IncludeItemTypes=Movie,Series&Recursive=true&searchTerm=${encodeURIComponent(activeItem.searchTitle || activeItem.title)}&api_key=${jfKey}`)
+                                    .then(r => {
+                                        if(!r.ok) throw new Error(r.status);
+                                        return r.json();
+                                    })
+                                    .then(jfData => {
+                                        activeItem.jfChecked = true;
+                                        let match = jfData.Items && jfData.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
+                                        if (!match && jfData.Items && jfData.Items.length > 0) match = jfData.Items[0]; 
+                                        if (match) {
+                                            activeItem.jellyfinId = match.Id;
+                                            return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
+                                        } else {
+                                            updateModalContents();
+                                        }
+                                    })
+                                    .then(r => {
+                                        if (r && !r.ok) throw new Error(r.status);
+                                        return r ? r.json() : null;
+                                    })
+                                    .then(sessions => {
+                                        if (sessions && modalOpen) {
+                                            activeItem.jfSessions = sessions.filter(s => {
+                                                let client = (s.Client || '').toLowerCase();
+                                                let device = (s.DeviceName || '').toLowerCase();
+                                                return !client.includes('server') && !client.includes('web') && !device.includes('server');
+                                            });
+                                            updateModalContents();
+                                        }
+                                    }).catch(e => {
+                                        console.error("Jellyfin Error", e);
+                                        activeItem.jfChecked = true;
+                                        activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
+                                        updateModalContents();
+                                    });
+                                } else {
+                                    updateModalContents(); 
+                                }
+                            }
+                        })
+                        .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; updateModalContents(); }});
+                    });
+                }
+            } else if (activeCollection) {
+                modal = `<div class="modal-overlay">
+                    <div class="modal-bg" ${activeCollection.posterPath ? `style="background-image:url('${activeCollection.posterPath}');"` : ''}></div>
+                    <div class="modal-bg-tint"></div>
+                    <div class="detail-close-trigger" onclick="closeM()">×</div>
+                    <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
+                        <h3 class="detail-heading-title" style="margin-bottom:16px;">${activeCollection.name}</h3>
+                        <div class="movie-grid">${activeCollection.parts.map(m => `
+                            <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
+                                <div class="poster-slot"><img src="${m.posterPath}" class="grid-poster-img"></div>
+                                <div class="grid-card-details">${m.title}</div>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>`;
             } else if (activeFriendName) {
                 let username = activeFriendName.replace('@', '');
                 let friendData = letterboxdData[username] || { highly_rated: [], other: [] };
@@ -1966,13 +2234,14 @@
             fetchHAEntities();
         }
         syncFeeds(); loadDiscoverTracks(); render();
+        if(currentTab === 'smarthome') fetchSportsScores();
 
         let tickCount = 0;
         setInterval(() => {
             syncDownloadQueue();
             if (currentTab === 'smarthome') syncJfSessions();
             tickCount++;
-            if (tickCount % 5 === 0) fetchDiskSpace();
+            if (tickCount % 5 === 0) { fetchDiskSpace(); if(currentTab === 'smarthome') fetchSportsScores(); }
             if (tickCount % 20 === 0) fetchMediaCalendars();
         }, 3000);
     </script>
