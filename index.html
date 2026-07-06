@@ -121,38 +121,14 @@
         .action-btn { flex:1; padding:12px 0; border-radius:10px; border:none; background:#f8fafc; color:#475569; font-weight:800; font-size:10px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #e2e8f0; letter-spacing:0.5px; }
         .action-btn:active { background:#e2e8f0; }
 
-        /* LETTERBOXD JSON MODAL STYLES */
-        .lb-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15,23,42,0.85); z-index: 1000; backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; }
-        .lb-modal-content { background-color: #1e293b; color: white; padding: 20px; width: 90%; max-width: 500px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); max-height: 80vh; display: flex; flex-direction: column; }
-        .lb-tab-container { display: flex; border-bottom: 2px solid #334155; margin-bottom: 15px; flex-shrink: 0; }
-        .lb-tab-btn { flex: 1; background: none; color: #94a3b8; border: none; padding: 12px 10px; cursor: pointer; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.2s ease; }
-        .lb-tab-btn.active { color: #00e676; border-bottom: 2px solid #00e676; margin-bottom: -2px; }
-        .lb-tab-content { overflow-y: auto; flex: 1; padding-right: 5px; }
-        .lb-tab-content ul { list-style-type: none; padding: 0; margin: 0; }
-        .lb-tab-content li { background: #334155; margin-bottom: 10px; padding: 12px; border-radius: 8px; font-size: 13px; border-left: 4px solid #00e676; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .lb-close-btn { position: absolute; right: 20px; top: 20px; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
+        /* PROFILE MODAL TABS */
+        .profile-tab-container { display: flex; border-bottom: 2px solid #cbd5e1; margin-bottom: 16px; flex-shrink: 0; }
+        .profile-tab-btn { flex: 1; background: none; color: #64748b; border: none; padding: 12px 4px; cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.2s ease; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .profile-tab-btn.active { color: #ea580c; border-bottom: 2px solid #ea580c; }
     </style>
 </head>
 <body>
     <div id="app-toast-banner" class="toast-notification-banner"></div>
-
-    <div id="letterboxdModal" class="lb-modal" style="display: none;">
-      <div class="lb-modal-content" style="position: relative;">
-        <span class="lb-close-btn" onclick="closeLetterboxdModal()">&times;</span>
-        <h2 id="modalTitle" style="margin-top: 0; font-size: 16px; margin-bottom: 16px; padding-right: 20px;">Friend's Recent Movies</h2>
-        <div class="lb-tab-container">
-          <button id="btn-highlyRated" class="lb-tab-btn active" onclick="switchLetterboxdTab('highlyRated', event)">Highly Rated</button>
-          <button class="lb-tab-btn" onclick="switchLetterboxdTab('otherMovies', event)">Other Watches</button>
-        </div>
-        <div id="highlyRated" class="lb-tab-content" style="display: block;">
-          <ul id="highlyRatedList"></ul>
-        </div>
-        <div id="otherMovies" class="lb-tab-content" style="display: none;">
-          <ul id="otherMoviesList"></ul>
-        </div>
-      </div>
-    </div>
-
     <div id="view-root"></div>
     
     <div class="nav-footer">
@@ -183,44 +159,11 @@
     </div>
     
     <script>
-        // INJECTED LETTERBOXD JS LOGIC
         let letterboxdData = {};
         fetch('/letterboxd_likes.json') 
           .then(response => response.json())
           .then(data => { letterboxdData = data; })
           .catch(err => console.error("Error loading JSON:", err));
-
-        window.openFriendModal = function(username) {
-            document.getElementById('modalTitle').innerText = `@${username}'s Recent Movies`;
-            const highlyRatedList = document.getElementById('highlyRatedList');
-            const otherMoviesList = document.getElementById('otherMoviesList');
-            highlyRatedList.innerHTML = ''; otherMoviesList.innerHTML = '';
-
-            if (letterboxdData[username]) {
-                const friendData = letterboxdData[username];
-                if (friendData.highly_rated.length === 0) { highlyRatedList.innerHTML = '<li>No recent highly rated movies.</li>'; }
-                else { friendData.highly_rated.forEach(movie => { highlyRatedList.innerHTML += `<li><strong>${movie.title}</strong> - ${movie.rating} ⭐${movie.review ? `<br><em style="color:#94a3b8; font-size:11px; font-weight:normal; margin-top:4px; display:block; line-height: 1.4;">"${movie.review}"</em>`:''}</li>`; }); }
-
-                if (friendData.other.length === 0) { otherMoviesList.innerHTML = '<li>No other recent movies.</li>'; }
-                else { friendData.other.forEach(movie => { otherMoviesList.innerHTML += `<li style="border-left-color: #f97316;"><strong>${movie.title}</strong> - ${movie.rating} ⭐${movie.review ? `<br><em style="color:#94a3b8; font-size:11px; font-weight:normal; margin-top:4px; display:block; line-height: 1.4;">"${movie.review}"</em>`:''}</li>`; }); }
-            } else {
-                highlyRatedList.innerHTML = '<li>No data found for this user. Ensure they are listed in the python script.</li>';
-            }
-            document.getElementById('letterboxdModal').style.display = 'flex';
-            document.getElementById('btn-highlyRated').click();
-        };
-
-        window.switchLetterboxdTab = function(tabId, event) {
-            document.querySelectorAll('.lb-tab-content').forEach(tab => tab.style.display = 'none');
-            document.querySelectorAll('.lb-tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabId).style.display = 'block';
-            if(event) event.currentTarget.classList.add('active');
-        };
-
-        window.closeLetterboxdModal = function() {
-            document.getElementById('letterboxdModal').style.display = 'none';
-        };
-        // END INJECTED LOGIC
 
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
@@ -407,6 +350,7 @@
                 }
             });
             activeFriendList = fList;
+            window.currentFriendTab = 'watchlist'; 
             render();
         };
 
@@ -894,7 +838,6 @@
             render();
         }
 
-        // INJECTED FRIEND BADGE LOGIC
         function getFriendBadgeHtml() {
             let aggregatedFriends = [];
             if (activeItem.friend) {
@@ -919,14 +862,12 @@
                 activeItem.friend = aggregatedFriends.join(', ');
                 return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 14px; width: 100%;">' + 
                     aggregatedFriends.map(f => `
-                    <span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">🔥 Picked by ${f}</span>
-                    <span onclick="openFriendModal('${f.replace('@', '')}'); event.stopPropagation();" style="background:#e0e7ff; color:#4338ca; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👀 View ${f}'s Diary</span>
+                    <span onclick="openFriendList('${f}'); event.stopPropagation();" style="background:#fef08a; color:#b45309; padding:6px 12px; border-radius:20px; font-size:10px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">👤 View ${f}'s Profile</span>
                     `).join('') + 
                     '</div>';
             }
             return '';
         }
-        // END INJECTED BADGE LOGIC
 
         function launchModalFromAttributes(poolType, identifier, trackName = null) {
             try {
@@ -2020,17 +1961,68 @@
                         </div>
                     </div>
                 </div>`;
-            } else if (activeFriendList) {
-                modal = `<div class="modal-overlay">
-                    <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
-                    <div class="detail-close-trigger" onclick="closeM()">×</div>
-                    <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
-                        <h3 class="detail-heading-title" style="margin-bottom:16px;">🔥 Picks by ${activeFriendName}</h3>
-                        <div class="movie-grid">${activeFriendList.map(m => `
+            } else if (activeFriendName) {
+                let username = activeFriendName.replace('@', '');
+                let friendData = letterboxdData[username] || { highly_rated: [], other: [] };
+
+                let tabNavHtml = `
+                    <div class="profile-tab-container">
+                        <button class="profile-tab-btn ${window.currentFriendTab === 'watchlist' ? 'active' : ''}" onclick="window.currentFriendTab='watchlist'; render();">Watchlist (${activeFriendList.length})</button>
+                        <button class="profile-tab-btn ${window.currentFriendTab === 'highlyRated' ? 'active' : ''}" onclick="window.currentFriendTab='highlyRated'; render();">Highly Rated (${friendData.highly_rated.length})</button>
+                        <button class="profile-tab-btn ${window.currentFriendTab === 'recent' ? 'active' : ''}" onclick="window.currentFriendTab='recent'; render();">Recent (${friendData.other.length})</button>
+                    </div>
+                `;
+
+                let tabContentHtml = '';
+                if (window.currentFriendTab === 'watchlist') {
+                    if (activeFriendList.length === 0) {
+                        tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:20px;">No watchlist items currently tracked.</div>`;
+                    } else {
+                        tabContentHtml = `<div class="movie-grid">${activeFriendList.map(m => `
                             <div class="movie-card movie-trigger" data-pool="friend" data-id="${m.tmdbId || m.title}">
                                 <div class="poster-slot">${m.posterPath ? `<img src="${m.posterPath}" class="grid-poster-img" style="object-fit:cover; width:100%; height:100%;">` : `<div style="font-weight:bold; font-size:10px; padding:12px; color:#0f172a;">${m.title}</div>`}</div>
                                 <div class="grid-card-details">${m.title}</div>
                             </div>`).join('')}
+                        </div>`;
+                    }
+                } else if (window.currentFriendTab === 'highlyRated') {
+                    if (friendData.highly_rated.length === 0) {
+                        tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:40px 20px;">No highly rated movies recently logged.</div>`;
+                    } else {
+                        tabContentHtml = `<ul style="list-style-type:none; padding:0; margin:0;">` + friendData.highly_rated.map(movie => `
+                            <li style="background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #10b981; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <strong style="font-size:14px;">${movie.title}</strong>
+                                    <span style="background:#f0fdf4; color:#15803d; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:800; white-space:nowrap; margin-left:8px;">${movie.rating} ⭐</span>
+                                </div>
+                                ${movie.review ? `<em style="color:#64748b; font-size:12px; font-weight:normal; margin-top:8px; display:block; line-height: 1.5; border-top: 1px dashed #e2e8f0; padding-top: 8px;">"${movie.review}"</em>`:''}
+                            </li>
+                        `).join('') + `</ul>`;
+                    }
+                } else if (window.currentFriendTab === 'recent') {
+                    if (friendData.other.length === 0) {
+                        tabContentHtml = `<div style="color:#64748b; font-size:12px; text-align:center; padding:40px 20px;">No other recent movies.</div>`;
+                    } else {
+                        tabContentHtml = `<ul style="list-style-type:none; padding:0; margin:0;">` + friendData.other.map(movie => `
+                            <li style="background:#ffffff; border:1px solid #cbd5e1; margin-bottom:10px; padding:16px; border-radius:12px; font-size:13px; border-left:4px solid #f97316; box-shadow:0 4px 6px rgba(0,0,0,0.02); color:#0f172a;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <strong style="font-size:14px;">${movie.title}</strong>
+                                    <span style="background:#fff7ed; color:#c2410c; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:800; white-space:nowrap; margin-left:8px;">${movie.rating} ⭐</span>
+                                </div>
+                                ${movie.review ? `<em style="color:#64748b; font-size:12px; font-weight:normal; margin-top:8px; display:block; line-height: 1.5; border-top: 1px dashed #e2e8f0; padding-top: 8px;">"${movie.review}"</em>`:''}
+                            </li>
+                        `).join('') + `</ul>`;
+                    }
+                }
+
+                modal = `<div class="modal-overlay">
+                    <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
+                    <div class="detail-close-trigger" onclick="closeM()">×</div>
+                    <div class="detail-content-frame" style="margin-top:0; padding-top:70px; overflow-y:hidden; display:flex; flex-direction:column; box-sizing:border-box;">
+                        <h3 class="detail-heading-title" style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">👤 ${activeFriendName}</h3>
+                        ${tabNavHtml}
+                        <div style="flex:1; overflow-y:auto; padding-bottom: 30px;">
+                            ${tabContentHtml}
                         </div>
                     </div>
                 </div>`;
