@@ -973,7 +973,7 @@
         async function executeStopQueueItem(queueId, type) {
             let url = type === 'radarr' ? localStorage.getItem('radarr_url') : localStorage.getItem('sonarr_url');
             let key = type === 'radarr' ? localStorage.getItem('radarr_key') : localStorage.getItem('sonarr_key');
-            if (!url || key) return;
+            if (!url || !key) return;
 
             try {
                 await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=false&blocklist=false`, { method: 'DELETE' });
@@ -1138,6 +1138,23 @@
                             if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
                                 activeItem.overview = d.overview || "No summary available.";
                                 activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
+                                
+                                activeItem.runtime = d.runtime || (d.episode_run_time && d.episode_run_time.length > 0 ? d.episode_run_time[0] : null);
+                                if (d.external_ids && d.external_ids.imdb_id) activeItem.imdbId = d.external_ids.imdb_id;
+                                
+                                let omdbKey = localStorage.getItem('omdb_key');
+                                if (omdbKey && activeItem.imdbId && !activeItem.omdbChecked) {
+                                    activeItem.omdbChecked = true;
+                                    fetch(`https://www.omdbapi.com/?i=${activeItem.imdbId}&apikey=${omdbKey.trim()}`)
+                                    .then(r => r.json())
+                                    .then(omdbData => {
+                                        if (omdbData.Ratings && modalOpen) {
+                                            activeItem.omdbRatings = omdbData.Ratings;
+                                            render();
+                                        }
+                                    }).catch(()=>{});
+                                }
+
                                 let rDate = d.release_date || d.first_air_date;
                                 if (rDate) {
                                     activeItem.realYear = rDate.substring(0, 4);
@@ -1979,8 +1996,9 @@
                     <div class="form-group"><label>HA Android TV Entity</label><input type="text" id="in_ha_tv" value="${localStorage.getItem('ha_tv_entity')||'media_player.chromecast'}"></div>
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb" placeholder="user1\nuser2\nuser3">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
+                    <div class="form-group"><label>OMDb API Key (for Ratings)</label><input type="password" id="in_omdb" value="${localStorage.getItem('omdb_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -2075,6 +2093,21 @@
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
 
+                // --- Format Runtime and Ratings Badges ---
+                let runtimeStr = activeItem.runtime ? ` • ${activeItem.runtime} min` : '';
+                let extraRatingsHtml = '';
+                if (activeItem.omdbRatings) {
+                    let imdb = activeItem.omdbRatings.find(r => r.Source === 'Internet Movie Database');
+                    let rt = activeItem.omdbRatings.find(r => r.Source === 'Rotten Tomatoes');
+                    if (imdb || rt) {
+                        extraRatingsHtml = `<div style="display:flex; gap:8px; margin-top:8px;">`;
+                        if (imdb) extraRatingsHtml += `<span style="background:#f5c518; color:#000; padding:3px 8px; border-radius:6px; font-weight:800; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">IMDb ${imdb.Value}</span>`;
+                        if (rt) extraRatingsHtml += `<span style="background:#fa320a; color:#fff; padding:3px 8px; border-radius:6px; font-weight:800; font-size:11px; box-shadow:0 2px 4px rgba(250,50,10,0.2);">🍅 ${rt.Value}</span>`;
+                        extraRatingsHtml += `</div>`;
+                    }
+                }
+                // ----------------------------------------------
+
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
                     let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
@@ -2119,7 +2152,8 @@
                                     ${activeItem.title}
                                     ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
                                 </h3>
-                                <p class="detail-sub-specs">${displaySpecsYear}</p>
+                                <p class="detail-sub-specs">${displaySpecsYear}${runtimeStr}</p>
+                                ${extraRatingsHtml}
                             </div>
                         </div>
                         ${extraBtns}
