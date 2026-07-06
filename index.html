@@ -131,7 +131,6 @@
     <div id="app-toast-banner" class="toast-notification-banner"></div>
     <div id="view-root"></div>
     
-    <!-- INJECTED SPORTS MODAL (WITH BOXSCORE) -->
     <div id="sportsModal" class="modal-overlay" style="display:none; z-index:150;">
         <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;" onclick="document.getElementById('sportsModal').style.display='none'"></div>
         <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
@@ -417,7 +416,10 @@
                     let buildTeamRow = (team) => {
                         let row = `<td style="text-align:left; padding:8px 4px; font-weight:800; color:#0f172a;">${team.team.abbreviation}</td>`;
                         for (let i = 0; i < maxInnings; i++) {
-                            let val = team.linescores[i] ? team.linescores[i].value : '-';
+                            let val = '-';
+                            if (team.linescores && team.linescores[i]) {
+                                val = team.linescores[i].displayValue ?? team.linescores[i].value ?? '-';
+                            }
                             row += `<td style="padding:8px 4px; color:#334155;">${val}</td>`;
                         }
                         row += `<td style="padding:8px 4px; font-weight:800; color:#0f172a; border-left:1px solid #e2e8f0;">${team.score || 0}</td>`;
@@ -971,7 +973,7 @@
         async function executeStopQueueItem(queueId, type) {
             let url = type === 'radarr' ? localStorage.getItem('radarr_url') : localStorage.getItem('sonarr_url');
             let key = type === 'radarr' ? localStorage.getItem('radarr_key') : localStorage.getItem('sonarr_key');
-            if (!url || !key) return;
+            if (!url || key) return;
 
             try {
                 await fetch(`${url.trim().replace(/\/$/, "")}/api/v3/queue/${queueId}?apiKey=${key.trim()}&removeFromClient=false&blocklist=false`, { method: 'DELETE' });
