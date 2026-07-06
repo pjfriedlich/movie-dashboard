@@ -131,6 +131,18 @@
     <div id="app-toast-banner" class="toast-notification-banner"></div>
     <div id="view-root"></div>
     
+    <!-- INJECTED SPORTS MODAL -->
+    <div id="sportsModal" class="modal-overlay" style="display:none; z-index:150;">
+        <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;"></div>
+        <div class="detail-close-trigger" onclick="document.getElementById('sportsModal').style.display='none'">×</div>
+        <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
+            <h3 id="sports-modal-title" style="margin-top:0; font-size:16px; font-weight:800; color:#0f172a; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:12px; flex-shrink:0;">Game Summary</h3>
+            <div id="sports-modal-content" style="flex:1; overflow-y:auto; padding-bottom: 30px; font-size:13px; color:#334155;">
+               Loading summary...
+            </div>
+        </div>
+    </div>
+    
     <div class="nav-footer">
         <button onclick="switchTab('smarthome')" class="nav-btn ${currentTab === 'smarthome' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg></div>
@@ -180,6 +192,7 @@
         let lightsExpanded = localStorage.getItem('app_lights_expanded') !== 'false';
         let calendarExpanded = localStorage.getItem('app_calendar_expanded') !== 'false';
         let sportsExpanded = localStorage.getItem('app_sports_expanded') !== 'false';
+        let weatherExpanded = localStorage.getItem('app_weather_expanded') !== 'false';
         
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendList = null, activeFriendName = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
@@ -199,6 +212,8 @@
         
         let sportsData = [];
         let isSportsLoading = false;
+        
+        let weatherData = null;
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
@@ -280,7 +295,7 @@
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncDownloadQueue();
-            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); }
+            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
@@ -321,6 +336,12 @@
             localStorage.setItem('app_sports_expanded', sportsExpanded);
             render();
         }
+        
+        function toggleWeatherPanel() {
+            weatherExpanded = !weatherExpanded;
+            localStorage.setItem('app_weather_expanded', weatherExpanded);
+            render();
+        }
 
         function toggleTorrentMenu(event, hash) {
             event.stopPropagation();
@@ -348,10 +369,67 @@
             modalOpen = false;
             activeCollection = null;
             activeFriendName = fName;
-            
-            // Set the default tab to Highly Rated instead of Watchlist
             window.currentFriendTab = 'highlyRated'; 
             render();
+        };
+        
+        window.openSportsModal = async function(gameId) {
+            document.getElementById('sportsModal').style.display = 'block';
+            document.getElementById('sports-modal-content').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading summary...</div>';
+            
+            try {
+                let res = await fetch('https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=' + gameId);
+                let data = await res.json();
+                
+                let comp = data.header.competitions[0];
+                let status = comp.status.type.detail;
+                
+                let home = comp.competitors.find(c => c.homeAway === 'home');
+                let away = comp.competitors.find(c => c.homeAway === 'away');
+                
+                let headlineHtml = '';
+                if (data.articles && data.articles.length > 0) {
+                    headlineHtml = `<div style="margin-top:24px; font-size:14px; font-weight:800; color:#0f172a; line-height:1.3;">📰 ${data.articles[0].headline}</div>
+                                    <p style="font-size:12px; color:#475569; line-height:1.5; margin-top:8px;">${data.articles[0].description || ''}</p>`;
+                }
+                
+                let playsHtml = '';
+                if (data.plays && data.plays.length > 0) {
+                    let lastPlay = data.plays[data.plays.length - 1];
+                    playsHtml = `<div style="margin-top:20px; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
+                        <span style="font-size:10px; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:0.5px;">Latest Play</span>
+                        <div style="font-size:13px; color:#334155; margin-top:6px; line-height:1.4;">${lastPlay.text}</div>
+                    </div>`;
+                }
+
+                let content = `
+                    <div style="display:flex; justify-content:space-around; align-items:center; background:#f8fafc; padding:24px; border-radius:16px; border:1px solid #cbd5e1; margin-top:10px;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <img src="${away.team.logos[0].href}" style="width:50px; height:50px; object-fit:contain;">
+                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${away.team.abbreviation}</span>
+                            <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${away.score || '0'}</span>
+                            <span style="font-size:10px; color:#64748b; font-weight:600;">${away.record ? away.record[0].displayValue : ''}</span>
+                        </div>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                            <span style="font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; text-align:center;">${status}</span>
+                        </div>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <img src="${home.team.logos[0].href}" style="width:50px; height:50px; object-fit:contain;">
+                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${home.team.abbreviation}</span>
+                            <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${home.score || '0'}</span>
+                            <span style="font-size:10px; color:#64748b; font-weight:600;">${home.record ? home.record[0].displayValue : ''}</span>
+                        </div>
+                    </div>
+                    ${playsHtml}
+                    ${headlineHtml}
+                `;
+                document.getElementById('sports-modal-content').innerHTML = content;
+                
+            } catch(e) {
+                document.getElementById('sports-modal-content').innerHTML = '<div style="color:#ef4444; padding:20px; text-align:center;">Error loading summary.</div>';
+            }
         };
 
         function parseNumericYear(item) {
@@ -407,6 +485,32 @@
                 isSportsLoading = false;
                 if (currentTab === 'smarthome') render();
             }
+        }
+        
+        function getWeatherIcon(code) {
+            if (code === 0) return '☀️'; 
+            if ([1,2,3].includes(code)) return '⛅'; 
+            if ([45,48].includes(code)) return '🌫️'; 
+            if ([51,53,55,56,57].includes(code)) return '🌧️'; 
+            if ([61,63,65,66,67,80,81,82].includes(code)) return '🌧️'; 
+            if ([71,73,75,77,85,86].includes(code)) return '❄️'; 
+            if ([95,96,99].includes(code)) return '⛈️'; 
+            return '🌡️';
+        }
+
+        function getDayName(dateString) {
+            let d = new Date(dateString + 'T12:00:00'); 
+            return d.toLocaleDateString('en-US', { weekday: 'short' });
+        }
+
+        async function fetchLocalWeather() {
+            let url = 'https://api.open-meteo.com/v1/forecast?latitude=40.75&longitude=-73.80&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=America%2FNew_York&temperature_unit=fahrenheit';
+            try {
+                let res = await fetch(url);
+                let data = await res.json();
+                weatherData = data;
+                if(currentTab === 'smarthome') render();
+            } catch(e) {}
         }
 
         async function syncJfSessions() {
@@ -1674,7 +1778,7 @@
                          let liveIndicator = g.isLive ? `<span style="color:#ef4444; font-size:20px; line-height:0; margin-right:4px;">•</span>` : '';
                          let bgStyle = g.isMets ? 'background:#fff7ed; border-color:#fed7aa;' : 'background:#f8fafc; border-color:#e2e8f0;';
                          
-                         return `<div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border:1px solid #cbd5e1; border-radius:12px; ${bgStyle}">
+                         return `<div onclick="openSportsModal('${g.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:12px; border:1px solid #cbd5e1; border-radius:12px; ${bgStyle} transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                              <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
                                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
                                      <div style="display:flex; align-items:center; gap:8px;">
@@ -1712,11 +1816,70 @@
                     </div>
                 `;
 
+                let weatherContentDisplay = weatherExpanded ? 'block' : 'none';
+                let weatherChevron = weatherExpanded ? '▲' : '▼';
+
+                let weatherHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Loading weather...</div>`;
+
+                if (weatherData && weatherData.current) {
+                    let currTemp = Math.round(weatherData.current.temperature_2m);
+                    let currCode = weatherData.current.weather_code ?? weatherData.current.weathercode;
+                    let currIcon = getWeatherIcon(currCode);
+                    
+                    let daysHtml = weatherData.daily.time.slice(1, 7).map((dayStr, i) => {
+                        let idx = i + 1; 
+                        let dayName = getDayName(dayStr);
+                        let dCode = weatherData.daily.weather_code ? weatherData.daily.weather_code[idx] : weatherData.daily.weathercode[idx];
+                        let icon = getWeatherIcon(dCode);
+                        let maxT = Math.round(weatherData.daily.temperature_2m_max[idx]);
+                        let minT = Math.round(weatherData.daily.temperature_2m_min[idx]);
+                        
+                        return `<div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                            <span style="font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase;">${dayName}</span>
+                            <span style="font-size:18px;">${icon}</span>
+                            <div style="font-size:10px; font-weight:700;"><span style="color:#0f172a;">${maxT}°</span> <span style="color:#94a3b8;">${minT}°</span></div>
+                        </div>`;
+                    }).join('');
+
+                    let todayMax = Math.round(weatherData.daily.temperature_2m_max[0]);
+                    let todayMin = Math.round(weatherData.daily.temperature_2m_min[0]);
+
+                    weatherHtml = `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding: 0 0 16px 0; border-bottom:1px solid #e2e8f0; margin-bottom:16px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="font-size:40px; line-height:1;">${currIcon}</div>
+                                <div style="display:flex; flex-direction:column;">
+                                    <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${currTemp}°F</span>
+                                    <span style="font-size:12px; color:#64748b; font-weight:600; margin-top:4px;">Queens, NY • H: ${todayMax}° L: ${todayMin}°</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; padding: 0 4px;">
+                            ${daysHtml}
+                        </div>
+                    `;
+                }
+
+                let weatherCardHtml = `
+                    <div class="card-box">
+                        <div class="card-header" onclick="toggleWeatherPanel()">
+                            <div class="card-header-title">
+                                <h3>Local Weather</h3>
+                            </div>
+                            <span class="card-chevron">${weatherChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${weatherContentDisplay}; padding: 0 16px 16px 16px;">
+                            ${weatherHtml}
+                        </div>
+                    </div>
+                `;
+
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
-                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
+                ${weatherCardHtml}
                 ${sportsCardHtml}
                 ${calendarCardHtml}
                 ${tvRemoteHtml}
@@ -1934,165 +2097,6 @@
                         </div>
                     </div>
                 </div>`;
-                
-                // If TMDB completes, update the modal contents dynamically 
-                let updateModalContents = function() {
-                    let newFriendBadgeHtml = getFriendBadgeHtml();
-                    modal = `<div class="modal-overlay">
-                        <div class="modal-bg" ${activeItem.posterPath ? `style="background-image:url('${activeItem.posterPath}');"` : ''}></div>
-                        <div class="modal-bg-tint"></div>
-                        <div class="detail-close-trigger" onclick="closeM()">×</div>
-                        ${topUnwatchBadge}
-                        <div class="detail-content-frame">
-                            ${newFriendBadgeHtml}
-                            <div class="detail-main-row">
-                                <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath || ''}"></div>
-                                <div class="detail-meta-block">
-                                    <h3 class="detail-heading-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                        ${activeItem.title}
-                                        ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
-                                    </h3>
-                                    <p class="detail-sub-specs">${displaySpecsYear}</p>
-                                </div>
-                            </div>
-                            ${extraBtns}
-                            <div id="modal-trailer-frame-box" class="trailer-video-box"></div>
-                            ${castHtml}
-                            <div class="detail-synopsis-box">
-                                <h4>Summary</h4>
-                                <div class="synopsis-text">${activeItem.overview || 'No overview available.'}</div>
-                            </div>
-                            <div class="detail-footer-actions">
-                                ${jellyfinHtml}
-                                <div style="display:flex; gap:12px; width:100%;">
-                                    ${watchButtonHtml}
-                                    ${addServerButtonHtml}
-                                </div>
-                                ${drawerHtml}
-                            </div>
-                        </div>
-                    </div>`;
-                    render();
-                };
-
-                let tk = localStorage.getItem('tmdb_key');
-                if (tk && activeItem && (activeItem.tmdbId || activeItem.tvdbId)) {
-                    let idFetch = Promise.resolve();
-                    if (!activeItem.tmdbId && activeItem.tvdbId) {
-                        idFetch = fetch(`https://api.themoviedb.org/3/find/${activeItem.tvdbId}?api_key=${tk.trim()}&external_source=tvdb_id`)
-                            .then(r => r.json())
-                            .then(d => { if(d.tv_results && d.tv_results[0]) activeItem.tmdbId = d.tv_results[0].id; });
-                    }
-                    
-                    idFetch.then(() => {
-                        if (!activeItem.tmdbId) return;
-                        let endpoint = activeItem.mediaType === 'tv' ? 'tv' : 'movie';
-                        fetch(`https://api.themoviedb.org/3/${endpoint}/${activeItem.tmdbId}?api_key=${tk.trim()}&append_to_response=videos,credits,external_ids`)
-                        .then(res => res.json())
-                        .then(d => {
-                            if (d && modalOpen && (activeItem.tmdbId === d.id)) { 
-                                activeItem.overview = d.overview || "No summary available.";
-                                activeItem.backdrop_path = d.backdrop_path ? `https://image.themoviedb.org/t/p/w780${d.backdrop_path}` : '';
-                                let rDate = d.release_date || d.first_air_date;
-                                if (rDate) {
-                                    activeItem.realYear = rDate.substring(0, 4);
-                                    activeItem.year = rDate.substring(0, 4);
-                                }
-                                if (d.belongs_to_collection) activeItem.collection = d.belongs_to_collection;
-                                
-                                if (d.external_ids && d.external_ids.tvdb_id && !activeItem.tvdbId) activeItem.tvdbId = d.external_ids.tvdb_id;
-
-                                let trailerObj = d.videos && d.videos.results ? d.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') : null;
-                                if (trailerObj) activeItem.trailerKey = trailerObj.key;
-
-                                if (d.credits && d.credits.cast) {
-                                    activeItem.cast = d.credits.cast.slice(0, 10).map(c => ({ id: c.id, name: c.name }));
-                                }
-                                
-                                if (activeItem.mediaType === 'tv') {
-                                    let isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
-                                    if (isAlreadyInSonarr) {
-                                        let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
-                                        let sId = existingShow.id.replace('sonarr_', '');
-                                        activeItem.sonarrSeriesId = sId;
-                                        
-                                        let sUrl = localStorage.getItem('sonarr_url');
-                                        let sKey = localStorage.getItem('sonarr_key');
-                                        if (sUrl && sKey) {
-                                            fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/episode?seriesId=${sId}&apiKey=${sKey.trim()}`)
-                                                .then(r => r.json())
-                                                .then(eps => {
-                                                    if (modalOpen && activeItem && activeItem.sonarrSeriesId === sId) {
-                                                        activeItem.sonarrEpisodes = eps;
-                                                        updateModalContents();
-                                                    }
-                                                }).catch(()=>{});
-                                        }
-                                    }
-                                }
-                                
-                                if (localStorage.getItem('jf_url') && localStorage.getItem('jf_key')) {
-                                    let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
-                                    if (!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
-                                    let jfKey = localStorage.getItem('jf_key').trim();
-                                    fetch(`${jfUrl}/Items?IncludeItemTypes=Movie,Series&Recursive=true&searchTerm=${encodeURIComponent(activeItem.searchTitle || activeItem.title)}&api_key=${jfKey}`)
-                                    .then(r => {
-                                        if(!r.ok) throw new Error(r.status);
-                                        return r.json();
-                                    })
-                                    .then(jfData => {
-                                        activeItem.jfChecked = true;
-                                        let match = jfData.Items && jfData.Items.find(i => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(activeItem.tmdbId));
-                                        if (!match && jfData.Items && jfData.Items.length > 0) match = jfData.Items[0]; 
-                                        if (match) {
-                                            activeItem.jellyfinId = match.Id;
-                                            return fetch(`${jfUrl}/Sessions?api_key=${jfKey}`);
-                                        } else {
-                                            updateModalContents();
-                                        }
-                                    })
-                                    .then(r => {
-                                        if (r && !r.ok) throw new Error(r.status);
-                                        return r ? r.json() : null;
-                                    })
-                                    .then(sessions => {
-                                        if (sessions && modalOpen) {
-                                            activeItem.jfSessions = sessions.filter(s => {
-                                                let client = (s.Client || '').toLowerCase();
-                                                let device = (s.DeviceName || '').toLowerCase();
-                                                return !client.includes('server') && !client.includes('web') && !device.includes('server');
-                                            });
-                                            updateModalContents();
-                                        }
-                                    }).catch(e => {
-                                        console.error("Jellyfin Error", e);
-                                        activeItem.jfChecked = true;
-                                        activeItem.jfError = e.message === "Failed to fetch" ? "Network / CORS" : e.message;
-                                        updateModalContents();
-                                    });
-                                } else {
-                                    updateModalContents(); 
-                                }
-                            }
-                        })
-                        .catch(() => { if (modalOpen) { activeItem.overview = "Unable to load summary."; updateModalContents(); }});
-                    });
-                }
-            } else if (activeCollection) {
-                modal = `<div class="modal-overlay">
-                    <div class="modal-bg" ${activeCollection.posterPath ? `style="background-image:url('${activeCollection.posterPath}');"` : ''}></div>
-                    <div class="modal-bg-tint"></div>
-                    <div class="detail-close-trigger" onclick="closeM()">×</div>
-                    <div class="detail-content-frame" style="margin-top:0; padding-top:80px; overflow-y:auto; display:block;">
-                        <h3 class="detail-heading-title" style="margin-bottom:16px;">${activeCollection.name}</h3>
-                        <div class="movie-grid">${activeCollection.parts.map(m => `
-                            <div class="movie-card movie-trigger" data-pool="collection_part" data-id="${m.tmdbId}">
-                                <div class="poster-slot"><img src="${m.posterPath}" class="grid-poster-img"></div>
-                                <div class="grid-card-details">${m.title}</div>
-                            </div>`).join('')}
-                        </div>
-                    </div>
-                </div>`;
             } else if (activeFriendName) {
                 let username = activeFriendName.replace('@', '');
                 let friendData = letterboxdData[username] || { highly_rated: [], other: [] };
@@ -2234,15 +2238,21 @@
             fetchHAEntities();
         }
         syncFeeds(); loadDiscoverTracks(); render();
-        if(currentTab === 'smarthome') fetchSportsScores();
+        if(currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); }
 
         let tickCount = 0;
         setInterval(() => {
             syncDownloadQueue();
             if (currentTab === 'smarthome') syncJfSessions();
             tickCount++;
-            if (tickCount % 5 === 0) { fetchDiskSpace(); if(currentTab === 'smarthome') fetchSportsScores(); }
-            if (tickCount % 20 === 0) fetchMediaCalendars();
+            if (tickCount % 5 === 0) { 
+                fetchDiskSpace(); 
+                if(currentTab === 'smarthome') fetchSportsScores(); 
+            }
+            if (tickCount % 20 === 0) {
+                fetchMediaCalendars();
+                if(currentTab === 'smarthome') fetchLocalWeather();
+            }
         }, 3000);
     </script>
 </body>
