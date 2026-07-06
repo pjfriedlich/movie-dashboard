@@ -418,15 +418,43 @@
                                     <p style="font-size:12px; color:#475569; line-height:1.5; margin-top:8px;">${data.articles[0].description || ''}</p>`;
                 }
                 
+                // ---- KEY PLAYS DRAWER HTML ----
+                let scoringPlaysHtml = '';
+                if (data.scoringPlays && data.scoringPlays.length > 0) {
+                    let playsList = data.scoringPlays.map(p => {
+                        let teamAbbr = p.team?.abbreviation || '';
+                        let inningStr = p.period?.number ? `Inning ${p.period.number}` : '';
+                        return `<div style="padding:10px 0; border-bottom:1px solid #e2e8f0; font-size:12px; color:#334155; line-height:1.4;">
+                                    <strong style="color:#0f172a;">${teamAbbr} (${inningStr}):</strong> ${p.text}
+                                </div>`;
+                    }).join('');
+                    
+                    scoringPlaysHtml = `
+                    <div id="key-plays-drawer" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:#ffffff; z-index:200; padding:24px; overflow-y:auto; border-radius:16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:12px;">
+                            <h3 style="margin:0; font-size:14px; font-weight:800; color:#0f172a; text-transform:uppercase;">Key Plays</h3>
+                            <button onclick="document.getElementById('key-plays-drawer').style.display='none'" style="background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-weight:bold; color:#64748b; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">×</button>
+                        </div>
+                        ${playsList}
+                    </div>
+                    `;
+                }
+
                 let playsHtml = '';
                 if (data.plays && data.plays.length > 0) {
                     let lastPlay = data.plays[data.plays.length - 1];
+                    let keyPlaysBtn = (data.scoringPlays && data.scoringPlays.length > 0) ? `<button onclick="document.getElementById('key-plays-drawer').style.display='block'" style="background:#ea580c; color:#ffffff; border:none; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; box-shadow: 0 2px 4px rgba(234,88,12,0.2); transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Key Plays</button>` : '';
+
                     playsHtml = `<div style="margin-top:20px; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
-                        <span style="font-size:10px; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:0.5px;">Latest Play</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:10px; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:0.5px;">Latest Play</span>
+                            ${keyPlaysBtn}
+                        </div>
                         <div style="font-size:13px; color:#334155; margin-top:6px; line-height:1.4;">${lastPlay.text}</div>
                     </div>`;
                 }
 
+                // ---- BOXSCORE HTML ----
                 let boxscoreHtml = '';
                 if (away.linescores && home.linescores) {
                     let maxInnings = Math.max(9, away.linescores.length, home.linescores.length);
@@ -470,29 +498,32 @@
                 let homeLogo = home.team?.logos?.[0]?.href || '';
 
                 let content = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:24px 16px; border-radius:16px; border:1px solid #cbd5e1; margin-top:10px;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
-                            ${awayLogo ? `<img src="${awayLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
-                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${away.team?.abbreviation || ''}</span>
-                            <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${away.score || '0'}</span>
-                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${away.record?.[0]?.displayValue || ''}</span>
+                    <div style="position:relative;">
+                        ${scoringPlaysHtml}
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:24px 16px; border-radius:16px; border:1px solid #cbd5e1; margin-top:10px;">
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
+                                ${awayLogo ? `<img src="${awayLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
+                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${away.team?.abbreviation || ''}</span>
+                                <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${away.score || '0'}</span>
+                                <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${away.record?.[0]?.displayValue || ''}</span>
+                            </div>
+                            
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; flex-basis:0;">
+                                <span style="font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; text-align:center;">${status}</span>
+                            </div>
+                            
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
+                                ${homeLogo ? `<img src="${homeLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
+                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${home.team?.abbreviation || ''}</span>
+                                <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${home.score || '0'}</span>
+                                <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${home.record?.[0]?.displayValue || ''}</span>
+                            </div>
                         </div>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; flex-basis:0;">
-                            <span style="font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; text-align:center;">${status}</span>
-                        </div>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
-                            ${homeLogo ? `<img src="${homeLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
-                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${home.team?.abbreviation || ''}</span>
-                            <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${home.score || '0'}</span>
-                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${home.record?.[0]?.displayValue || ''}</span>
-                        </div>
+                        ${pregameInfoHtml}
+                        ${playsHtml}
+                        ${boxscoreHtml}
+                        ${headlineHtml}
                     </div>
-                    ${pregameInfoHtml}
-                    ${playsHtml}
-                    ${boxscoreHtml}
-                    ${headlineHtml}
                 `;
                 document.getElementById('sports-modal-content').innerHTML = content;
                 
