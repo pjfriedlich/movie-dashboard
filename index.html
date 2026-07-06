@@ -168,7 +168,6 @@
             Settings
         </button>
     </div>
-    
     <script>
         let letterboxdData = {};
         fetch('/letterboxd_likes.json') 
@@ -368,12 +367,10 @@
             modalOpen = false;
             activeCollection = null;
             activeFriendName = fName;
-            
-            // Set the default tab to Highly Rated instead of Watchlist
             window.currentFriendTab = 'highlyRated'; 
             render();
         };
-        
+
         window.openSportsModal = async function(gameId) {
             document.getElementById('sportsModal').style.display = 'block';
             document.getElementById('sports-modal-content').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading summary...</div>';
@@ -382,32 +379,34 @@
                 let res = await fetch('https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=' + gameId);
                 let data = await res.json();
                 
-                let comp = data.header.competitions[0];
-                let status = comp.status.type.detail;
+                let comp = data.header?.competitions?.[0];
+                if (!comp) throw new Error("No competition data found");
+
+                let status = comp.status?.type?.detail || 'Scheduled';
                 
-                if (comp.status.type.state === 'pre') {
+                if (comp.status?.type?.state === 'pre') {
                     let d = new Date(comp.date);
                     status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
                 }
                 
-                let home = comp.competitors.find(c => c.homeAway === 'home');
-                let away = comp.competitors.find(c => c.homeAway === 'away');
+                let home = comp.competitors?.find(c => c.homeAway === 'home') || {};
+                let away = comp.competitors?.find(c => c.homeAway === 'away') || {};
                 
                 let pregameInfoHtml = '';
-                if (comp.status.type.state === 'pre') {
-                    let venueName = (data.gameInfo && data.gameInfo.venue) ? data.gameInfo.venue.fullName : '';
-                    let tvNetwork = (comp.broadcasts && comp.broadcasts.length > 0) ? comp.broadcasts[0].names.join(', ') : '';
-                    let awayPitcher = (away.probables && away.probables.length > 0) ? away.probables[0].athlete.shortName : '';
-                    let homePitcher = (home.probables && home.probables.length > 0) ? home.probables[0].athlete.shortName : '';
+                if (comp.status?.type?.state === 'pre') {
+                    let venueName = data.gameInfo?.venue?.fullName || '';
+                    let tvNetwork = comp.broadcasts?.[0]?.names?.join(', ') || '';
+                    let awayPitcher = away.probables?.[0]?.athlete?.shortName || 'TBD';
+                    let homePitcher = home.probables?.[0]?.athlete?.shortName || 'TBD';
                     
                     pregameInfoHtml = `
                     <div style="margin-top:20px; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
                         <span style="font-size:10px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px;">Game Day Info</span>
                         <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-                            ${venueName ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>🏟️ Venue</strong> <span>${venueName}</span></div>` : ''}
-                            ${tvNetwork ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>📺 TV</strong> <span>${tvNetwork}</span></div>` : ''}
-                            ${awayPitcher ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>⚾ ${away.team.abbreviation} Pitcher</strong> <span>${awayPitcher}</span></div>` : ''}
-                            ${homePitcher ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>⚾ ${home.team.abbreviation} Pitcher</strong> <span>${homePitcher}</span></div>` : ''}
+                            ${venueName ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>🏟️ Venue</strong> <span style="text-align:right;">${venueName}</span></div>` : ''}
+                            ${tvNetwork ? `<div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>📺 TV</strong> <span style="text-align:right;">${tvNetwork}</span></div>` : ''}
+                            <div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>⚾ ${away.team?.abbreviation || 'Away'} Pitcher</strong> <span style="text-align:right;">${awayPitcher}</span></div>
+                            <div style="font-size:12px; color:#334155; display:flex; justify-content:space-between;"><strong>⚾ ${home.team?.abbreviation || 'Home'} Pitcher</strong> <span style="text-align:right;">${homePitcher}</span></div>
                         </div>
                     </div>`;
                 }
@@ -427,7 +426,6 @@
                     </div>`;
                 }
 
-                // ---- BOXSCORE HTML ----
                 let boxscoreHtml = '';
                 if (away.linescores && home.linescores) {
                     let maxInnings = Math.max(9, away.linescores.length, home.linescores.length);
@@ -438,7 +436,7 @@
                     headerRow += `<th style="padding:8px 4px; color:#0f172a; font-weight:800; border-left:1px solid #e2e8f0;">R</th><th style="padding:8px 4px; color:#0f172a; font-weight:800;">H</th><th style="padding:8px 4px; color:#0f172a; font-weight:800;">E</th>`;
 
                     let buildTeamRow = (team) => {
-                        let row = `<td style="text-align:left; padding:8px 4px; font-weight:800; color:#0f172a;">${team.team.abbreviation}</td>`;
+                        let row = `<td style="text-align:left; padding:8px 4px; font-weight:800; color:#0f172a;">${team.team?.abbreviation || ''}</td>`;
                         for (let i = 0; i < maxInnings; i++) {
                             let val = '-';
                             if (team.linescores && team.linescores[i]) {
@@ -467,13 +465,16 @@
                     `;
                 }
 
+                let awayLogo = away.team?.logos?.[0]?.href || '';
+                let homeLogo = home.team?.logos?.[0]?.href || '';
+
                 let content = `
                     <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:24px 16px; border-radius:16px; border:1px solid #cbd5e1; margin-top:10px;">
                         <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
-                            <img src="${away.team.logos[0].href}" style="width:50px; height:50px; object-fit:contain;">
-                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${away.team.abbreviation}</span>
+                            ${awayLogo ? `<img src="${awayLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
+                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${away.team?.abbreviation || ''}</span>
                             <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${away.score || '0'}</span>
-                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${away.record ? away.record[0].displayValue : ''}</span>
+                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${away.record?.[0]?.displayValue || ''}</span>
                         </div>
                         
                         <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; flex-basis:0;">
@@ -481,10 +482,10 @@
                         </div>
                         
                         <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
-                            <img src="${home.team.logos[0].href}" style="width:50px; height:50px; object-fit:contain;">
-                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${home.team.abbreviation}</span>
+                            ${homeLogo ? `<img src="${homeLogo}" style="width:50px; height:50px; object-fit:contain;">` : ''}
+                            <span style="font-weight:800; font-size:14px; color:#0f172a;">${home.team?.abbreviation || ''}</span>
                             <span style="font-size:28px; font-weight:800; color:#0f172a; line-height:1;">${home.score || '0'}</span>
-                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${home.record ? home.record[0].displayValue : ''}</span>
+                            <span style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">${home.record?.[0]?.displayValue || ''}</span>
                         </div>
                     </div>
                     ${pregameInfoHtml}
@@ -495,6 +496,7 @@
                 document.getElementById('sports-modal-content').innerHTML = content;
                 
             } catch(e) {
+                console.error("Sports Modal Error:", e);
                 document.getElementById('sports-modal-content').innerHTML = '<div style="color:#ef4444; padding:20px; text-align:center;">Error loading summary.</div>';
             }
         };
@@ -508,59 +510,8 @@
         }
 
         async function fetchSportsScores() {
-            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
-            try {
-                isSportsLoading = true;
-                if(currentTab === 'smarthome') render(); 
-                let res = await fetch(url);
-                let data = await res.json();
-                
-                sportsData = data.events.map(event => {
-                    let comp = event.competitions[0];
-                    let home = comp.competitors.find(c => c.homeAway === 'home');
-                    let away = comp.competitors.find(c => c.homeAway === 'away');
-                    let status = event.status.type.detail; 
-                    
-                    if (event.status.type.state === 'pre') {
-                        let d = new Date(event.date);
-                        status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-                    }
-
-                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
-                    
-                    return {
-                        id: event.id,
-                        status: status,
-                        isLive: event.status.type.state === 'in',
-                        homeTeam: home.team.shortDisplayName,
-                        homeScore: home.score,
-                        homeLogo: home.team.logo,
-                        homeWinner: home.winner,
-                        awayTeam: away.team.shortDisplayName,
-                        awayScore: away.score,
-                        awayLogo: away.team.logo,
-                        awayWinner: away.winner,
-                        isMets: isMets
-                    };
-                });
-                
-                sportsData.sort((a, b) => {
-                    if (a.isMets && !b.isMets) return -1;
-                    if (!a.isMets && b.isMets) return 1;
-                    if (a.isLive && !b.isLive) return -1;
-                    if (!a.isLive && b.isLive) return 1;
-                    return 0;
-                });
-                
-            } catch(e) {
-                console.error("Sports fetch error", e);
-            } finally {
-                isSportsLoading = false;
-                if (currentTab === 'smarthome') render();
-            }
-        }
-        
-        function getWeatherIcon(code) {
+            let url = 'https://site.api.espn.com/apis/site/
+          function getWeatherIcon(code) {
             if (code === 0) return '☀️'; 
             if ([1,2,3].includes(code)) return '⛅'; 
             if ([45,48].includes(code)) return '🌫️'; 
@@ -2364,3 +2315,4 @@
     </script>
 </body>
 </html>
+              
