@@ -131,7 +131,7 @@
     <div id="app-toast-banner" class="toast-notification-banner"></div>
     <div id="view-root"></div>
     
-    <!-- INJECTED SPORTS MODAL (FIXED LAYOUT) -->
+    <!-- INJECTED SPORTS MODAL (WITH BOXSCORE) -->
     <div id="sportsModal" class="modal-overlay" style="display:none; z-index:150;">
         <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;" onclick="document.getElementById('sportsModal').style.display='none'"></div>
         <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
@@ -404,6 +404,43 @@
                     </div>`;
                 }
 
+                // ---- BOXSCORE HTML ----
+                let boxscoreHtml = '';
+                if (away.linescores && home.linescores) {
+                    let maxInnings = Math.max(9, away.linescores.length, home.linescores.length);
+                    let headerRow = `<th style="text-align:left; padding:8px 4px; color:#64748b; font-weight:800;">Team</th>`;
+                    for (let i = 0; i < maxInnings; i++) {
+                        headerRow += `<th style="padding:8px 4px; color:#94a3b8; font-weight:700;">${i + 1}</th>`;
+                    }
+                    headerRow += `<th style="padding:8px 4px; color:#0f172a; font-weight:800; border-left:1px solid #e2e8f0;">R</th><th style="padding:8px 4px; color:#0f172a; font-weight:800;">H</th><th style="padding:8px 4px; color:#0f172a; font-weight:800;">E</th>`;
+
+                    let buildTeamRow = (team) => {
+                        let row = `<td style="text-align:left; padding:8px 4px; font-weight:800; color:#0f172a;">${team.team.abbreviation}</td>`;
+                        for (let i = 0; i < maxInnings; i++) {
+                            let val = team.linescores[i] ? team.linescores[i].value : '-';
+                            row += `<td style="padding:8px 4px; color:#334155;">${val}</td>`;
+                        }
+                        row += `<td style="padding:8px 4px; font-weight:800; color:#0f172a; border-left:1px solid #e2e8f0;">${team.score || 0}</td>`;
+                        row += `<td style="padding:8px 4px; font-weight:800; color:#0f172a;">${team.hits || 0}</td>`;
+                        row += `<td style="padding:8px 4px; font-weight:800; color:#0f172a;">${team.errors || 0}</td>`;
+                        return `<tr style="border-top:1px solid #f1f5f9;">${row}</tr>`;
+                    };
+
+                    boxscoreHtml = `
+                        <div style="margin-top:20px; overflow-x:auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:4px 12px; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                            <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:center;">
+                                <thead>
+                                    <tr>${headerRow}</tr>
+                                </thead>
+                                <tbody>
+                                    ${buildTeamRow(away)}
+                                    ${buildTeamRow(home)}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
                 let content = `
                     <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:24px 16px; border-radius:16px; border:1px solid #cbd5e1; margin-top:10px;">
                         <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; flex-basis:0;">
@@ -425,6 +462,7 @@
                         </div>
                     </div>
                     ${playsHtml}
+                    ${boxscoreHtml}
                     ${headlineHtml}
                 `;
                 document.getElementById('sports-modal-content').innerHTML = content;
