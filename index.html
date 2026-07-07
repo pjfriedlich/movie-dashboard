@@ -193,6 +193,7 @@
         let calendarExpanded = localStorage.getItem('app_calendar_expanded') !== 'false';
         let sportsExpanded = localStorage.getItem('app_sports_expanded') !== 'false';
         let weatherExpanded = localStorage.getItem('app_weather_expanded') !== 'false';
+        let streamExpanded = localStorage.getItem('app_stream_expanded') !== 'false';
         
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendList = null, activeFriendName = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
@@ -343,6 +344,12 @@
             localStorage.setItem('app_weather_expanded', weatherExpanded);
             render();
         }
+        
+        function toggleStreamPanel() {
+            streamExpanded = !streamExpanded;
+            localStorage.setItem('app_stream_expanded', streamExpanded);
+            render();
+        }
 
         function toggleTorrentMenu(event, hash) {
             event.stopPropagation();
@@ -374,58 +381,6 @@
             render();
         };
 
-        async function fetchSportsScores() {
-            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
-            try {
-                isSportsLoading = true;
-                if(currentTab === 'smarthome') render(); 
-                let res = await fetch(url);
-                let data = await res.json();
-                
-                sportsData = data.events.map(event => {
-                    let comp = event.competitions[0];
-                    let home = comp.competitors.find(c => c.homeAway === 'home');
-                    let away = comp.competitors.find(c => c.homeAway === 'away');
-                    let status = event.status.type.detail; 
-                    
-                    if (event.status.type.state === 'pre') {
-                        let d = new Date(event.date);
-                        status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-                    }
-
-                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
-                    
-                    return {
-                        id: event.id,
-                        status: status,
-                        isLive: event.status.type.state === 'in',
-                        homeTeam: home.team.shortDisplayName,
-                        homeScore: home.score,
-                        homeLogo: home.team.logo,
-                        homeWinner: home.winner,
-                        awayTeam: away.team.shortDisplayName,
-                        awayScore: away.score,
-                        awayLogo: away.team.logo,
-                        awayWinner: away.winner,
-                        isMets: isMets
-                    };
-                });
-                
-                sportsData.sort((a, b) => {
-                    if (a.isMets && !b.isMets) return -1;
-                    if (!a.isMets && b.isMets) return 1;
-                    if (a.isLive && !b.isLive) return -1;
-                    if (!a.isLive && b.isLive) return 1;
-                    return 0;
-                });
-                
-            } catch(e) {
-                console.error("Sports fetch error", e);
-            } finally {
-                isSportsLoading = false;
-                if (currentTab === 'smarthome') render();
-            }
-        }
         window.openSportsModal = async function(gameId) {
             document.getElementById('sportsModal').style.display = 'block';
             document.getElementById('sports-modal-content').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading summary...</div>';
@@ -478,7 +433,7 @@
                 
                 if (scoringPlays.length > 0) {
                     let playsList = scoringPlays.map(p => {
-                        let inningStr = p.period?.number ? (p.period.number + (p.period.number===1?'st':p.period.number===2?'nd':p.period.number===3?'rd':'th')) : '';
+                        let inningStr = p.period?.number ? `Inning ${p.period.number}` : '';
                         return `<div style="padding:10px 0; border-bottom:1px solid #e2e8f0; font-size:12px; color:#334155; line-height:1.4;">
                                     <strong style="color:#0f172a;">Inning ${inningStr || ''}:</strong> ${p.text}
                                 </div>`;
@@ -596,6 +551,58 @@
             return isNaN(num) ? 0 : num;
         }
 
+        async function fetchSportsScores() {
+            let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
+            try {
+                isSportsLoading = true;
+                if(currentTab === 'smarthome') render(); 
+                let res = await fetch(url);
+                let data = await res.json();
+                
+                sportsData = data.events.map(event => {
+                    let comp = event.competitions[0];
+                    let home = comp.competitors.find(c => c.homeAway === 'home');
+                    let away = comp.competitors.find(c => c.homeAway === 'away');
+                    let status = event.status.type.detail; 
+                    
+                    if (event.status.type.state === 'pre') {
+                        let d = new Date(event.date);
+                        status = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    }
+
+                    let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
+                    
+                    return {
+                        id: event.id,
+                        status: status,
+                        isLive: event.status.type.state === 'in',
+                        homeTeam: home.team.shortDisplayName,
+                        homeScore: home.score,
+                        homeLogo: home.team.logo,
+                        homeWinner: home.winner,
+                        awayTeam: away.team.shortDisplayName,
+                        awayScore: away.score,
+                        awayLogo: away.team.logo,
+                        awayWinner: away.winner,
+                        isMets: isMets
+                    };
+                });
+                
+                sportsData.sort((a, b) => {
+                    if (a.isMets && !b.isMets) return -1;
+                    if (!a.isMets && b.isMets) return 1;
+                    if (a.isLive && !b.isLive) return -1;
+                    if (!a.isLive && b.isLive) return 1;
+                    return 0;
+                });
+                
+            } catch(e) {
+                console.error("Sports fetch error", e);
+            } finally {
+                isSportsLoading = false;
+                if (currentTab === 'smarthome') render();
+            }
+        }
         function getWeatherIcon(code) {
             if (code === 0) return '☀️'; 
             if ([1,2,3].includes(code)) return '⛅'; 
@@ -631,13 +638,42 @@
             try {
                 let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`);
                 let data = await res.json();
-                let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server');
+                let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server' && s.NowPlayingItem);
+                
+                filtered = filtered.map(s => {
+                    let health = "🟢 Direct Play";
+                    let reason = "";
+                    let pm = s.PlayState?.PlayMethod; 
+                    
+                    if (pm === "Transcode") {
+                        let fps = s.TranscodingInfo?.Framerate || 30;
+                        let reasonsArr = s.TranscodingInfo?.TranscodeReasons || [];
+                        let reasonStr = reasonsArr.map(r => r.replace(/([A-Z])/g, ' $1').trim()).join(', ') || "Format not supported";
+                        
+                        if (fps < 24) {
+                            health = `🔴 Transcoding (Bottleneck)`;
+                            reason = `Server too slow (${Math.round(fps)} fps). ${reasonStr}`;
+                        } else {
+                            health = `🟡 Transcoding`;
+                            reason = reasonStr;
+                        }
+                    } else if (pm === "DirectStream") {
+                        health = `🟡 Direct Stream`;
+                        reason = "Remuxing container";
+                    }
+                    
+                    s.streamHealth = health;
+                    s.streamReason = reason;
+                    return s;
+                });
                 
                 let oldIds = jfActiveSessions.map(s => s.Id).join(',');
                 let newIds = filtered.map(s => s.Id).join(',');
+                let oldHealth = jfActiveSessions.map(s => s.streamHealth).join(',');
+                let newHealth = filtered.map(s => s.streamHealth).join(',');
                 
                 jfActiveSessions = filtered;
-                if(currentTab === 'smarthome' && !modalOpen && oldIds !== newIds) render();
+                if(currentTab === 'smarthome' && !modalOpen && (oldIds !== newIds || oldHealth !== newHealth)) render();
             } catch(e) {}
         }
         
@@ -2001,11 +2037,61 @@
                     </div>
                 `;
 
+                let jfContentDisplay = 'block';
+                let jfHtml = '';
+                
+                if (jfActiveSessions && jfActiveSessions.length > 0) {
+                    jfHtml = jfActiveSessions.map(s => {
+                        let itemName = s.NowPlayingItem?.Name || 'Unknown Media';
+                        let seriesName = s.NowPlayingItem?.SeriesName ? `${s.NowPlayingItem.SeriesName} - ` : '';
+                        let itemType = s.NowPlayingItem?.Type === 'Episode' ? '📺' : '🍿';
+                        let percentage = 0;
+                        if (s.NowPlayingItem?.RunTimeTicks && s.PlayState?.PositionTicks) {
+                            percentage = (s.PlayState.PositionTicks / s.NowPlayingItem.RunTimeTicks) * 100;
+                        }
+                        
+                        let posterUrl = '';
+                        if (s.NowPlayingItem?.Id) {
+                            let jfUrl = localStorage.getItem('jf_url').trim().replace(/\/$/, "");
+                            if(!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                            posterUrl = `${jfUrl}/Items/${s.NowPlayingItem.Id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90`;
+                        }
+
+                        let deviceName = s.DeviceName || s.Client;
+
+                        return `
+                        <div style="display:flex; gap:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid #cbd5e1; margin-bottom:8px;">
+                            ${posterUrl ? `<div style="width:40px; height:60px; border-radius:6px; overflow:hidden; flex-shrink:0; background:#e2e8f0;"><img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover;"></div>` : `<div style="width:40px; height:60px; border-radius:6px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${itemType}</div>`}
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:10px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">▶ Playing on ${deviceName}</div>
+                                <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${seriesName}${itemName}</div>
+                                <div style="width:100%; height:4px; background:#cbd5e1; border-radius:2px; margin-top:8px; overflow:hidden;">
+                                    <div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); transition:width 1s linear;"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+
+                let jfCardHtml = jfHtml ? `
+                    <div class="card-box" style="border-color:#3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);">
+                        <div class="card-header" style="padding-bottom:8px; cursor:default;">
+                            <div class="card-header-title">
+                                <h3 style="color:#2563eb;">Live Media</h3>
+                            </div>
+                        </div>
+                        <div class="card-content" style="display:${jfContentDisplay};">
+                            ${jfHtml}
+                        </div>
+                    </div>
+                ` : '';
+
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
                     <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
+                ${jfCardHtml}
                 ${weatherCardHtml}
                 ${sportsCardHtml}
                 ${calendarCardHtml}
