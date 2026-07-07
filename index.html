@@ -205,9 +205,11 @@
         let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let tvTracks = { "Recommended Upcoming": [], "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
-        
+    
         let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
         let jfActiveSessions = [];
+        let jfHistory = JSON.parse(localStorage.getItem('jf_history')) || [];
+        let jfHistoryView = false;
         let calendarEvents = [];
         
         let sportsData = [];
@@ -629,7 +631,7 @@
             } catch(e) {}
         }
 
-        async function syncJfSessions() {
+                async function syncJfSessions() {
             let u = localStorage.getItem('jf_url');
             let k = localStorage.getItem('jf_key');
             if(!u || !k) return;
@@ -678,6 +680,19 @@
                     return s;
                 });
                 
+                // --- NEW: Add to History Array ---
+                filtered.forEach(s => {
+                    let existingIdx = jfHistory.findIndex(h => h.Id === s.Id);
+                    if(existingIdx >= 0) {
+                        jfHistory[existingIdx] = s;
+                    } else {
+                        jfHistory.unshift(s);
+                    }
+                });
+                if (jfHistory.length > 20) jfHistory = jfHistory.slice(0, 20);
+                localStorage.setItem('jf_history', JSON.stringify(jfHistory));
+                // ----------------------------------
+                
                 let oldIds = jfActiveSessions.map(s => s.Id).join(',');
                 let newIds = filtered.map(s => s.Id).join(',');
                 let oldHealth = jfActiveSessions.map(s => s.streamHealth).join(',');
@@ -686,7 +701,7 @@
                 jfActiveSessions = filtered;
                 if(currentTab === 'smarthome' && !modalOpen && (oldIds !== newIds || oldHealth !== newHealth)) render();
             } catch(e) {}
-        }
+                }
         async function fetchMediaCalendars() {
             let rUrl = localStorage.getItem('radarr_url');
             let rKey = localStorage.getItem('radarr_key');
@@ -2069,6 +2084,30 @@
                         }
 
                         let deviceName = s.DeviceName || s.Client;
+                let jfContentDisplay = streamExpanded ? 'block' : 'none';
+                let streamChevron = streamExpanded ? '▲' : '▼';
+                let jfHtml = '';
+                
+                let displaySessions = jfHistoryView ? jfHistory : jfActiveSessions;
+                
+                if (displaySessions && displaySessions.length > 0) {
+                    jfHtml = displaySessions.map(s => {
+                        let itemName = s.NowPlayingItem?.Name || 'Unknown Media';
+                        let seriesName = s.NowPlayingItem?.SeriesName ? `${s.NowPlayingItem.SeriesName} - ` : '';
+                        let itemType = s.NowPlayingItem?.Type === 'Episode' ? '📺' : '🍿';
+                        let percentage = 0;
+                        if (s.NowPlayingItem?.RunTimeTicks && s.PlayState?.PositionTicks) {
+                            percentage = (s.PlayState.PositionTicks / s.NowPlayingItem.RunTimeTicks) * 100;
+                        }
+                        
+                        let posterUrl = '';
+                        if (s.NowPlayingItem?.Id) {
+                            let jfUrl = localStorage.getItem('jf_url')?.trim().replace(/\/$/, "") || '';
+                            if(jfUrl && !jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
+                            posterUrl = jfUrl ? `${jfUrl}/Items/${s.NowPlayingItem.Id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90` : '';
+                        }
+
+                        let deviceName = s.DeviceName || s.Client;
 
                         let tmdbId = s.NowPlayingItem?.ProviderIds?.Tmdb || '';
                         let lookupId = tmdbId || (s.NowPlayingItem?.SeriesName || s.NowPlayingItem?.Name);
@@ -2078,33 +2117,36 @@
                         <div style="display:flex; gap:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid #cbd5e1; margin-bottom:8px;">
                             ${posterUrl ? `<div class="movie-trigger" data-pool="search" data-id="${lookupId}" style="width:40px; height:60px; border-radius:6px; overflow:hidden; flex-shrink:0; background:#e2e8f0; cursor:pointer;"><img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover;"></div>` : `<div class="movie-trigger" data-pool="search" data-id="${lookupId}" style="width:40px; height:60px; border-radius:6px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;">${itemType}</div>`}
                             <div style="flex:1; min-width:0;">
-                                <div style="font-size:10px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">▶ Playing on ${deviceName}</div>
+                                <div style="font-size:10px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">▶ ${jfHistoryView ? 'Played' : 'Playing'} on ${deviceName}</div>
                                 <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${seriesName}${itemName}</div>
                                 <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:4px;">${s.streamHealth}${qualityBadge} <span style="font-weight:normal;">${s.streamReason ? `(${s.streamReason})` : ''}</span></div>
-                                <div style="width:100%; height:4px; background:#cbd5e1; border-radius:2px; margin-top:6px; overflow:hidden;">
+                                ${!jfHistoryView ? `<div style="width:100%; height:4px; background:#cbd5e1; border-radius:2px; margin-top:6px; overflow:hidden;">
                                     <div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); transition:width 1s linear;"></div>
-                                </div>
+                                </div>` : ''}
                             </div>
                         </div>`;
                     }).join('');
                 } else {
-                    jfHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No active media streams.</div>`;
+                    jfHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No ${jfHistoryView ? 'history' : 'active media streams'}.</div>`;
                 }
 
                 let jfCardHtml = `
-                    <div class="card-box">
+                    <div class="card-box" style="border-color:#3b82f6; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.08);">
                         <div class="card-header" onclick="toggleStreamPanel()">
                             <div class="card-header-title">
-                                <h3>Live Media Streams</h3>
+                                <h3 style="color:#2563eb;">Live Media Streams</h3>
                             </div>
-                            <span class="card-chevron">${streamChevron}</span>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <button onclick="event.stopPropagation(); jfHistoryView = !jfHistoryView; render();" style="background:${jfHistoryView ? '#2563eb' : '#e0e7ff'}; color:${jfHistoryView ? '#ffffff' : '#2563eb'}; border:none; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; text-transform:uppercase; cursor:pointer; transition:all 0.2s;">History</button>
+                                <span class="card-chevron" style="color:#3b82f6;">${streamChevron}</span>
+                            </div>
                         </div>
                         <div class="card-content" style="display:${jfContentDisplay};">
                             ${jfHtml}
                         </div>
                     </div>
                 `;
-
+                        
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
