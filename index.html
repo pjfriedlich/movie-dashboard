@@ -88,7 +88,7 @@
         .detail-footer-actions { display:flex; flex-direction:column; gap:10px; margin-top:12px; flex-shrink:0; padding-bottom:env(safe-area-inset-bottom); }
         .trailer-video-box { width:100%; height:210px; border-radius:16px; overflow:hidden; border:1px solid #cbd5e1; background:#000000; display:none; margin-bottom: 4px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); flex-shrink:0; }
 
-        /* COLLAPSIBLE HUB CARDS (Updated to universal blue theme) */
+        /* COLLAPSIBLE HUB CARDS */
         .card-box { background:#ffffff; border:1px solid #3b82f6; border-radius:16px; margin-bottom:16px; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.08); overflow: hidden; }
         .card-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
         .card-header-title { display: flex; align-items: center; gap: 8px; }
@@ -97,6 +97,13 @@
         .card-content { padding: 0 16px 16px 16px; display: none; }
         .card-content.open { display: block; }
         
+        /* EVENTS LIST STYLES */
+        .event-item { display:flex; flex-direction:column; gap:4px; padding:12px 0; border-bottom:1px solid #e2e8f0; }
+        .event-item:last-child { border-bottom: none; }
+        .event-title { font-size:14px; font-weight:800; color:#0f172a; margin:0; }
+        .event-meta { font-size:12px; color:#475569; display:flex; justify-content:space-between; }
+        .event-source { font-size:9px; background:#e0e7ff; color:#3b82f6; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase; align-self:flex-start; }
+
         /* COMPACT GRID CALENDAR STYLES */
         .calendar-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding: 0 4px; }
         .calendar-nav-btn { border:none; background:none; font-size:18px; cursor:pointer; font-weight:bold; color:#94a3b8; padding:4px 8px; }
@@ -193,6 +200,7 @@
         let sportsExpanded = localStorage.getItem('app_sports_expanded') !== 'false';
         let weatherExpanded = localStorage.getItem('app_weather_expanded') !== 'false';
         let streamExpanded = localStorage.getItem('app_stream_expanded') !== 'false';
+        let eventsExpanded = localStorage.getItem('app_events_expanded') !== 'false'; 
         
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendList = null, activeFriendName = null, friendRowData = [], isRadarrLoading = false, activeTorrents = [];
         let searchResultsData = []; 
@@ -214,8 +222,9 @@
         
         let sportsData = [];
         let isSportsLoading = false;
-        
         let weatherData = null;
+        let familyEventsData = []; 
+        let isEventsLoading = false; 
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
@@ -297,60 +306,22 @@
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncDownloadQueue();
-            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); }
+            if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
             if (targetTab === 'foryou') { loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing For You...'); }
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
         function switchForYouSubTab(targetSub) { currentForYouSubTab = targetSub; localStorage.setItem('app_current_foryou_sub_tab', targetSub); render(); }
         
-        function toggleFilterPanel() {
-            filtersExpanded = !filtersExpanded;
-            localStorage.setItem('app_filters_expanded', filtersExpanded);
-            render();
-        }
-
-        function toggleRemotePanel() {
-            remoteExpanded = !remoteExpanded;
-            localStorage.setItem('app_remote_expanded', remoteExpanded);
-            render();
-        }
-
-        function toggleIntercomPanel() {
-            intercomExpanded = !intercomExpanded;
-            localStorage.setItem('app_intercom_expanded', intercomExpanded);
-            render();
-        }
-
-        function toggleLightsPanel() {
-            lightsExpanded = !lightsExpanded;
-            localStorage.setItem('app_lights_expanded', lightsExpanded);
-            render();
-        }
-        
-        function toggleCalendarPanel() {
-            calendarExpanded = !calendarExpanded;
-            localStorage.setItem('app_calendar_expanded', calendarExpanded);
-            render();
-        }
-        
-        function toggleSportsPanel() {
-            sportsExpanded = !sportsExpanded;
-            localStorage.setItem('app_sports_expanded', sportsExpanded);
-            render();
-        }
-        
-        function toggleWeatherPanel() {
-            weatherExpanded = !weatherExpanded;
-            localStorage.setItem('app_weather_expanded', weatherExpanded);
-            render();
-        }
-        
-        function toggleStreamPanel() {
-            streamExpanded = !streamExpanded;
-            localStorage.setItem('app_stream_expanded', streamExpanded);
-            render();
-        }
+        function toggleFilterPanel() { filtersExpanded = !filtersExpanded; localStorage.setItem('app_filters_expanded', filtersExpanded); render(); }
+        function toggleRemotePanel() { remoteExpanded = !remoteExpanded; localStorage.setItem('app_remote_expanded', remoteExpanded); render(); }
+        function toggleIntercomPanel() { intercomExpanded = !intercomExpanded; localStorage.setItem('app_intercom_expanded', intercomExpanded); render(); }
+        function toggleLightsPanel() { lightsExpanded = !lightsExpanded; localStorage.setItem('app_lights_expanded', lightsExpanded); render(); }
+        function toggleCalendarPanel() { calendarExpanded = !calendarExpanded; localStorage.setItem('app_calendar_expanded', calendarExpanded); render(); }
+        function toggleSportsPanel() { sportsExpanded = !sportsExpanded; localStorage.setItem('app_sports_expanded', sportsExpanded); render(); }
+        function toggleWeatherPanel() { weatherExpanded = !weatherExpanded; localStorage.setItem('app_weather_expanded', weatherExpanded); render(); }
+        function toggleStreamPanel() { streamExpanded = !streamExpanded; localStorage.setItem('app_stream_expanded', streamExpanded); render(); }
+        function toggleEventsPanel() { eventsExpanded = !eventsExpanded; localStorage.setItem('app_events_expanded', eventsExpanded); render(); }
 
         function toggleTorrentMenu(event, hash) {
             event.stopPropagation();
@@ -428,7 +399,6 @@
                                     <p style="font-size:12px; color:#475569; line-height:1.5; margin-top:8px;">${data.articles[0].description || ''}</p>`;
                 }
                 
-                // ---- KEY PLAYS DRAWER HTML ----
                 let scoringPlays = (data.plays || []).filter(p => p.scoringPlay);
                 let scoringPlaysHtml = '';
                 
@@ -465,7 +435,6 @@
                     </div>`;
                 }
 
-                // ---- BOXSCORE HTML ----
                 let boxscoreHtml = '';
                 if (away.linescores && home.linescores) {
                     let maxInnings = Math.max(9, away.linescores.length, home.linescores.length);
@@ -631,7 +600,29 @@
             } catch(e) {}
         }
 
-                async function syncJfSessions() {
+        async function fetchFamilyEvents() {
+            try {
+                isEventsLoading = true;
+                if(currentTab === 'smarthome') render(); 
+                
+                // --- UPDATE THIS URL TO MATCH YOUR FLASK BACKEND ON THE PI ---
+                let url = 'http://192.168.1.190:5000/api/family-events'; 
+                let res = await fetch(url);
+                
+                if (res.ok) {
+                    familyEventsData = await res.json();
+                } else {
+                    console.error("Failed to fetch family events", res.status);
+                }
+            } catch (e) {
+                console.error("Family Events Fetch Error:", e);
+            } finally {
+                isEventsLoading = false;
+                if (currentTab === 'smarthome') render();
+            }
+        }
+
+        async function syncJfSessions() {
             let u = localStorage.getItem('jf_url');
             let k = localStorage.getItem('jf_key');
             if(!u || !k) return;
@@ -680,7 +671,6 @@
                     return s;
                 });
                 
-                // --- NEW: Add to History Array ---
                 filtered.forEach(s => {
                     let existingIdx = jfHistory.findIndex(h => h.Id === s.Id);
                     if(existingIdx >= 0) {
@@ -691,7 +681,6 @@
                 });
                 if (jfHistory.length > 20) jfHistory = jfHistory.slice(0, 20);
                 localStorage.setItem('jf_history', JSON.stringify(jfHistory));
-                // ----------------------------------
                 
                 let oldIds = jfActiveSessions.map(s => s.Id).join(',');
                 let newIds = filtered.map(s => s.Id).join(',');
@@ -701,7 +690,8 @@
                 jfActiveSessions = filtered;
                 if(currentTab === 'smarthome' && !modalOpen && (oldIds !== newIds || oldHealth !== newHealth)) render();
             } catch(e) {}
-                }
+        }
+
         async function fetchMediaCalendars() {
             let rUrl = localStorage.getItem('radarr_url');
             let rKey = localStorage.getItem('radarr_key');
@@ -1209,7 +1199,6 @@
                 else if (poolType === 'calendar') targetObject = calendarEvents.find(m => String(m.id) === cleanId);
                 else if (poolType === 'shows') targetObject = myShows.find(m => String(m.id) === cleanId || String(m.tvdbId) === cleanId || m.title.toLowerCase().trim() === cleanId);
                 
-                // --- TMDB TITLE SEARCH FALLBACK ---
                 if (!targetObject) { 
                     activeItem = { title: identifier, overview: "Fetching metadata...", posterPath: '', cast: null }; 
                     let tmdbKey = localStorage.getItem('tmdb_key');
@@ -1243,7 +1232,6 @@
                     activeItem.trailerKey = null; 
                     activeItem.cast = null; 
                 }
-                // ------------------------------------
 
                 activeItem.jfChecked = false; 
                 modalOpen = true; render();
@@ -2124,12 +2112,51 @@
                         </div>
                     </div>
                 `;
-                        
+                
+                // NEW FAMILY EVENTS CARD HTML
+                let eventsContentDisplay = eventsExpanded ? 'block' : 'none';
+                let eventsChevron = eventsExpanded ? '▲' : '▼';
+                let eventsHtml = '';
+
+                if (isEventsLoading && familyEventsData.length === 0) {
+                    eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Fetching local events...</div>`;
+                } else if (familyEventsData.length === 0) {
+                    eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No family events currently found.</div>`;
+                } else {
+                    eventsHtml = `<div style="max-height:300px; overflow-y:auto; padding-right:8px; display:flex; flex-direction:column; gap:8px;">` + familyEventsData.map(ev => `
+                        <div class="event-item">
+                            <span class="event-source">${ev.source}</span>
+                            <h4 class="event-title">${ev.title}</h4>
+                            <div class="event-meta">
+                                <span>🗓️ ${ev.date} ${ev.time ? '• ' + ev.time : ''}</span>
+                                <span style="font-weight:800; color:#10b981;">${ev.price}</span>
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">📍 ${ev.location}</div>
+                        </div>
+                    `).join('') + `</div>`;
+                }
+
+                let eventsCardHtml = `
+                    <div class="card-box" style="border-color:#10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.08);">
+                        <div class="card-header" onclick="toggleEventsPanel()">
+                            <div class="card-header-title">
+                                <h3 style="color:#059669;">Local Family Events</h3>
+                                <button onclick="event.stopPropagation(); fetchFamilyEvents();" style="background:none; border:none; color:#10b981; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">Refresh</button>
+                            </div>
+                            <span class="card-chevron" style="color:#10b981;">${eventsChevron}</span>
+                        </div>
+                        <div class="card-content" style="display:${eventsContentDisplay}; padding-top:0;">
+                            ${eventsHtml}
+                        </div>
+                    </div>
+                `;
+
                 body = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
-                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                    <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
+                ${eventsCardHtml}
                 ${jfCardHtml}
                 ${weatherCardHtml}
                 ${sportsCardHtml}
@@ -2484,7 +2511,7 @@
                     );
                 }
             } else if (e.target.matches('button[onclick*="toggleTorrentMenu"]')) {
-                // Let the inline onclick execute naturally without being wiped out by structural events
+                
             } else if (openMenuHash) {
                 openMenuHash = null;
                 render();
@@ -2532,7 +2559,7 @@
             fetchHAEntities();
         }
         syncFeeds(); loadDiscoverTracks(); render();
-        if(currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); }
+        if(currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
 
         let tickCount = 0;
         setInterval(() => {
@@ -2545,7 +2572,7 @@
             }
             if (tickCount % 20 === 0) {
                 fetchMediaCalendars();
-                if(currentTab === 'smarthome') fetchLocalWeather();
+                if(currentTab === 'smarthome') { fetchLocalWeather(); fetchFamilyEvents(); }
             }
         }, 3000);
     </script>
