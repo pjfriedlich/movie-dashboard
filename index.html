@@ -18,7 +18,7 @@
         .collapsible-filter-panel { display: none; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 8px; border: 1px solid rgba(15, 23, 42, 0.05); margin-top: -8px; margin-bottom: 12px; }
         .toast-notification-banner { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 10px 25px rgba(234,88,12,0.25); z-index: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease; opacity: 0; display: flex; align-items: center; justify-content: center; text-align: center; pointer-events: none; min-width: 200px; }
         .toast-notification-banner.toast-show-active { top: 24px; opacity: 1; }
-        .refresh-pill { fixed; bottom: 100px; right: 20px; background: #ffffff; color: #ea580c; border: 2px solid #ea580c; border-radius: 20px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(234,88,12,0.15); z-index: 20; cursor: pointer; font-size: 12px; font-weight: 800; text-transform: lowercase; }
+        .refresh-pill { position: fixed; bottom: 100px; right: 20px; background: #ffffff; color: #ea580c; border: 2px solid #ea580c; border-radius: 20px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(234,88,12,0.15); z-index: 20; cursor: pointer; font-size: 12px; font-weight: 800; text-transform: lowercase; }
         .section-divider { width: 100%; height: 1px; background: linear-gradient(90deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.02) 100%); margin: 24px 0; border: none; }
         .stats-grid { display: flex !important; flex-direction: row !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; margin-bottom: 16px; }
         .stat-card { flex: 1 !important; background: #ffffff; border: 1px solid #cbd5e1; padding: 14px 4px; border-radius: 16px; text-align: center; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; cursor: pointer; box-shadow: 0 4px 6px rgba(15,23,42,0.04); }
@@ -164,7 +164,7 @@
             Downloads
         </button>
         <button onclick="switchTab('settings')" class="nav-btn ${currentTab === 'settings' ? 'active' : ''}">
-            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38; 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38, 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
             Settings
         </button>
     </div>
@@ -2062,28 +2062,6 @@
                     </div>
                 `;
 
-                let jfContentDisplay = streamExpanded ? 'block' : 'none';
-                let streamChevron = streamExpanded ? '▲' : '▼';
-                let jfHtml = '';
-                
-                if (jfActiveSessions && jfActiveSessions.length > 0) {
-                    jfHtml = jfActiveSessions.map(s => {
-                        let itemName = s.NowPlayingItem?.Name || 'Unknown Media';
-                        let seriesName = s.NowPlayingItem?.SeriesName ? `${s.NowPlayingItem.SeriesName} - ` : '';
-                        let itemType = s.NowPlayingItem?.Type === 'Episode' ? '📺' : '🍿';
-                        let percentage = 0;
-                        if (s.NowPlayingItem?.RunTimeTicks && s.PlayState?.PositionTicks) {
-                            percentage = (s.PlayState.PositionTicks / s.NowPlayingItem.RunTimeTicks) * 100;
-                        }
-                        
-                        let posterUrl = '';
-                        if (s.NowPlayingItem?.Id) {
-                            let jfUrl = localStorage.getItem('jf_url')?.trim().replace(/\/$/, "") || '';
-                            if(jfUrl && !jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
-                            posterUrl = jfUrl ? `${jfUrl}/Items/${s.NowPlayingItem.Id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90` : '';
-                        }
-
-                        let deviceName = s.DeviceName || s.Client;
                 let jfContentDisplay = streamExpanded ? 'block' : 'none';
                 let streamChevron = streamExpanded ? '▲' : '▼';
                 let jfHtml = '';
