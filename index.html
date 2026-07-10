@@ -184,9 +184,13 @@
     
     <script>
         let letterboxdData = {};
+        
         fetch('/letterboxd_likes.json') 
           .then(response => response.json())
-          .then(data => { letterboxdData = data; })
+          .then(data => { 
+              letterboxdData = data; 
+              if (typeof syncFeeds === 'function') syncFeeds(); 
+          })
           .catch(err => console.error("Error loading JSON:", err));
 
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
@@ -222,8 +226,8 @@
         let myShows = JSON.parse(localStorage.getItem('local_shows')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
-        let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Sci-Fi": [] };
-        let tvTracks = { "Action": [], "Comedy": [], "Drama": [] };
+        let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [], "2010s": [], "2020s": [] };
+        let tvTracks = { "Action": [], "Comedy": [], "Drama": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [], "2010s": [], "2020s": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
     
         let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
@@ -569,10 +573,6 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // ==========================================
-        //  THE MISSING TMDB / DISCOVER LOGIC FIXES
-        // ==========================================
-
         async function loadDiscoverTracks() {
             let tmdbKey = localStorage.getItem('tmdb_key');
             if (!tmdbKey) return;
@@ -582,25 +582,53 @@
             const mapT = m => ({ id: m.id, tmdbId: m.id, title: m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'', overview: m.overview, mediaType: 'tv', year: m.first_air_date?m.first_air_date.split('-')[0]:'' });
 
             try {
-                let [act, com, dram, adv, sci, tvAct, tvCom, tvDram] = await Promise.all([
+                let [act, com, dram, adv, sci, m60, m70, m80, m90, m00, m10, m20, tvAct, tvCom, tvDram, t60, t70, t80, t90, t00, t10, t20] = await Promise.all([
                     fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=28`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=35`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=18`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=12`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=878`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1960-01-01&primary_release_date.lte=1969-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1970-01-01&primary_release_date.lte=1979-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1980-01-01&primary_release_date.lte=1989-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2020-01-01&primary_release_date.lte=2029-12-31&sort_by=popularity.desc`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=10759`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=35`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=18`).then(r=>r.json())
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=18`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=1960-01-01&first_air_date.lte=1969-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=1970-01-01&first_air_date.lte=1979-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=1980-01-01&first_air_date.lte=1989-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=1990-01-01&first_air_date.lte=1999-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=2000-01-01&first_air_date.lte=2009-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=2010-01-01&first_air_date.lte=2019-12-31&sort_by=popularity.desc`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&first_air_date.gte=2020-01-01&first_air_date.lte=2029-12-31&sort_by=popularity.desc`).then(r=>r.json())
                 ]);
                 movieTracks["Action"] = act.results ? act.results.map(mapM) : [];
                 movieTracks["Comedy"] = com.results ? com.results.map(mapM) : [];
                 movieTracks["Drama"] = dram.results ? dram.results.map(mapM) : [];
                 movieTracks["Adventure"] = adv.results ? adv.results.map(mapM) : [];
                 movieTracks["Sci-Fi"] = sci.results ? sci.results.map(mapM) : [];
+                movieTracks["1960s"] = m60.results ? m60.results.map(mapM) : [];
+                movieTracks["1970s"] = m70.results ? m70.results.map(mapM) : [];
+                movieTracks["1980s"] = m80.results ? m80.results.map(mapM) : [];
+                movieTracks["1990s"] = m90.results ? m90.results.map(mapM) : [];
+                movieTracks["2000s"] = m00.results ? m00.results.map(mapM) : [];
+                movieTracks["2010s"] = m10.results ? m10.results.map(mapM) : [];
+                movieTracks["2020s"] = m20.results ? m20.results.map(mapM) : [];
 
                 tvTracks["Action"] = tvAct.results ? tvAct.results.map(mapT) : [];
                 tvTracks["Comedy"] = tvCom.results ? tvCom.results.map(mapT) : [];
                 tvTracks["Drama"] = tvDram.results ? tvDram.results.map(mapT) : [];
+                tvTracks["1960s"] = t60.results ? t60.results.map(mapT) : [];
+                tvTracks["1970s"] = t70.results ? t70.results.map(mapT) : [];
+                tvTracks["1980s"] = t80.results ? t80.results.map(mapT) : [];
+                tvTracks["1990s"] = t90.results ? t90.results.map(mapT) : [];
+                tvTracks["2000s"] = t00.results ? t00.results.map(mapT) : [];
+                tvTracks["2010s"] = t10.results ? t10.results.map(mapT) : [];
+                tvTracks["2020s"] = t20.results ? t20.results.map(mapT) : [];
 
                 render();
             } catch (e) { console.error("TMDB Fetch Error", e); }
@@ -608,7 +636,6 @@
 
         function syncFeeds() {
             let users = localStorage.getItem('lb_links') || '';
-            // Safe comma stripper: Splits by lines, removes commas, and filters empties
             let userArray = users.split('\n').map(u => u.trim().replace(/,/g, '')).filter(u => u);
             friendRowData = [];
             
@@ -672,7 +699,30 @@
             if (activeItem) {
                 modalOpen = true;
                 render();
+                
+                let omdbKey = localStorage.getItem('omdb_key');
+                if (omdbKey && !activeItem.omdbRatings) {
+                    let yr = parseNumericYear(activeItem);
+                    let url = `https://www.omdbapi.com/?apikey=${omdbKey.trim()}&t=${encodeURIComponent(activeItem.title)}${yr ? '&y='+yr : ''}`;
+                    fetch(url).then(r=>r.json()).then(d => {
+                        if (d.Response !== "False" && d.Ratings) {
+                            activeItem.omdbRatings = d.Ratings;
+                            if(modalOpen) render();
+                        }
+                    }).catch(e=>console.log("OMDb Error", e));
+                }
             }
+        }
+
+        function getFriendBadgeHtml() {
+            if (!activeItem || !activeItem.title) return '';
+            let badges = [];
+            for (let [user, data] of Object.entries(letterboxdData)) {
+                if (data.highly_rated && data.highly_rated.some(m => String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
+                    badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+                }
+            }
+            return badges.length > 0 ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${badges.join('')}</div>` : '';
         }
 
         // ==========================================
@@ -701,18 +751,9 @@
                     let isMets = home.team.abbreviation === 'NYM' || away.team.abbreviation === 'NYM';
                     
                     return {
-                        id: event.id,
-                        status: status,
-                        isLive: event.status.type.state === 'in',
-                        homeTeam: home.team.shortDisplayName,
-                        homeScore: home.score,
-                        homeLogo: home.team.logo,
-                        homeWinner: home.winner,
-                        awayTeam: away.team.shortDisplayName,
-                        awayScore: away.score,
-                        awayLogo: away.team.logo,
-                        awayWinner: away.winner,
-                        isMets: isMets
+                        id: event.id, status: status, isLive: event.status.type.state === 'in',
+                        homeTeam: home.team.shortDisplayName, homeScore: home.score, homeLogo: home.team.logo, homeWinner: home.winner,
+                        awayTeam: away.team.shortDisplayName, awayScore: away.score, awayLogo: away.team.logo, awayWinner: away.winner, isMets: isMets
                     };
                 });
                 
@@ -724,12 +765,8 @@
                     return 0;
                 });
                 
-            } catch(e) {
-                console.error("Sports fetch error", e);
-            } finally {
-                isSportsLoading = false;
-                if (currentTab === 'smarthome') render();
-            }
+            } catch(e) { console.error("Sports fetch error", e); } 
+            finally { isSportsLoading = false; if (currentTab === 'smarthome') render(); }
         }
         
         function getWeatherIcon(code) {
@@ -750,41 +787,22 @@
 
         async function fetchLocalWeather() {
             let url = 'https://api.open-meteo.com/v1/forecast?latitude=40.75&longitude=-73.80&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=America%2FNew_York&temperature_unit=fahrenheit';
-            try {
-                let res = await fetch(url);
-                let data = await res.json();
-                weatherData = data;
-                if(currentTab === 'smarthome') render();
-            } catch(e) {}
+            try { let res = await fetch(url); weatherData = await res.json(); if(currentTab === 'smarthome') render(); } catch(e) {}
         }
 
         async function fetchFamilyEvents() {
             try {
-                let sgKey = localStorage.getItem('seatgeek_key');
-                let tmKey = localStorage.getItem('ticketmaster_key');
+                let sgKey = localStorage.getItem('seatgeek_key'); let tmKey = localStorage.getItem('ticketmaster_key');
+                if (!sgKey && !tmKey) { familyEventsData = []; isEventsLoading = false; if(currentTab === 'smarthome') render(); return; }
                 
-                if (!sgKey && !tmKey) {
-                    familyEventsData = [];
-                    isEventsLoading = false;
-                    if(currentTab === 'smarthome') render();
-                    return;
-                }
-                
-                isEventsLoading = true;
-                if(currentTab === 'smarthome') render(); 
-                
-                let today = new Date();
-                let futureCutoff = new Date();
-                futureCutoff.setDate(today.getDate() + 45);
-                
+                isEventsLoading = true; if(currentTab === 'smarthome') render(); 
+                let today = new Date(); let futureCutoff = new Date(); futureCutoff.setDate(today.getDate() + 45);
                 let combinedEvents = [];
                 
                 if (sgKey) {
                     try {
-                        let sgStart = today.toISOString().split('T')[0];
-                        let sgEnd = futureCutoff.toISOString().split('T')[0];
+                        let sgStart = today.toISOString().split('T')[0]; let sgEnd = futureCutoff.toISOString().split('T')[0];
                         let sgUrl = `https://api.seatgeek.com/2/events?client_id=${sgKey.trim()}&lat=40.75&lon=-73.80&range=35mi&datetime_local.gte=${sgStart}&datetime_local.lte=${sgEnd}&per_page=40&sort=datetime_local.asc`;
-                        
                         let sgRes = await fetch(sgUrl);
                         if (sgRes.ok) {
                             let sgData = await sgRes.json();
@@ -793,16 +811,11 @@
                                     let eventDate = new Date(ev.datetime_local);
                                     let cleanCategory = ev.type ? ev.type.replace('_', ' ') : 'Event';
                                     let dynamicPriceLabel = ev.stats?.lowest_price ? `$${ev.stats.lowest_price}+` : 'Tickets';
-                                    
                                     return {
-                                        rawDate: eventDate,
-                                        source: cleanCategory + ' (SeatGeek)',
-                                        title: ev.short_title || ev.title,
+                                        rawDate: eventDate, source: cleanCategory + ' (SeatGeek)', title: ev.short_title || ev.title,
                                         date: eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
                                         time: eventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-                                        price: dynamicPriceLabel,
-                                        location: ev.venue ? `${ev.venue.name} (${ev.venue.display_location})` : 'NYC Area',
-                                        url: ev.url || ''
+                                        price: dynamicPriceLabel, location: ev.venue ? `${ev.venue.name} (${ev.venue.display_location})` : 'NYC Area', url: ev.url || ''
                                     };
                                 });
                                 combinedEvents.push(...mappedSg);
@@ -813,40 +826,27 @@
 
                 if (tmKey) {
                     try {
-                        let tmStart = today.toISOString().split('.')[0] + 'Z';
-                        let tmEnd = futureCutoff.toISOString().split('.')[0] + 'Z';
+                        let tmStart = today.toISOString().split('.')[0] + 'Z'; let tmEnd = futureCutoff.toISOString().split('.')[0] + 'Z';
                         let tmUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${tmKey.trim()}&latlong=40.75,-73.80&radius=35&unit=miles&startDateTime=${tmStart}&endDateTime=${tmEnd}&sort=date,asc&size=40`;
-                        
                         let tmRes = await fetch(tmUrl);
                         if (tmRes.ok) {
                             let tmData = await tmRes.json();
                             if (tmData._embedded && tmData._embedded.events) {
                                 let mappedTm = tmData._embedded.events.map(ev => {
                                     let eventDate = new Date(ev.dates.start.dateTime || ev.dates.start.localDate);
-                                    let priceLabel = 'Tickets';
-                                    if (ev.priceRanges && ev.priceRanges.length > 0) {
-                                        priceLabel = `$${ev.priceRanges[0].min}+`;
-                                    }
+                                    let priceLabel = 'Tickets'; if (ev.priceRanges && ev.priceRanges.length > 0) priceLabel = `$${ev.priceRanges[0].min}+`;
                                     let venueName = 'NYC Area';
                                     if (ev._embedded && ev._embedded.venues && ev._embedded.venues.length > 0) {
-                                        let v = ev._embedded.venues[0];
-                                        let city = v.city ? v.city.name : '';
+                                        let v = ev._embedded.venues[0]; let city = v.city ? v.city.name : '';
                                         venueName = `${v.name} ${city ? '(' + city + ')' : ''}`;
                                     }
                                     let category = 'Event';
-                                    if (ev.classifications && ev.classifications.length > 0) {
-                                        category = ev.classifications[0].segment ? ev.classifications[0].segment.name : 'Event';
-                                    }
-                                    
+                                    if (ev.classifications && ev.classifications.length > 0) category = ev.classifications[0].segment ? ev.classifications[0].segment.name : 'Event';
                                     return {
-                                        rawDate: eventDate,
-                                        source: category + ' (Ticketmaster)',
-                                        title: ev.name,
+                                        rawDate: eventDate, source: category + ' (Ticketmaster)', title: ev.name,
                                         date: eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
                                         time: eventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-                                        price: priceLabel,
-                                        location: venueName,
-                                        url: ev.url || ''
+                                        price: priceLabel, location: venueName, url: ev.url || ''
                                     };
                                 });
                                 combinedEvents.push(...mappedTm);
@@ -856,94 +856,54 @@
                 }
 
                 combinedEvents.sort((a, b) => a.rawDate - b.rawDate);
-                let uniqueEvents = [];
-                let seen = new Set();
-                let bannedKeywords = ['chinese']; 
-                
+                let uniqueEvents = []; let seen = new Set(); let bannedKeywords = ['chinese']; 
                 for (let ev of combinedEvents) {
                     let titleLower = ev.title.toLowerCase();
                     let isBanned = bannedKeywords.some(word => titleLower.includes(word));
                     let key = titleLower + ev.date;
-                    if (!seen.has(key) && !isBanned) {
-                        seen.add(key);
-                        uniqueEvents.push(ev);
-                    }
+                    if (!seen.has(key) && !isBanned) { seen.add(key); uniqueEvents.push(ev); }
                 }
-                
                 familyEventsData = uniqueEvents;
-
-            } catch (e) {
-                console.error("Events Master Execution Error:", e);
-            } finally {
-                isEventsLoading = false;
-                if (currentTab === 'smarthome') render();
-            }
+            } catch (e) { console.error("Events Master Execution Error:", e); } 
+            finally { isEventsLoading = false; if (currentTab === 'smarthome') render(); }
         }
 
         async function syncJfSessions() {
-            let u = localStorage.getItem('jf_url');
-            let k = localStorage.getItem('jf_key');
-            if(!u || !k) return;
-            u = u.trim().replace(/\/$/, "");
-            if(!u.startsWith('http')) u = 'http://' + u;
+            let u = localStorage.getItem('jf_url'); let k = localStorage.getItem('jf_key');
+            if(!u || !k) return; u = u.trim().replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
             try {
-                let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`);
-                let data = await res.json();
+                let res = await fetch(`${u}/Sessions?api_key=${k.trim()}`); let data = await res.json();
                 let filtered = data.filter(s => s.Client !== 'Jellyfin Server' && s.DeviceId !== 'server' && s.NowPlayingItem);
                 
                 filtered = filtered.map(s => {
-                    let health = "🟢 Direct Play";
-                    let reason = "";
-                    let pm = s.PlayState?.PlayMethod; 
-                    
+                    let health = "🟢 Direct Play"; let reason = ""; let pm = s.PlayState?.PlayMethod; 
                     if (pm === "Transcode") {
                         let fps = s.TranscodingInfo?.Framerate || 30;
                         let reasonsArr = s.TranscodingInfo?.TranscodeReasons || [];
                         let reasonStr = reasonsArr.map(r => r.replace(/([A-Z])/g, ' $1').trim()).join(', ') || "Format not supported";
-                        
-                        if (fps < 24) {
-                            health = `🔴 Transcoding (Bottleneck)`;
-                            reason = `Server too slow (${Math.round(fps)} fps). ${reasonStr}`;
-                        } else {
-                            health = `🟡 Transcoding`;
-                            reason = reasonStr;
-                        }
-                    } else if (pm === "DirectStream") {
-                        health = `🟡 Direct Stream`;
-                        reason = "Remuxing container";
-                    }
+                        if (fps < 24) { health = `🔴 Transcoding (Bottleneck)`; reason = `Server too slow (${Math.round(fps)} fps). ${reasonStr}`; } 
+                        else { health = `🟡 Transcoding`; reason = reasonStr; }
+                    } else if (pm === "DirectStream") { health = `🟡 Direct Stream`; reason = "Remuxing container"; }
                     
                     let vidStream = s.NowPlayingItem?.MediaStreams?.find(m => m.Type === 'Video');
-                    let width = vidStream ? vidStream.Width : s.NowPlayingItem?.Width;
-                    let resText = '';
+                    let width = vidStream ? vidStream.Width : s.NowPlayingItem?.Width; let resText = '';
                     if (width) {
-                        if (width >= 3840) resText = '4K';
-                        else if (width >= 1920) resText = '1080p';
-                        else if (width >= 1280) resText = '720p';
-                        else resText = 'SD';
+                        if (width >= 3840) resText = '4K'; else if (width >= 1920) resText = '1080p';
+                        else if (width >= 1280) resText = '720p'; else resText = 'SD';
                     }
-                    
-                    s.streamHealth = health;
-                    s.streamReason = reason;
-                    s.streamResText = resText;
+                    s.streamHealth = health; s.streamReason = reason; s.streamResText = resText;
                     return s;
                 });
                 
                 filtered.forEach(s => {
                     let existingIdx = jfHistory.findIndex(h => h.Id === s.Id);
-                    if(existingIdx >= 0) {
-                        jfHistory[existingIdx] = s;
-                    } else {
-                        jfHistory.unshift(s);
-                    }
+                    if(existingIdx >= 0) { jfHistory[existingIdx] = s; } else { jfHistory.unshift(s); }
                 });
                 if (jfHistory.length > 20) jfHistory = jfHistory.slice(0, 20);
                 localStorage.setItem('jf_history', JSON.stringify(jfHistory));
                 
-                let oldIds = jfActiveSessions.map(s => s.Id).join(',');
-                let newIds = filtered.map(s => s.Id).join(',');
-                let oldHealth = jfActiveSessions.map(s => s.streamHealth).join(',');
-                let newHealth = filtered.map(s => s.streamHealth).join(',');
+                let oldIds = jfActiveSessions.map(s => s.Id).join(','); let newIds = filtered.map(s => s.Id).join(',');
+                let oldHealth = jfActiveSessions.map(s => s.streamHealth).join(','); let newHealth = filtered.map(s => s.streamHealth).join(',');
                 
                 jfActiveSessions = filtered;
                 if(currentTab === 'smarthome' && !modalOpen && (oldIds !== newIds || oldHealth !== newHealth)) render();
@@ -951,25 +911,18 @@
         }
 
         async function fetchMediaCalendars() {
-            let rUrl = localStorage.getItem('radarr_url');
-            let rKey = localStorage.getItem('radarr_key');
-            let sUrl = localStorage.getItem('sonarr_url');
-            let sKey = localStorage.getItem('sonarr_key');
+            let rUrl = localStorage.getItem('radarr_url'); let rKey = localStorage.getItem('radarr_key');
+            let sUrl = localStorage.getItem('sonarr_url'); let sKey = localStorage.getItem('sonarr_key');
             
             let dStart = new Date(); dStart.setMonth(dStart.getMonth() - 1);
             let startStr = dStart.getFullYear() + '-' + String(dStart.getMonth() + 1).padStart(2,'0') + '-01';
             let dEnd = new Date(); dEnd.setMonth(dEnd.getMonth() + 3);
             let endStr = dEnd.getFullYear() + '-' + String(dEnd.getMonth() + 1).padStart(2,'0') + '-01';
 
-            let newEvents = [];
-            let seriesMap = {};
+            let newEvents = []; let seriesMap = {};
 
             if (sUrl && sKey) {
-                try {
-                    let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`);
-                    let sData = await sRes.json();
-                    if (Array.isArray(sData)) { sData.forEach(s => seriesMap[s.id] = s); }
-                } catch(e) {}
+                try { let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`); let sData = await sRes.json(); if (Array.isArray(sData)) { sData.forEach(s => seriesMap[s.id] = s); } } catch(e) {}
             }
 
             if (rUrl && rKey) {
@@ -980,7 +933,6 @@
                         movies.forEach(m => {
                             let posterObj = m.images?.find(i => i.coverType === 'poster') || m.images?.[0];
                             let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
-                            
                             if (m.inCinemas) { newEvents.push({ id: 'rad_'+m.id+'_c', type: '🍿 Theatrical', title: `🍿 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.inCinemas), color: '#f59e0b' }); }
                             if (m.digitalRelease) { newEvents.push({ id: 'rad_'+m.id+'_d', type: '💻 Digital', title: `💻 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.digitalRelease), color: '#3b82f6' }); }
                             if (m.physicalRelease) { newEvents.push({ id: 'rad_'+m.id+'_p', type: '💿 Physical', title: `💿 ${m.title}`, searchTitle: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(m.physicalRelease), color: '#8b5cf6' }); }
@@ -996,23 +948,17 @@
                     if (Array.isArray(eps)) {
                         let sonarrGroups = {};
                         eps.forEach(e => {
-                            let dt = new Date(e.airDateUtc || e.airDate);
-                            let dateStr = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
-                            let sId = e.seriesId || 0;
-                            let key = `${dateStr}_${sId}`;
-                            
+                            let dt = new Date(e.airDateUtc || e.airDate); let dateStr = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+                            let sId = e.seriesId || 0; let key = `${dateStr}_${sId}`;
                             if (!sonarrGroups[key]) {
                                 let sObj = seriesMap[sId] || e.series;
                                 let fallbackName = sObj ? (sObj.title || 'Unknown Series') : 'Unknown Series';
-                                let tmdbId = sObj ? sObj.tmdbId : null;
-                                let tvdbId = sObj ? sObj.tvdbId : null;
+                                let tmdbId = sObj ? sObj.tmdbId : null; let tvdbId = sObj ? sObj.tvdbId : null;
                                 let posterObj = sObj?.images?.find(i => i.coverType === 'poster') || sObj?.images?.[0];
                                 let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
-                                
                                 sonarrGroups[key] = {
                                     id: 'son_'+sId+'_'+dateStr, date: dt, seriesTitle: fallbackName,
-                                    searchTitle: fallbackName, tmdbId: tmdbId, tvdbId: tvdbId,
-                                    posterPath: poster, episodes: []
+                                    searchTitle: fallbackName, tmdbId: tmdbId, tvdbId: tvdbId, posterPath: poster, episodes: []
                                 };
                             }
                             sonarrGroups[key].episodes.push(e);
@@ -1022,15 +968,12 @@
                             group.episodes.sort((a,b) => (a.seasonNumber - b.seasonNumber) || (a.episodeNumber - b.episodeNumber));
                             let epText = '';
                             if (group.episodes.length === 1) {
-                                let ep = group.episodes[0];
-                                epText = `S${String(ep.seasonNumber).padStart(2,'0')}E${String(ep.episodeNumber).padStart(2,'0')}`;
+                                let ep = group.episodes[0]; epText = `S${String(ep.seasonNumber).padStart(2,'0')}E${String(ep.episodeNumber).padStart(2,'0')}`;
                             } else {
                                 let first = group.episodes[0], last = group.episodes[group.episodes.length-1];
                                 if (first.seasonNumber === last.seasonNumber) {
                                     epText = `S${String(first.seasonNumber).padStart(2,'0')}E${String(first.episodeNumber).padStart(2,'0')}-E${String(last.episodeNumber).padStart(2,'0')}`;
-                                } else {
-                                    epText = `${group.episodes.length} Eps`;
-                                }
+                                } else { epText = `${group.episodes.length} Eps`; }
                             }
                             newEvents.push({ 
                                 id: group.id, type: 'TV', title: `📺 ${group.seriesTitle} ${epText}`, 
@@ -1060,8 +1003,7 @@
         }
 
         async function sendJfText() {
-            let textToSend = prompt("Enter text to type on TV:");
-            if (!textToSend) return;
+            let textToSend = prompt("Enter text to type on TV:"); if (!textToSend) return;
             showAppNotification("Feature currently relies on Jellyfin API.");
         }
 
@@ -1078,9 +1020,7 @@
                     body: JSON.stringify({ entity_id: tvEntity.trim(), media_content_type: 'app', media_content_id: 'org.jellyfin.androidtv' })
                 });
                 if(!res.ok) { showAppNotification("HA Wake failed: HTTP " + res.status); return; }
-                setTimeout(() => {
-                    if (modalOpen && activeItem && typeof launchModalFromAttributes === 'function') launchModalFromAttributes('library', activeItem.id);
-                }, 4000);
+                setTimeout(() => { if (modalOpen && activeItem && typeof launchModalFromAttributes === 'function') launchModalFromAttributes('library', activeItem.id); }, 4000);
             } catch(e) { showAppNotification("Failed to connect to HA"); }
         }
 
@@ -1103,10 +1043,7 @@
                 let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, { headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' } });
                 if (!res.ok) { showAppNotification(`HA Error: ${res.status} (Check Token)`); return; }
                 let data = await res.json();
-                if (Array.isArray(data)) {
-                    haEntities = data; localStorage.setItem('ha_entities', JSON.stringify(haEntities));
-                    if(currentTab === 'smarthome') render();
-                }
+                if (Array.isArray(data)) { haEntities = data; localStorage.setItem('ha_entities', JSON.stringify(haEntities)); if(currentTab === 'smarthome') render(); }
             } catch(e) { showAppNotification("HA Connection Blocked (Check CORS/URL)"); }
         }
 
@@ -1119,11 +1056,7 @@
                     body: JSON.stringify({ entity_id: entityId })
                 });
                 let target = haEntities.find(e => e.entity_id === entityId);
-                if (target) {
-                    target.state = target.state === 'on' ? 'off' : 'on';
-                    localStorage.setItem('ha_entities', JSON.stringify(haEntities));
-                    render();
-                }
+                if (target) { target.state = target.state === 'on' ? 'off' : 'on'; localStorage.setItem('ha_entities', JSON.stringify(haEntities)); render(); }
                 setTimeout(fetchHAEntities, 1000); 
             } catch(e) {}
         }
@@ -1138,13 +1071,8 @@
                 await fetch(`${baseUrl}/api/services/media_player/turn_on`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: entityId }) });
                 await new Promise(r => setTimeout(r, 600));
                 let ttsEngine = haEntities.find(e => e.entity_id.startsWith('tts.'));
-                let res;
-                if (ttsEngine) {
-                    res = await fetch(`${baseUrl}/api/services/tts/speak`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: ttsEngine.entity_id, media_player_entity_id: entityId, message: message }) });
-                }
-                if (!ttsEngine || !res.ok) {
-                    await fetch(`${baseUrl}/api/services/tts/google_translate_say`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: entityId, message: message }) });
-                }
+                if (ttsEngine) { await fetch(`${baseUrl}/api/services/tts/speak`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: ttsEngine.entity_id, media_player_entity_id: entityId, message: message }) }); }
+                else { await fetch(`${baseUrl}/api/services/tts/google_translate_say`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: entityId, message: message }) }); }
                 document.getElementById('ha_tts_message').value = '';
             } catch(e) { showAppNotification("Failed to broadcast"); }
         }
