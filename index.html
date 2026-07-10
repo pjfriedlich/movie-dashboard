@@ -149,6 +149,24 @@
         </div>
     </div>
     
+    <div id="eventModal" class="modal-overlay" style="display:none; z-index:150;">
+        <div class="modal-bg-tint" style="background:rgba(15,23,42,0.6); opacity:1;" onclick="document.getElementById('eventModal').style.display='none'"></div>
+        <div class="detail-content-frame" style="background:#ffffff; position:absolute; bottom:0; left:0; right:0; height:auto; max-height:75vh; border-radius:24px 24px 0 0; padding:24px; display:flex; flex-direction:column; overflow:hidden;">
+            <div onclick="document.getElementById('eventModal').style.display='none'" style="position:absolute; top:16px; right:16px; background:#f1f5f9; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:18px; font-weight:bold; cursor:pointer; z-index:10;">×</div>
+            
+            <h3 id="event-modal-source" style="margin-top:0; font-size:10px; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.5px; margin-bottom: 4px;">Source</h3>
+            <h2 id="event-modal-title" style="margin-top:0; font-size:20px; font-weight:800; color:#0f172a; line-height: 1.2; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-right:40px; flex-shrink:0;">Event Title</h2>
+            
+            <div style="flex:1; overflow-y:auto; padding-top: 12px; padding-bottom: 20px; font-size:14px; color:#334155; display:flex; flex-direction:column; gap: 12px;">
+                <div><strong>🗓️ Date:</strong> <span id="event-modal-date"></span></div>
+                <div><strong>📍 Location:</strong> <span id="event-modal-location"></span></div>
+                <div><strong>🎟️ Price:</strong> <span id="event-modal-price" style="font-weight:800; color:#10b981;"></span></div>
+                
+                <a id="event-modal-link" href="#" target="_blank" style="margin-top: 16px; background:linear-gradient(90deg, #10b981 0%, #059669 100%); color:#ffffff; text-align:center; padding:16px; border-radius:12px; font-weight:800; text-transform:uppercase; text-decoration:none; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">Purchase Tickets</a>
+            </div>
+        </div>
+    </div>
+    
     <div class="nav-footer">
         <button onclick="switchTab('smarthome')" class="nav-btn ${currentTab === 'smarthome' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg></div>
@@ -298,11 +316,11 @@
             currentMediaMode = targetMode;
             localStorage.setItem('app_current_media_mode', targetMode);
             if (targetMode === 'foryou') {
-                loadDiscoverTracks(); 
-                syncFeeds(); 
+                if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); 
+                if(typeof syncFeeds === 'function') syncFeeds(); 
                 showAppNotification('Refreshing For You...');
             } else if (targetMode === 'downloads') {
-                syncDownloadQueue();
+                if(typeof syncDownloadQueue === 'function') syncDownloadQueue();
                 showAppNotification('Refreshing Downloads...');
             }
             render();
@@ -314,8 +332,8 @@
             render(); 
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
             if (targetTab === 'media') {
-                if (currentMediaMode === 'foryou') { loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing For You...'); }
-                if (currentMediaMode === 'downloads') { syncDownloadQueue(); showAppNotification('Refreshing Downloads...'); }
+                if (currentMediaMode === 'foryou') { if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); if(typeof syncFeeds === 'function') syncFeeds(); showAppNotification('Refreshing For You...'); }
+                if (currentMediaMode === 'downloads') { if(typeof syncDownloadQueue === 'function') syncDownloadQueue(); showAppNotification('Refreshing Downloads...'); }
             }
             
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -526,6 +544,23 @@
             }
         };
 
+        window.openEventModal = function(title, date, time, location, price, url, source) {
+            document.getElementById('event-modal-source').innerText = source;
+            document.getElementById('event-modal-title').innerText = title;
+            document.getElementById('event-modal-date').innerText = time ? `${date} • ${time}` : date;
+            document.getElementById('event-modal-location').innerText = location;
+            document.getElementById('event-modal-price').innerText = price;
+            
+            let linkBtn = document.getElementById('event-modal-link');
+            if (url && url !== 'undefined' && url !== '') {
+                linkBtn.href = url;
+                linkBtn.style.display = 'block';
+            } else {
+                linkBtn.style.display = 'none';
+            }
+            
+            document.getElementById('eventModal').style.display = 'block';
+        };
         function parseNumericYear(item) {
             if (!item) return 0;
             let val = item.realYear || item.year;
@@ -970,7 +1005,7 @@
                     return;
                 }
                 setTimeout(() => {
-                    if (modalOpen && activeItem) launchModalFromAttributes('library', activeItem.id);
+                    if (modalOpen && activeItem && typeof launchModalFromAttributes === 'function') launchModalFromAttributes('library', activeItem.id);
                 }, 4000);
             } catch(e) { showAppNotification("Failed to connect to HA"); }
         }
@@ -1121,11 +1156,10 @@
                     <span>${t.speedLabel}</span>
                 </div>
                 <div id="torrent-menu-${t.id}" style="display:${menuDisplay}; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:6px; justify-content:center; align-items:center; box-sizing:border-box; width:100%; gap: 8px;">
-                    <button onclick="executeStopQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#f97316; color:#ffffff; border:none; padding:12px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">⏸ STOP</button>
+                    <button onclick="if(typeof executeStopQueueItem === 'function') executeStopQueueItem('${t.id}', '${t.type}');" style="flex:1; background:#f97316; color:#ffffff; border:none; padding:12px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;">⏸ STOP</button>
                 </div>
             </div>`;
         }
-
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -1193,7 +1227,7 @@
                         }).join('') + `</div>`;
                     } else {
                         let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
-                        let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>`;
+                        let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>`;
 
                         tabBodyContent = `
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
@@ -1243,9 +1277,9 @@
                     `;
 
                     if (currentForYouSubTab === 'movies') {
-                        mediaBodyContent = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                        mediaBodyContent = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); if(typeof syncFeeds === 'function') syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                     } else {
-                        mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                        mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
                     }
                 } else if (currentMediaMode === 'downloads') {
                     let activeGroup = activeTorrents.filter(t => t.speed !== 'Queued');
@@ -1259,7 +1293,7 @@
                     mediaBodyContent = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:16px; align-items:center;">
                         <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Active Transfers (${activeGroup.length})</h2>
-                        <button onclick="syncDownloadQueue(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
+                        <button onclick="if(typeof syncDownloadQueue === 'function') syncDownloadQueue(); showAppNotification('Transfers Synced');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                     </div>
                     ${storageHtml}
                     ${activeHtmlBlocks}
@@ -1607,8 +1641,12 @@
                 } else if (familyEventsData.length === 0) {
                     eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No local events currently found.</div>`;
                 } else {
-                    eventsHtml = `<div style="max-height:300px; overflow-y:auto; padding-right:8px; display:flex; flex-direction:column; gap:8px;">` + familyEventsData.map(ev => `
-                        <div class="event-item" ${ev.url ? `onclick="window.open('${ev.url}', '_blank')"` : ''} style="cursor:${ev.url ? 'pointer' : 'default'}; transition:transform 0.1s ease;" ${ev.url ? `onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'"` : ''}>
+                    eventsHtml = `<div style="max-height:300px; overflow-y:auto; padding-right:8px; display:flex; flex-direction:column; gap:8px;">` + familyEventsData.map(ev => {
+                        let safeTitle = ev.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        let safeLoc = ev.location.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        
+                        return `
+                        <div class="event-item" onclick="openEventModal('${safeTitle}', '${ev.date}', '${ev.time}', '${safeLoc}', '${ev.price}', '${ev.url}', '${ev.source}')" style="cursor:pointer; transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span class="event-source">${ev.source}</span>
                                 ${ev.url ? `<span style="font-size:9px; background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase; box-shadow:0 1px 2px rgba(0,0,0,0.05);">🔗 Tickets</span>` : ''}
@@ -1620,7 +1658,8 @@
                             </div>
                             <div style="font-size:11px; color:#64748b; margin-top:4px;">📍 ${ev.location}</div>
                         </div>
-                    `).join('') + `</div>`;
+                        `;
+                    }).join('') + `</div>`;
                 }
 
                 let eventsCardHtml = `
@@ -1670,7 +1709,7 @@
                     <div class="form-group"><label>SeatGeek Client ID</label><input type="text" id="in_seatgeek" placeholder="Paste SeatGeek Client ID here..." value="${localStorage.getItem('seatgeek_key')||''}"></div>
                     <div class="form-group"><label>Ticketmaster API Key</label><input type="password" id="in_ticketmaster" placeholder="Paste Ticketmaster Key here..." value="${localStorage.getItem('ticketmaster_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); localStorage.setItem('seatgeek_key', document.getElementById('in_seatgeek').value.trim()); localStorage.setItem('ticketmaster_key', document.getElementById('in_ticketmaster').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); localStorage.setItem('seatgeek_key', document.getElementById('in_seatgeek').value.trim()); localStorage.setItem('ticketmaster_key', document.getElementById('in_ticketmaster').value.trim()); showAppNotification('Saved Configuration!'); if(typeof syncRadarrLibrary==='function') syncRadarrLibrary(); if(typeof syncSonarrLibrary==='function') syncSonarrLibrary(); fetchHAEntities(); if(typeof syncFeeds==='function') syncFeeds(); if(typeof loadDiscoverTracks==='function') loadDiscoverTracks(); if(typeof syncDownloadQueue==='function') syncDownloadQueue(); if(typeof fetchDiskSpace==='function') fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
@@ -1690,7 +1729,7 @@
                 let drawerHtml = '';
                 let isAlreadyInSonarr = false;
                 
-                let friendBadgeHtml = getFriendBadgeHtml();
+                let friendBadgeHtml = typeof getFriendBadgeHtml === 'function' ? getFriendBadgeHtml() : '';
 
                 if (activeItem.mediaType === 'tv') {
                     isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
@@ -1726,7 +1765,7 @@
                                     </div>
                                     <div style="display:none; padding:0 12px 10px 12px;">
                                         <div style="display:flex; justify-content:flex-end; padding:10px 0;">
-                                            <button onclick="searchSonarrSeason('${sId}', ${sNum})" style="background:#e0e7ff; color:#0284c7; border:none; padding:8px 14px; border-radius:8px; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(2,132,199,0.15);">☁️ Search Entire Season</button>
+                                            <button onclick="if(typeof searchSonarrSeason === 'function') searchSonarrSeason('${sId}', ${sNum})" style="background:#e0e7ff; color:#0284c7; border:none; padding:8px 14px; border-radius:8px; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; box-shadow:0 2px 4px rgba(2,132,199,0.15);">☁️ Search Entire Season</button>
                                         </div>
                                         ${epsHtml}
                                     </div>
@@ -1739,11 +1778,11 @@
                         addServerButtonHtml = `<button onclick="document.getElementById('season-drawer').style.display = document.getElementById('season-drawer').style.display === 'none' ? 'block' : 'none';" class="btn-panel-primary" style="flex:1; padding:15px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; box-shadow:none;">✅ Tracked In Sonarr</button>`;
                         drawerHtml = `<div id="season-drawer" style="display:none; margin-top:16px;"><h4 style="font-size:11px; text-transform:uppercase; color:#64748b; margin:0 0 8px 0; font-weight:800; letter-spacing:0.5px;">Episodes & Downloads</h4>${seasonRows}</div>`;
                     } else {
-                        addServerButtonHtml = `<button onclick="sendToSonarr('all')" class="btn-panel-primary" style="flex:1; padding:15px;">Add All Seasons</button>`;
+                        addServerButtonHtml = `<button onclick="if(typeof sendToSonarr === 'function') sendToSonarr('all')" class="btn-panel-primary" style="flex:1; padding:15px;">Add All Seasons</button>`;
                     }
                 } else {
                     let isAlreadyInRadarr = myCollection.some(c => String(c.tmdbId) === String(activeItem.tmdbId));
-                    addServerButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>✅ Tracked in Radarr</button>` : `<button onclick="sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
+                    addServerButtonHtml = isAlreadyInRadarr ? `<button class="btn-panel-disabled" style="flex:1; padding:15px;" disabled>✅ Tracked in Radarr</button>` : `<button onclick="if(typeof sendToRadarr === 'function') sendToRadarr()" class="btn-panel-primary" style="flex:1; padding:15px;">Add to Radarr</button>`;
                 }
                 
                 let titleLower = String(activeItem.title).toLowerCase().trim();
@@ -1754,18 +1793,17 @@
                 let watchButtonHtml = '';
                 
                 if (activeItem.mediaType !== 'tv') {
-                    topUnwatchBadge = isCurrentlyWatched ? `<button onclick="executeRemoveFromWatched()" class="btn-unwatch-action">Remove From Watched</button>` : ``;
-                    watchButtonHtml = !isCurrentlyWatched ? `<button onclick="executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:15px;">Mark Watched</button>` : ``;
+                    topUnwatchBadge = isCurrentlyWatched ? `<button onclick="if(typeof executeRemoveFromWatched === 'function') executeRemoveFromWatched()" class="btn-unwatch-action">Remove From Watched</button>` : ``;
+                    watchButtonHtml = !isCurrentlyWatched ? `<button onclick="if(typeof executeToggleWatched === 'function') executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:15px;">Mark Watched</button>` : ``;
                 }
                 
-                let collectionButton = activeItem.collection ? `<button onclick="closeM(); showAppNotification('Loading Collection...'); fetchCollection(${activeItem.collection.id});" class="trailer-btn" style="flex:1;">View Collection</button>` : '';
+                let collectionButton = activeItem.collection ? `<button onclick="closeM(); showAppNotification('Loading Collection...'); if(typeof fetchCollection === 'function') fetchCollection(${activeItem.collection.id});" class="trailer-btn" style="flex:1;">View Collection</button>` : '';
                 let trailerBtnHtml = activeItem.trailerKey ? `<button onclick="document.getElementById('modal-trailer-frame-box').style.display='block'; document.getElementById('modal-trailer-frame-box').innerHTML='<iframe width=\\'100%\\' height=\\'100%\\' src=\\'https://www.youtube.com/embed/${activeItem.trailerKey}?autoplay=1\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'; this.style.display='none';" class="trailer-btn" style="flex:1; border:2px solid #ea580c; color:#ea580c;">▶️ Play Trailer</button>` : '';
                 let extraBtns = (trailerBtnHtml || collectionButton) ? `<div style="display:flex; gap:12px; width:100%; margin-bottom:4px;">${trailerBtnHtml}${collectionButton}</div>` : '';
 
                 let cleanModalYear = parseNumericYear(activeItem);
                 let displaySpecsYear = cleanModalYear > 0 ? cleanModalYear : '';
 
-                // --- Format Runtime and Ratings Badges ---
                 let runtimeStr = activeItem.runtime ? ` • ${activeItem.runtime} min` : '';
                 let extraRatingsHtml = '';
                 if (activeItem.omdbRatings) {
@@ -1778,11 +1816,10 @@
                         extraRatingsHtml += `</div>`;
                     }
                 }
-                // ----------------------------------------------
 
                 let castHtml = '';
                 if (activeItem.cast && Array.isArray(activeItem.cast)) {
-                    let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
+                    let castLinks = activeItem.cast.map(c => `<span onclick="closeM(); if(typeof fetchPersonCredits === 'function') fetchPersonCredits(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" style="color:#ea580c; font-weight:700; cursor:pointer;">${c.name}</span>`).join('<span style="color:#94a3b8;">, </span>');
                     castHtml = `<div style="margin-bottom:4px;">
                         <h4 style="font-size:11px; text-transform:uppercase; color:#64748b; margin:0 0 4px 0; font-weight:800; letter-spacing:0.5px;">Cast (Tap to browse)</h4>
                         <p style="font-size:12px; color:#475569; line-height:1.4; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${castLinks}</p>
@@ -1821,7 +1858,7 @@
                             <div class="detail-meta-block">
                                 <h3 class="detail-heading-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                     ${activeItem.title}
-                                    ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
+                                    ${activeItem.mediaType === 'tv' && !isAlreadyInSonarr ? `<span onclick="if(typeof sendToSonarr === 'function') sendToSonarr('future')" class="future-pill" style="font-size:9px; background:#fef08a; color:#b45309; padding:4px 8px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.05); transition:all 0.1s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">📡 Future Only</span>` : ''}
                                 </h3>
                                 <p class="detail-sub-specs">${displaySpecsYear}${runtimeStr}</p>
                                 ${extraRatingsHtml}
@@ -1927,7 +1964,7 @@
             
             let searchContainerHtml = currentTab === 'media' ? `
                 <div class="search-container-box">
-                    <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie or show..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
+                    <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie or show..." onkeyup="if(event.key === 'Enter' && typeof triggerUniversalSearch === 'function') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
                     <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
                 </div>
             ` : '';
@@ -1954,13 +1991,15 @@
                 e.preventDefault();
                 let pool = triggerCard.getAttribute('data-pool');
                 if (pool === 'person') {
-                    fetchPersonCredits(triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-name'));
+                    if (typeof fetchPersonCredits === 'function') fetchPersonCredits(triggerCard.getAttribute('data-id'), triggerCard.getAttribute('data-name'));
                 } else {
-                    launchModalFromAttributes(
-                        pool, 
-                        triggerCard.getAttribute('data-id'), 
-                        triggerCard.getAttribute('data-track')
-                    );
+                    if (typeof launchModalFromAttributes === 'function') {
+                        launchModalFromAttributes(
+                            pool, 
+                            triggerCard.getAttribute('data-id'), 
+                            triggerCard.getAttribute('data-track')
+                        );
+                    }
                 }
             } else if (e.target.matches('button[onclick*="toggleTorrentMenu"]')) {
                 
@@ -2001,30 +2040,49 @@
             } catch (e) { alert('Invalid format.'); }
         }
 
-        if(localStorage.getItem('radarr_url')&&localStorage.getItem('radarr_key')) {
-            syncRadarrLibrary();
-            syncSonarrLibrary();
-            fetchDiskSpace();
-            fetchMediaCalendars();
+        function safeInit() {
+            try {
+                if (localStorage.getItem('radarr_url') && localStorage.getItem('radarr_key')) {
+                    if (typeof syncRadarrLibrary === 'function') syncRadarrLibrary();
+                    if (typeof syncSonarrLibrary === 'function') syncSonarrLibrary();
+                    if (typeof fetchDiskSpace === 'function') fetchDiskSpace();
+                    if (typeof fetchMediaCalendars === 'function') fetchMediaCalendars();
+                }
+                if (localStorage.getItem('ha_key') && typeof fetchHAEntities === 'function') {
+                    fetchHAEntities();
+                }
+                if (typeof syncFeeds === 'function') syncFeeds();
+                if (typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
+                
+                if (currentTab === 'smarthome') {
+                    if (typeof fetchSportsScores === 'function') fetchSportsScores();
+                    if (typeof fetchLocalWeather === 'function') fetchLocalWeather();
+                    if (typeof fetchFamilyEvents === 'function') fetchFamilyEvents();
+                }
+            } catch (error) {
+                console.error("Initialization Error:", error);
+            }
         }
-        if(localStorage.getItem('ha_key')) {
-            fetchHAEntities();
-        }
-        syncFeeds(); loadDiscoverTracks(); render();
-        if(currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
+
+        render();
+        safeInit();
 
         let tickCount = 0;
         setInterval(() => {
-            syncDownloadQueue();
-            if (currentTab === 'smarthome') syncJfSessions();
+            if (typeof syncDownloadQueue === 'function') syncDownloadQueue();
+            if (currentTab === 'smarthome' && typeof syncJfSessions === 'function') syncJfSessions();
+            
             tickCount++;
             if (tickCount % 5 === 0) { 
-                fetchDiskSpace(); 
-                if(currentTab === 'smarthome') fetchSportsScores(); 
+                if (typeof fetchDiskSpace === 'function') fetchDiskSpace(); 
+                if (currentTab === 'smarthome' && typeof fetchSportsScores === 'function') fetchSportsScores(); 
             }
             if (tickCount % 20 === 0) {
-                fetchMediaCalendars();
-                if(currentTab === 'smarthome') { fetchLocalWeather(); fetchFamilyEvents(); }
+                if (typeof fetchMediaCalendars === 'function') fetchMediaCalendars();
+                if (currentTab === 'smarthome') { 
+                    if (typeof fetchLocalWeather === 'function') fetchLocalWeather(); 
+                    if (typeof fetchFamilyEvents === 'function') fetchFamilyEvents(); 
+                }
             }
         }, 3000);
     </script>
