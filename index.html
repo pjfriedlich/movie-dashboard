@@ -222,8 +222,8 @@
         let myShows = JSON.parse(localStorage.getItem('local_shows')) || [];
         let customWatchedHistory = JSON.parse(localStorage.getItem('custom_watched_history')) || [];
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
-        let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
-        let tvTracks = { "Recommended Upcoming": [], "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Mystery": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [] };
+        let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Sci-Fi": [] };
+        let tvTracks = { "Action": [], "Comedy": [], "Drama": [] };
         let localWatchedCache = JSON.parse(localStorage.getItem('local_watched_cache')) || [];
     
         let haEntities = JSON.parse(localStorage.getItem('ha_entities')) || [];
@@ -384,6 +384,23 @@
             render();
         };
 
+        window.openEventModal = function(title, date, time, location, price, url, source) {
+            document.getElementById('event-modal-source').innerText = source;
+            document.getElementById('event-modal-title').innerText = title;
+            document.getElementById('event-modal-date').innerText = time ? `${date} • ${time}` : date;
+            document.getElementById('event-modal-location').innerText = location;
+            document.getElementById('event-modal-price').innerText = price;
+            
+            let linkBtn = document.getElementById('event-modal-link');
+            if (url && url !== 'undefined' && url !== '') {
+                linkBtn.href = url;
+                linkBtn.style.display = 'block';
+            } else {
+                linkBtn.style.display = 'none';
+            }
+            
+            document.getElementById('eventModal').style.display = 'block';
+        };
         window.openSportsModal = async function(gameId) {
             document.getElementById('sportsModal').style.display = 'block';
             document.getElementById('sports-modal-content').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading summary...</div>';
@@ -544,23 +561,6 @@
             }
         };
 
-        window.openEventModal = function(title, date, time, location, price, url, source) {
-            document.getElementById('event-modal-source').innerText = source;
-            document.getElementById('event-modal-title').innerText = title;
-            document.getElementById('event-modal-date').innerText = time ? `${date} • ${time}` : date;
-            document.getElementById('event-modal-location').innerText = location;
-            document.getElementById('event-modal-price').innerText = price;
-            
-            let linkBtn = document.getElementById('event-modal-link');
-            if (url && url !== 'undefined' && url !== '') {
-                linkBtn.href = url;
-                linkBtn.style.display = 'block';
-            } else {
-                linkBtn.style.display = 'none';
-            }
-            
-            document.getElementById('eventModal').style.display = 'block';
-        };
         function parseNumericYear(item) {
             if (!item) return 0;
             let val = item.realYear || item.year;
@@ -568,6 +568,116 @@
             let num = parseInt(String(val).replace(/\D/g, ""), 10);
             return isNaN(num) ? 0 : num;
         }
+
+        // ==========================================
+        //  THE MISSING TMDB / DISCOVER LOGIC FIXES
+        // ==========================================
+
+        async function loadDiscoverTracks() {
+            let tmdbKey = localStorage.getItem('tmdb_key');
+            if (!tmdbKey) return;
+            tmdbKey = tmdbKey.trim();
+
+            const mapM = m => ({ id: m.id, tmdbId: m.id, title: m.title, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'', overview: m.overview, mediaType: 'movie', year: m.release_date?m.release_date.split('-')[0]:'' });
+            const mapT = m => ({ id: m.id, tmdbId: m.id, title: m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'', overview: m.overview, mediaType: 'tv', year: m.first_air_date?m.first_air_date.split('-')[0]:'' });
+
+            try {
+                let [act, com, dram, adv, sci, tvAct, tvCom, tvDram] = await Promise.all([
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=28`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=35`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=18`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=12`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=878`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=10759`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=35`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=18`).then(r=>r.json())
+                ]);
+                movieTracks["Action"] = act.results ? act.results.map(mapM) : [];
+                movieTracks["Comedy"] = com.results ? com.results.map(mapM) : [];
+                movieTracks["Drama"] = dram.results ? dram.results.map(mapM) : [];
+                movieTracks["Adventure"] = adv.results ? adv.results.map(mapM) : [];
+                movieTracks["Sci-Fi"] = sci.results ? sci.results.map(mapM) : [];
+
+                tvTracks["Action"] = tvAct.results ? tvAct.results.map(mapT) : [];
+                tvTracks["Comedy"] = tvCom.results ? tvCom.results.map(mapT) : [];
+                tvTracks["Drama"] = tvDram.results ? tvDram.results.map(mapT) : [];
+
+                render();
+            } catch (e) { console.error("TMDB Fetch Error", e); }
+        }
+
+        function syncFeeds() {
+            let users = localStorage.getItem('lb_links') || '';
+            // Safe comma stripper: Splits by lines, removes commas, and filters empties
+            let userArray = users.split('\n').map(u => u.trim().replace(/,/g, '')).filter(u => u);
+            friendRowData = [];
+            
+            userArray.forEach(u => {
+                if (letterboxdData && letterboxdData[u] && letterboxdData[u].highly_rated) {
+                    let mapped = letterboxdData[u].highly_rated.map(m => ({
+                        id: m.title, title: m.title, rating: m.rating, posterPath: '', mediaType: 'movie', year: ''
+                    }));
+                    friendRowData = friendRowData.concat(mapped);
+                }
+            });
+            render();
+        }
+
+        async function triggerUniversalSearch(query) {
+            let tmdbKey = localStorage.getItem('tmdb_key');
+            if (!tmdbKey || !query.trim()) return;
+            try {
+                let res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(query)}`);
+                let data = await res.json();
+                searchResultsData = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').map(m => {
+                    return {
+                        id: m.id, tmdbId: m.id, title: m.title || m.name, 
+                        posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', 
+                        mediaType: m.media_type, year: (m.release_date || m.first_air_date || '').split('-')[0], overview: m.overview
+                    };
+                });
+                render();
+            } catch(e) {}
+        }
+
+        function launchModalFromAttributes(pool, id, track) {
+            activeItem = null;
+            if (pool === 'discover_movie') {
+                activeItem = (movieTracks[track] || []).find(m => String(m.id) === String(id));
+            } else if (pool === 'discover_tv') {
+                activeItem = (tvTracks[track] || []).find(m => String(m.id) === String(id));
+            } else if (pool === 'search') {
+                activeItem = searchResultsData.find(m => String(m.id) === String(id));
+            } else if (pool === 'library' || pool === 'watched_track') {
+                activeItem = myCollection.find(m => String(m.id) === String(id));
+            } else if (pool === 'shows') {
+                activeItem = myShows.find(m => String(m.id) === String(id));
+            } else if (pool === 'friend') {
+                activeItem = friendRowData.find(m => String(m.title) === String(id));
+                if(activeItem && activeItem.mediaType === 'movie' && !activeItem.tmdbId) {
+                    let tmdbKey = localStorage.getItem('tmdb_key');
+                    if (tmdbKey) {
+                        fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&query=${encodeURIComponent(activeItem.title)}`)
+                        .then(r=>r.json()).then(d=>{
+                            if(d.results && d.results[0]) {
+                                activeItem.tmdbId = d.results[0].id;
+                                activeItem.posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
+                                activeItem.overview = d.results[0].overview;
+                                render();
+                            }
+                        });
+                    }
+                }
+            }
+            if (activeItem) {
+                modalOpen = true;
+                render();
+            }
+        }
+
+        // ==========================================
+        //  SMART HOME & BACKEND FUNCTIONS
+        // ==========================================
 
         async function fetchSportsScores() {
             let url = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
@@ -746,17 +856,13 @@
                 }
 
                 combinedEvents.sort((a, b) => a.rawDate - b.rawDate);
-                
                 let uniqueEvents = [];
                 let seen = new Set();
-                
                 let bannedKeywords = ['chinese']; 
                 
                 for (let ev of combinedEvents) {
                     let titleLower = ev.title.toLowerCase();
-                    
                     let isBanned = bannedKeywords.some(word => titleLower.includes(word));
-                    
                     let key = titleLower + ev.date;
                     if (!seen.has(key) && !isBanned) {
                         seen.add(key);
@@ -852,7 +958,6 @@
             
             let dStart = new Date(); dStart.setMonth(dStart.getMonth() - 1);
             let startStr = dStart.getFullYear() + '-' + String(dStart.getMonth() + 1).padStart(2,'0') + '-01';
-
             let dEnd = new Date(); dEnd.setMonth(dEnd.getMonth() + 3);
             let endStr = dEnd.getFullYear() + '-' + String(dEnd.getMonth() + 1).padStart(2,'0') + '-01';
 
@@ -863,9 +968,7 @@
                 try {
                     let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`);
                     let sData = await sRes.json();
-                    if (Array.isArray(sData)) {
-                        sData.forEach(s => seriesMap[s.id] = s);
-                    }
+                    if (Array.isArray(sData)) { sData.forEach(s => seriesMap[s.id] = s); }
                 } catch(e) {}
             }
 
@@ -907,14 +1010,9 @@
                                 let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
                                 
                                 sonarrGroups[key] = {
-                                    id: 'son_'+sId+'_'+dateStr,
-                                    date: dt,
-                                    seriesTitle: fallbackName,
-                                    searchTitle: fallbackName,
-                                    tmdbId: tmdbId,
-                                    tvdbId: tvdbId,
-                                    posterPath: poster,
-                                    episodes: []
+                                    id: 'son_'+sId+'_'+dateStr, date: dt, seriesTitle: fallbackName,
+                                    searchTitle: fallbackName, tmdbId: tmdbId, tvdbId: tvdbId,
+                                    posterPath: poster, episodes: []
                                 };
                             }
                             sonarrGroups[key].episodes.push(e);
@@ -923,13 +1021,11 @@
                         Object.values(sonarrGroups).forEach(group => {
                             group.episodes.sort((a,b) => (a.seasonNumber - b.seasonNumber) || (a.episodeNumber - b.episodeNumber));
                             let epText = '';
-                            
                             if (group.episodes.length === 1) {
                                 let ep = group.episodes[0];
                                 epText = `S${String(ep.seasonNumber).padStart(2,'0')}E${String(ep.episodeNumber).padStart(2,'0')}`;
                             } else {
-                                let first = group.episodes[0];
-                                let last = group.episodes[group.episodes.length-1];
+                                let first = group.episodes[0], last = group.episodes[group.episodes.length-1];
                                 if (first.seasonNumber === last.seasonNumber) {
                                     epText = `S${String(first.seasonNumber).padStart(2,'0')}E${String(first.episodeNumber).padStart(2,'0')}-E${String(last.episodeNumber).padStart(2,'0')}`;
                                 } else {
@@ -937,16 +1033,9 @@
                                 }
                             }
                             newEvents.push({ 
-                                id: group.id,
-                                type: 'TV', 
-                                title: `📺 ${group.seriesTitle} ${epText}`, 
-                                searchTitle: group.seriesTitle,
-                                tmdbId: group.tmdbId,
-                                tvdbId: group.tvdbId,
-                                mediaType: 'tv',
-                                posterPath: group.posterPath,
-                                date: group.date, 
-                                color: '#10b981' 
+                                id: group.id, type: 'TV', title: `📺 ${group.seriesTitle} ${epText}`, 
+                                searchTitle: group.seriesTitle, tmdbId: group.tmdbId, tvdbId: group.tvdbId,
+                                mediaType: 'tv', posterPath: group.posterPath, date: group.date, color: '#10b981' 
                             });
                         });
                     }
@@ -958,16 +1047,13 @@
         }
         
         async function sendTvCmd(cmd) {
-            let u = localStorage.getItem('ha_url') || "";
-            let k = localStorage.getItem('ha_key') || "";
+            let u = localStorage.getItem('ha_url') || ""; let k = localStorage.getItem('ha_key') || "";
             let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
             let remoteId = tvEntity.trim().replace('media_player.', 'remote.');
-            u = u.trim().replace(/\/$/, "");
-            if (!u.startsWith('http')) u = 'http://' + u;
+            u = u.trim().replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
             try {
                 await fetch(`${u}/api/services/remote/send_command`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ entity_id: remoteId, command: cmd })
                 });
             } catch(e) { showAppNotification("HA Remote Connection Error"); }
@@ -976,34 +1062,22 @@
         async function sendJfText() {
             let textToSend = prompt("Enter text to type on TV:");
             if (!textToSend) return;
-            
             showAppNotification("Feature currently relies on Jellyfin API.");
         }
 
         async function wakeTvAndLaunchJellyfin() {
-            let u = localStorage.getItem('ha_url') || "";
-            let k = localStorage.getItem('ha_key') || "";
-            u = u.trim().replace(/\/$/, "");
-            k = k.trim();
+            let u = localStorage.getItem('ha_url') || ""; let k = localStorage.getItem('ha_key') || "";
+            u = u.trim().replace(/\/$/, ""); k = k.trim();
             let tvEntity = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
-            tvEntity = tvEntity.trim();
             if (!u || !k) return showAppNotification("Verify HA Settings First!");
             if (!u.startsWith('http')) u = 'http://' + u;
             showAppNotification("Waking TV & Launching Jellyfin...");
             try {
                 let res = await fetch(`${u}/api/services/media_player/play_media`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        entity_id: tvEntity,
-                        media_content_type: 'app',
-                        media_content_id: 'org.jellyfin.androidtv'
-                    })
+                    method: 'POST', headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entity_id: tvEntity.trim(), media_content_type: 'app', media_content_id: 'org.jellyfin.androidtv' })
                 });
-                if(!res.ok) {
-                    showAppNotification("HA Wake failed: HTTP " + res.status);
-                    return;
-                }
+                if(!res.ok) { showAppNotification("HA Wake failed: HTTP " + res.status); return; }
                 setTimeout(() => {
                     if (modalOpen && activeItem && typeof launchModalFromAttributes === 'function') launchModalFromAttributes('library', activeItem.id);
                 }, 4000);
@@ -1012,66 +1086,38 @@
 
         async function castToJellyfin(sessionId) {
             if (!activeItem || !activeItem.jellyfinId) return;
-            let jfUrl = localStorage.getItem('jf_url') || "";
-            jfUrl = jfUrl.trim().replace(/\/$/, "");
+            let jfUrl = localStorage.getItem('jf_url') || ""; jfUrl = jfUrl.trim().replace(/\/$/, "");
             if(!jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
-            let jfKey = localStorage.getItem('jf_key') || "";
-            jfKey = jfKey.trim();
+            let jfKey = localStorage.getItem('jf_key') || ""; jfKey = jfKey.trim();
             try {
-                let res = await fetch(`${jfUrl}/Sessions/${sessionId}/Playing?ItemIds=${activeItem.jellyfinId}&PlayCommand=PlayNow&api_key=${jfKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (res.ok || res.status === 204) {
-                    showAppNotification("Casting to TV! 🍿");
-                    closeM();
-                } else { 
-                    showAppNotification("Cast failed: HTTP " + res.status); 
-                }
-            } catch(e) { 
-                showAppNotification("Connection Error: Check JF URL"); 
-            }
+                let res = await fetch(`${jfUrl}/Sessions/${sessionId}/Playing?ItemIds=${activeItem.jellyfinId}&PlayCommand=PlayNow&api_key=${jfKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                if (res.ok || res.status === 204) { showAppNotification("Casting to TV! 🍿"); closeM(); } 
+                else { showAppNotification("Cast failed: HTTP " + res.status); }
+            } catch(e) { showAppNotification("Connection Error: Check JF URL"); }
         }
 
         async function fetchHAEntities() {
-            let u = localStorage.getItem('ha_url');
-            let k = localStorage.getItem('ha_key');
-            if (!u || !k) return;
-            u = u.trim();
-            if (!u.startsWith('http')) u = 'http://' + u; 
+            let u = localStorage.getItem('ha_url'); let k = localStorage.getItem('ha_key');
+            if (!u || !k) return; u = u.trim(); if (!u.startsWith('http')) u = 'http://' + u; 
             try {
-                let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, {
-                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' }
-                });
-                if (!res.ok) {
-                    showAppNotification(`HA Error: ${res.status} (Check Token)`);
-                    return;
-                }
+                let res = await fetch(`${u.replace(/\/$/, "")}/api/states`, { headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' } });
+                if (!res.ok) { showAppNotification(`HA Error: ${res.status} (Check Token)`); return; }
                 let data = await res.json();
                 if (Array.isArray(data)) {
-                    haEntities = data;
-                    localStorage.setItem('ha_entities', JSON.stringify(haEntities));
+                    haEntities = data; localStorage.setItem('ha_entities', JSON.stringify(haEntities));
                     if(currentTab === 'smarthome') render();
                 }
-            } catch(e) { 
-                console.error("HA Fetch Error", e);
-                showAppNotification("HA Connection Blocked (Check CORS/URL)");
-            }
+            } catch(e) { showAppNotification("HA Connection Blocked (Check CORS/URL)"); }
         }
 
         async function toggleHAEntity(entityId, domain) {
-            let u = localStorage.getItem('ha_url');
-            let k = localStorage.getItem('ha_key');
-            if (!u || !k) return;
-            u = u.trim();
-            if (!u.startsWith('http')) u = 'http://' + u; 
+            let u = localStorage.getItem('ha_url'); let k = localStorage.getItem('ha_key');
+            if (!u || !k) return; u = u.trim(); if (!u.startsWith('http')) u = 'http://' + u; 
             try {
                 await fetch(`${u.replace(/\/$/, "")}/api/services/${domain}/toggle`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ entity_id: entityId })
                 });
-                
                 let target = haEntities.find(e => e.entity_id === entityId);
                 if (target) {
                     target.state = target.state === 'on' ? 'off' : 'on';
@@ -1083,50 +1129,22 @@
         }
 
         async function sendHAIntercom(message, entityId) {
-            message = message.trim();
-            if (!message) return showAppNotification("Enter a message!");
-            let u = localStorage.getItem('ha_url');
-            let k = localStorage.getItem('ha_key');
-            if (!u || !k) return;
-            u = u.trim();
-            if (!u.startsWith('http')) u = 'http://' + u; 
+            message = message.trim(); if (!message) return showAppNotification("Enter a message!");
+            let u = localStorage.getItem('ha_url'); let k = localStorage.getItem('ha_key');
+            if (!u || !k) return; u = u.trim(); if (!u.startsWith('http')) u = 'http://' + u; 
             try {
-                let baseUrl = u.replace(/\/$/, "");
-                let headers = { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' };
-                
+                let baseUrl = u.replace(/\/$/, ""); let headers = { 'Authorization': `Bearer ${k.trim()}`, 'Content-Type': 'application/json' };
                 showAppNotification('Sending: "' + message + '"');
-                
-                await fetch(`${baseUrl}/api/services/media_player/turn_on`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ entity_id: entityId })
-                });
-                
+                await fetch(`${baseUrl}/api/services/media_player/turn_on`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: entityId }) });
                 await new Promise(r => setTimeout(r, 600));
-
                 let ttsEngine = haEntities.find(e => e.entity_id.startsWith('tts.'));
                 let res;
-                
                 if (ttsEngine) {
-                    res = await fetch(`${baseUrl}/api/services/tts/speak`, {
-                        method: 'POST',
-                        headers: headers,
-                        body: JSON.stringify({ 
-                            entity_id: ttsEngine.entity_id, 
-                            media_player_entity_id: entityId, 
-                            message: message 
-                        })
-                    });
+                    res = await fetch(`${baseUrl}/api/services/tts/speak`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: ttsEngine.entity_id, media_player_entity_id: entityId, message: message }) });
                 }
-                
                 if (!ttsEngine || !res.ok) {
-                    await fetch(`${baseUrl}/api/services/tts/google_translate_say`, {
-                        method: 'POST',
-                        headers: headers,
-                        body: JSON.stringify({ entity_id: entityId, message: message })
-                    });
+                    await fetch(`${baseUrl}/api/services/tts/google_translate_say`, { method: 'POST', headers: headers, body: JSON.stringify({ entity_id: entityId, message: message }) });
                 }
-                
                 document.getElementById('ha_tts_message').value = '';
             } catch(e) { showAppNotification("Failed to broadcast"); }
         }
@@ -1141,9 +1159,9 @@
                 return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
+
         function renderTorrentCard(t) {
             let menuDisplay = (String(openMenuHash) === String(t.id)) ? 'flex' : 'none';
-            
             return `
             <div class="torrent-card" style="margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
@@ -1179,13 +1197,9 @@
 
                 if (currentMediaMode === 'movies') {
                     let watchedMovies = [...customWatchedHistory];
-                    if (watchedSortMode === 'alpha') {
-                        watchedMovies.sort((a, b) => a.title.localeCompare(b.title));
-                    } else if (watchedSortMode === 'year_desc') {
-                        watchedMovies.sort((a, b) => parseNumericYear(b) - parseNumericYear(a));
-                    } else if (watchedSortMode === 'year_asc') {
-                        watchedMovies.sort((a, b) => parseNumericYear(a) - parseNumericYear(b));
-                    } 
+                    if (watchedSortMode === 'alpha') { watchedMovies.sort((a, b) => a.title.localeCompare(b.title)); }
+                    else if (watchedSortMode === 'year_desc') { watchedMovies.sort((a, b) => parseNumericYear(b) - parseNumericYear(a)); }
+                    else if (watchedSortMode === 'year_asc') { watchedMovies.sort((a, b) => parseNumericYear(a) - parseNumericYear(b)); } 
                     
                     let downloadedMovies = myCollection.filter(m => m.hasFile === true);
                     let comingSoonMovies = myCollection.filter(m => !m.hasFile);
@@ -1297,9 +1311,7 @@
                     </div>
                     ${storageHtml}
                     ${activeHtmlBlocks}
-                    
                     <hr class="section-divider" style="margin: 32px 0 20px 0;">
-                    
                     <div style="margin-bottom:16px;">
                         <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Queued Transfers (${inactiveGroup.length})</h2>
                     </div>
@@ -1314,8 +1326,7 @@
                 let speakers = haEntities.filter(e => e.entity_id.startsWith('media_player.'));
 
                 let lightsHtml = lights.length === 0 ? `<div style="text-align:center; padding:30px; color:#64748b; font-size:12px;">No lights or plugs discovered yet. Ensure Home Assistant is running in Host mode on CasaOS.</div>` : lights.map(l => {
-                    let isOn = l.state === 'on';
-                    let domain = l.entity_id.split('.')[0];
+                    let isOn = l.state === 'on'; let domain = l.entity_id.split('.')[0];
                     return `<div class="stat-card" style="margin-bottom:10px; flex-direction:row !important; justify-content:space-between !important; padding:16px;">
                         <div style="font-weight:800; font-size:14px; color:#0f172a; text-transform:capitalize;">${l.attributes.friendly_name || l.entity_id}</div>
                         <button onclick="toggleHAEntity('${l.entity_id}', '${domain}')" style="background:${isOn ? '#10b981' : '#cbd5e1'}; color:#fff; border:none; padding:10px 20px; border-radius:20px; font-weight:800; font-size:11px; cursor:pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${isOn ? 'ON' : 'OFF'}</button>
@@ -1328,14 +1339,10 @@
                 let lightsCardHtml = `
                     <div class="card-box">
                         <div class="card-header" onclick="toggleLightsPanel()">
-                            <div class="card-header-title">
-                                <h3>Lights & Plugs</h3>
-                            </div>
+                            <div class="card-header-title"><h3>Lights & Plugs</h3></div>
                             <span class="card-chevron">${lightsChevron}</span>
                         </div>
-                        <div class="card-content" style="display:${lightsContentDisplay};">
-                            ${lightsHtml}
-                        </div>
+                        <div class="card-content" style="display:${lightsContentDisplay};">${lightsHtml}</div>
                     </div>
                 `;
 
@@ -1346,9 +1353,7 @@
                 let intercomCardHtml = speakers.length === 0 ? '' : `
                     <div class="card-box">
                         <div class="card-header" onclick="toggleIntercomPanel()">
-                            <div class="card-header-title">
-                                <h3>Intercom Broadcast</h3>
-                            </div>
+                            <div class="card-header-title"><h3>Intercom Broadcast</h3></div>
                             <span class="card-chevron">${intercomChevron}</span>
                         </div>
                         <div class="card-content" style="display:${intercomContentDisplay};">
@@ -1404,9 +1409,7 @@
                 let calendarCardHtml = `
                     <div class="card-box">
                         <div class="card-header" onclick="toggleCalendarPanel()">
-                            <div class="card-header-title">
-                                <h3>Upcoming Schedule</h3>
-                            </div>
+                            <div class="card-header-title"><h3>Upcoming Schedule</h3></div>
                             <span class="card-chevron">${calendarChevron}</span>
                         </div>
                         <div class="card-content" style="display:${calendarContentDisplay}; padding: 12px 16px;">
@@ -1427,7 +1430,6 @@
                      sportsHtml = `<div style="display:flex; flex-direction:column; gap:8px; padding:4px;">` + sportsData.map(g => {
                          let liveIndicator = g.isLive ? `<span style="color:#ef4444; font-size:20px; line-height:0; margin-right:4px;">•</span>` : '';
                          let bgStyle = g.isMets ? 'background:#fff7ed; border-color:#fed7aa;' : 'background:#f8fafc; border-color:#e2e8f0;';
-                         
                          return `<div onclick="openSportsModal('${g.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:12px; border:1px solid #cbd5e1; border-radius:12px; ${bgStyle} transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                              <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
                                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
@@ -1455,20 +1457,15 @@
                 let sportsCardHtml = `
                     <div class="card-box">
                         <div class="card-header" onclick="toggleSportsPanel()">
-                            <div class="card-header-title">
-                                <h3>Live MLB Scores</h3>
-                            </div>
+                            <div class="card-header-title"><h3>Live MLB Scores</h3></div>
                             <span class="card-chevron">${sportsChevron}</span>
                         </div>
-                        <div class="card-content" style="display:${sportsContentDisplay}; padding: 0 16px 16px 16px;">
-                            ${sportsHtml}
-                        </div>
+                        <div class="card-content" style="display:${sportsContentDisplay}; padding: 0 16px 16px 16px;">${sportsHtml}</div>
                     </div>
                 `;
 
                 let weatherContentDisplay = weatherExpanded ? 'block' : 'none';
                 let weatherChevron = weatherExpanded ? '▲' : '▼';
-
                 let weatherHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Loading weather...</div>`;
 
                 if (weatherData && weatherData.current) {
@@ -1483,7 +1480,6 @@
                         let icon = getWeatherIcon(dCode);
                         let maxT = Math.round(weatherData.daily.temperature_2m_max[idx]);
                         let minT = Math.round(weatherData.daily.temperature_2m_min[idx]);
-                        
                         return `<div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
                             <span style="font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase;">${dayName}</span>
                             <span style="font-size:18px;">${icon}</span>
@@ -1493,7 +1489,6 @@
 
                     let todayMax = Math.round(weatherData.daily.temperature_2m_max[0]);
                     let todayMin = Math.round(weatherData.daily.temperature_2m_min[0]);
-
                     weatherHtml = `
                         <div style="display:flex; align-items:center; justify-content:space-between; padding: 0 0 16px 0; border-bottom:1px solid #e2e8f0; margin-bottom:16px;">
                             <div style="display:flex; align-items:center; gap:12px;">
@@ -1504,23 +1499,17 @@
                                 </div>
                             </div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; padding: 0 4px;">
-                            ${daysHtml}
-                        </div>
+                        <div style="display:flex; justify-content:space-between; padding: 0 4px;">${daysHtml}</div>
                     `;
                 }
 
                 let weatherCardHtml = `
                     <div class="card-box">
                         <div class="card-header" onclick="toggleWeatherPanel()">
-                            <div class="card-header-title">
-                                <h3>Local Weather</h3>
-                            </div>
+                            <div class="card-header-title"><h3>Local Weather</h3></div>
                             <span class="card-chevron">${weatherChevron}</span>
                         </div>
-                        <div class="card-content" style="display:${weatherContentDisplay}; padding: 0 16px 16px 16px;">
-                            ${weatherHtml}
-                        </div>
+                        <div class="card-content" style="display:${weatherContentDisplay}; padding: 0 16px 16px 16px;">${weatherHtml}</div>
                     </div>
                 `;
 
@@ -1546,9 +1535,7 @@
                             if(jfUrl && !jfUrl.startsWith('http')) jfUrl = 'http://' + jfUrl;
                             posterUrl = jfUrl ? `${jfUrl}/Items/${s.NowPlayingItem.Id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90` : '';
                         }
-
                         let deviceName = s.DeviceName || s.Client;
-
                         let tmdbId = s.NowPlayingItem?.ProviderIds?.Tmdb || '';
                         let lookupId = tmdbId || (s.NowPlayingItem?.SeriesName || s.NowPlayingItem?.Name);
                         let qualityBadge = s.streamResText ? `<span style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:800; margin-left:6px;">${s.streamResText}</span>` : '';
@@ -1560,9 +1547,7 @@
                                 <div style="font-size:10px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">▶ ${jfHistoryView ? 'Played' : 'Playing'} on ${deviceName}</div>
                                 <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${seriesName}${itemName}</div>
                                 <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:4px;">${s.streamHealth}${qualityBadge} <span style="font-weight:normal;">${s.streamReason ? `(${s.streamReason})` : ''}</span></div>
-                                ${!jfHistoryView ? `<div style="width:100%; height:4px; background:#cbd5e1; border-radius:2px; margin-top:6px; overflow:hidden;">
-                                    <div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); transition:width 1s linear;"></div>
-                                </div>` : ''}
+                                ${!jfHistoryView ? `<div style="width:100%; height:4px; background:#cbd5e1; border-radius:2px; margin-top:6px; overflow:hidden;"><div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); transition:width 1s linear;"></div></div>` : ''}
                             </div>
                         </div>`;
                     }).join('');
@@ -1579,10 +1564,7 @@
                         
                         if (!appName.toLowerCase().includes('jellyfin') && !['idle', 'standby', 'android tv launcher'].includes(appName.toLowerCase())) {
                             let isPlaying = haTvState.state === 'playing';
-                            
-                            let niceName = appName;
-                            let icon = '📺';
-                            let iconBg = '#e2e8f0';
+                            let niceName = appName; let icon = '📺'; let iconBg = '#e2e8f0';
                             
                             let rawAppLower = appName.toLowerCase();
                             if (rawAppLower.includes('netflix') || rawAppLower === 'com.netflix.ninja') { niceName = 'Netflix'; icon = 'N'; iconBg = '#fecaca'; }
@@ -1606,11 +1588,8 @@
                                 </div>
                             </div>`;
                             
-                            if (jfHtml.includes('No active media streams')) {
-                                jfHtml = haStreamHtml;
-                            } else {
-                                jfHtml = haStreamHtml + jfHtml;
-                            }
+                            if (jfHtml.includes('No active media streams')) { jfHtml = haStreamHtml; } 
+                            else { jfHtml = haStreamHtml + jfHtml; }
                         }
                     }
                 }
@@ -1618,17 +1597,13 @@
                 let jfCardHtml = `
                     <div class="card-box" style="border-color:#3b82f6; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.08);">
                         <div class="card-header" onclick="toggleStreamPanel()">
-                            <div class="card-header-title">
-                                <h3 style="color:#2563eb;">Live Media Streams</h3>
-                            </div>
+                            <div class="card-header-title"><h3 style="color:#2563eb;">Live Media Streams</h3></div>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <button onclick="event.stopPropagation(); jfHistoryView = !jfHistoryView; render();" style="background:${jfHistoryView ? '#2563eb' : '#e0e7ff'}; color:${jfHistoryView ? '#ffffff' : '#2563eb'}; border:none; padding:4px 10px; border-radius:12px; font-size:9px; font-weight:800; text-transform:uppercase; cursor:pointer; transition:all 0.2s;">History</button>
                                 <span class="card-chevron" style="color:#3b82f6;">${streamChevron}</span>
                             </div>
                         </div>
-                        <div class="card-content" style="display:${jfContentDisplay};">
-                            ${jfHtml}
-                        </div>
+                        <div class="card-content" style="display:${jfContentDisplay};">${jfHtml}</div>
                     </div>
                 `;
                 
@@ -1644,7 +1619,6 @@
                     eventsHtml = `<div style="max-height:300px; overflow-y:auto; padding-right:8px; display:flex; flex-direction:column; gap:8px;">` + familyEventsData.map(ev => {
                         let safeTitle = ev.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         let safeLoc = ev.location.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                        
                         return `
                         <div class="event-item" onclick="openEventModal('${safeTitle}', '${ev.date}', '${ev.time}', '${safeLoc}', '${ev.price}', '${ev.url}', '${ev.source}')" style="cursor:pointer; transition:transform 0.1s ease;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1671,9 +1645,7 @@
                             </div>
                             <span class="card-chevron" style="color:#10b981;">${eventsChevron}</span>
                         </div>
-                        <div class="card-content" style="display:${eventsContentDisplay}; padding-top:0;">
-                            ${eventsHtml}
-                        </div>
+                        <div class="card-content" style="display:${eventsContentDisplay}; padding-top:0;">${eventsHtml}</div>
                     </div>
                 `;
 
@@ -1682,14 +1654,7 @@
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Smart Home Hub</h2>
                     <button onclick="fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill"><svg class="sync-icon-svg" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.28 1.97-.75 2.8l1.46 1.46C19.48 15.03 20 13.6 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.28-1.97.75-2.8L4.29 7.74C3.52 9.13 3 10.51 3 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Refresh</button>
                 </div>
-                ${eventsCardHtml}
-                ${jfCardHtml}
-                ${weatherCardHtml}
-                ${sportsCardHtml}
-                ${calendarCardHtml}
-                ${tvRemoteHtml}
-                ${intercomCardHtml}
-                ${lightsCardHtml}
+                ${eventsCardHtml}${jfCardHtml}${weatherCardHtml}${sportsCardHtml}${calendarCardHtml}${tvRemoteHtml}${intercomCardHtml}${lightsCardHtml}
                 `;
 
             } else if (currentTab === 'settings') {
@@ -1728,16 +1693,13 @@
                 let addServerButtonHtml = '';
                 let drawerHtml = '';
                 let isAlreadyInSonarr = false;
-                
                 let friendBadgeHtml = typeof getFriendBadgeHtml === 'function' ? getFriendBadgeHtml() : '';
 
                 if (activeItem.mediaType === 'tv') {
                     isAlreadyInSonarr = myShows.some(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
-                    
                     if (isAlreadyInSonarr) {
                         let existingShow = myShows.find(c => (activeItem.tvdbId && String(c.tvdbId) === String(activeItem.tvdbId)) || (activeItem.tmdbId && String(c.tmdbId) === String(activeItem.tmdbId)));
                         let sId = existingShow ? existingShow.id.replace('sonarr_', '') : '';
-                        
                         let seasonRows = '';
                         if (activeItem.sonarrEpisodes) {
                             let seasons = {};
@@ -1745,7 +1707,6 @@
                                 if (!seasons[ep.seasonNumber]) seasons[ep.seasonNumber] = [];
                                 seasons[ep.seasonNumber].push(ep);
                             });
-                            
                             seasonRows = Object.keys(seasons).sort((a,b) => b - a).map(sNum => {
                                 let eps = seasons[sNum].sort((a,b) => a.episodeNumber - b.episodeNumber);
                                 let epsHtml = eps.map(ep => {
@@ -1757,7 +1718,6 @@
                                         <button ${action} style="background:none; border:none; color:${color}; font-size:14px; cursor:${ep.hasFile?'default':'pointer'}; padding:0 4px;">${statusIcon}</button>
                                     </div>`;
                                 }).join('');
-                                
                                 return `
                                 <div style="border:1px solid #cbd5e1; border-radius:8px; margin-bottom:8px; overflow:hidden; background:#ffffff;">
                                     <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';" style="background:#f8fafc; padding:12px; font-size:12px; font-weight:800; color:#334155; display:flex; justify-content:space-between; cursor:pointer;">
@@ -1789,9 +1749,7 @@
                 let tmdbIdStr = activeItem.tmdbId ? String(activeItem.tmdbId) : null;
                 let isCurrentlyWatched = localWatchedCache.includes(titleLower) || (tmdbIdStr && localWatchedCache.includes(tmdbIdStr));
                 
-                let topUnwatchBadge = '';
-                let watchButtonHtml = '';
-                
+                let topUnwatchBadge = ''; let watchButtonHtml = '';
                 if (activeItem.mediaType !== 'tv') {
                     topUnwatchBadge = isCurrentlyWatched ? `<button onclick="if(typeof executeRemoveFromWatched === 'function') executeRemoveFromWatched()" class="btn-unwatch-action">Remove From Watched</button>` : ``;
                     watchButtonHtml = !isCurrentlyWatched ? `<button onclick="if(typeof executeToggleWatched === 'function') executeToggleWatched()" class="btn-panel-primary" style="flex:1; padding:15px;">Mark Watched</button>` : ``;
@@ -1910,14 +1868,12 @@
             } else if (activeFriendName) {
                 let username = activeFriendName.replace('@', '');
                 let friendData = letterboxdData[username] || { highly_rated: [], other: [] };
-
                 let tabNavHtml = `
                     <div class="profile-tab-container">
                         <button class="profile-tab-btn ${window.currentFriendTab === 'highlyRated' ? 'active' : ''}" onclick="window.currentFriendTab='highlyRated'; render();">Highly Rated (${friendData.highly_rated.length})</button>
                         <button class="profile-tab-btn ${window.currentFriendTab === 'recent' ? 'active' : ''}" onclick="window.currentFriendTab='recent'; render();">Recent (${friendData.other.length})</button>
                     </div>
                 `;
-
                 let tabContentHtml = '';
                 if (window.currentFriendTab === 'highlyRated') {
                     if (friendData.highly_rated.length === 0) {
@@ -1948,16 +1904,13 @@
                         `).join('') + `</ul>`;
                     }
                 }
-
                 modal = `<div class="modal-overlay">
                     <div class="modal-bg-tint" style="background:#f1f5f9; opacity:1;"></div>
                     <div class="detail-close-trigger" onclick="closeM()">×</div>
                     <div class="detail-content-frame" style="margin-top:0; padding: 64px 20px 20px 20px; overflow-y:hidden; display:flex; flex-direction:column; box-sizing:border-box;">
                         <h3 class="detail-heading-title" style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">👤 ${activeFriendName}</h3>
                         ${tabNavHtml}
-                        <div style="flex:1; overflow-y:auto; padding-bottom: 30px;">
-                            ${tabContentHtml}
-                        </div>
+                        <div style="flex:1; overflow-y:auto; padding-bottom: 30px;">${tabContentHtml}</div>
                     </div>
                 </div>`;
             }
@@ -1971,9 +1924,7 @@
 
             let headerHtml = searchContainerHtml !== '' ? `
                 <div class="header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 5px;">
-                    <div class="search-wrapper">
-                        ${searchContainerHtml}
-                    </div>
+                    <div class="search-wrapper">${searchContainerHtml}</div>
                 </div>
             ` : '';
 
@@ -2048,9 +1999,7 @@
                     if (typeof fetchDiskSpace === 'function') fetchDiskSpace();
                     if (typeof fetchMediaCalendars === 'function') fetchMediaCalendars();
                 }
-                if (localStorage.getItem('ha_key') && typeof fetchHAEntities === 'function') {
-                    fetchHAEntities();
-                }
+                if (localStorage.getItem('ha_key') && typeof fetchHAEntities === 'function') { fetchHAEntities(); }
                 if (typeof syncFeeds === 'function') syncFeeds();
                 if (typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
                 
