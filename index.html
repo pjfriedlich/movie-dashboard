@@ -154,17 +154,9 @@
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg></div>
             Home
         </button>
-        <button onclick="switchTab('foryou')" class="nav-btn ${currentTab === 'foryou' ? 'active' : ''}">
-            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.2 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 2c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg></div>
-            For You
-        </button>
-        <button onclick="switchTab('collection')" class="nav-btn ${currentTab === 'collection' ? 'active' : ''}">
+        <button onclick="switchTab('media')" class="nav-btn ${currentTab === 'media' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></div>
-            Movies
-        </button>
-        <button onclick="switchTab('shows')" class="nav-btn ${currentTab === 'shows' ? 'active' : ''}">
-            <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-2-2H5V7h14v10z"/></svg></div>
-            Shows
+            Media
         </button>
         <button onclick="switchTab('downloads')" class="nav-btn ${currentTab === 'downloads' ? 'active' : ''}">
             <div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div>
@@ -187,7 +179,8 @@
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
         if (!localStorage.getItem('ha_tv_entity')) localStorage.setItem('ha_tv_entity', 'media_player.chromecast');
 
-        let currentTab = localStorage.getItem('app_current_tab') || 'collection';
+        let currentTab = localStorage.getItem('app_current_tab') || 'media';
+        let currentMediaMode = localStorage.getItem('app_current_media_mode') || 'movies';
         let currentSubTab = localStorage.getItem('app_current_sub_tab') || 'downloaded';
         let currentShowSubTab = localStorage.getItem('app_current_show_sub_tab') || 'downloaded';
         let currentForYouSubTab = localStorage.getItem('app_current_foryou_sub_tab') || 'movies';
@@ -301,13 +294,28 @@
             setTimeout(() => { toastEl.classList.remove('toast-show-active'); }, 3000);
         }
 
+        function switchMediaMode(targetMode) {
+            currentMediaMode = targetMode;
+            localStorage.setItem('app_current_media_mode', targetMode);
+            if (targetMode === 'foryou') {
+                loadDiscoverTracks(); 
+                syncFeeds(); 
+                showAppNotification('Refreshing For You...');
+            }
+            render();
+        }
+
         function switchTab(targetTab) { 
             currentTab = targetTab; localStorage.setItem('app_current_tab', targetTab); 
             searchResultsData = []; 
             render(); 
             if (targetTab === 'downloads') syncDownloadQueue();
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
-            if (targetTab === 'foryou') { loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing For You...'); }
+            if (targetTab === 'media' && currentMediaMode === 'foryou') { loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing For You...'); }
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            let activeBtn = document.querySelector(`.nav-btn[onclick="switchTab('${targetTab}')"]`);
+            if(activeBtn) activeBtn.classList.add('active');
         }
         function switchSubTab(targetSub) { currentSubTab = targetSub; localStorage.setItem('app_current_sub_tab', targetSub); render(); }
         function switchShowSubTab(targetSub) { currentShowSubTab = targetSub; localStorage.setItem('app_current_show_sub_tab', targetSub); render(); }
@@ -1084,7 +1092,7 @@
                     }
                 }
                 activeTorrents = combinedQueue;
-                if (!modalOpen && (currentTab === 'downloads' || currentTab === 'collection' || currentTab === 'shows')) render();
+                if (!modalOpen && (currentTab === 'downloads' || currentTab === 'media')) render();
             } catch(e) {}
         }
 
@@ -1559,7 +1567,7 @@
                     localStorage.setItem('local_shows', JSON.stringify(myShows));
                 }
             } catch(e) {}
-            if (currentTab === 'shows') render();
+            if (currentTab === 'media' && currentMediaMode === 'shows') render();
         }
         
         async function loadDiscoverTracks() {
@@ -1744,96 +1752,124 @@
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
             let clearBtnStyle = existingSearchVal.trim().length > 0 ? 'block' : 'none';
             
-            if (currentTab === 'collection') {
-                let watchedMovies = [...customWatchedHistory];
-                if (watchedSortMode === 'alpha') {
-                    watchedMovies.sort((a, b) => a.title.localeCompare(b.title));
-                } else if (watchedSortMode === 'year_desc') {
-                    watchedMovies.sort((a, b) => parseNumericYear(b) - parseNumericYear(a));
-                } else if (watchedSortMode === 'year_asc') {
-                    watchedMovies.sort((a, b) => parseNumericYear(a) - parseNumericYear(b));
-                } 
-                
-                let downloadedMovies = myCollection.filter(m => m.hasFile === true);
-                let comingSoonMovies = myCollection.filter(m => !m.hasFile);
-                let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
-                let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
-                
-                let sortingControlsHtml = `
-                    <div class="filter-scroller" style="margin-bottom:15px;">
-                        <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">📅 Date Logged</div>
-                        <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">🔤 Title A-Z</div>
-                        <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode === 'year_desc' ? 'active-pill' : ''}">⏳ Year (New-Old)</div>
-                        <div onclick="switchWatchedSort('year_asc')" class="filter-pill ${watchedSortMode === 'year_asc' ? 'active-pill' : ''}">⏳ Year (Old-New)</div>
+            if (currentTab === 'media') {
+                let mediaSubNavHtml = `
+                    <div class="profile-tab-container" style="margin-top: 10px; margin-bottom: 16px;">
+                        <button class="profile-tab-btn ${currentMediaMode === 'movies' ? 'active' : ''}" onclick="switchMediaMode('movies')">Movies</button>
+                        <button class="profile-tab-btn ${currentMediaMode === 'shows' ? 'active' : ''}" onclick="switchMediaMode('shows')">TV Shows</button>
+                        <button class="profile-tab-btn ${currentMediaMode === 'foryou' ? 'active' : ''}" onclick="switchMediaMode('foryou')">For You</button>
                     </div>
                 `;
-                
-                let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
-                let inlineCollapsibleFilterHtml = `<div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">${sortingControlsHtml}</div>`;
-                
-                let staticMainTabsHtml = `
-                    <div class="stats-grid">
-                        <div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div>
-                        <div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div>
-                        <div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div>
-                        <div onclick="switchSubTab('collections')" class="stat-card ${currentSubTab === 'collections' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#f59e0b;">${Object.keys(myCollectionsCache).length}</div><div class="stat-lbl">Collections</div></div>
-                    </div>
-                `;
-                
-                let bodyContent = '';
-                if (currentSubTab === 'collections') {
-                    bodyContent = `<div style="margin-top:16px; margin-bottom:16px;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Collections</h2></div><div class="movie-grid">` + Object.keys(myCollectionsCache).map(id => {
-                        let coll = myCollectionsCache[id];
-                        let posterHtml = coll.posterPath ? 
-                            `<img src="${coll.posterPath}" class="grid-poster-img" style="object-fit:cover; width:100%; height:100%;">` : 
-                            `<div style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px; display:flex; align-items:center; justify-content:center; height:100%;">📁</div>`;
-                        return `<div class="movie-card" onclick="activeCollection = myCollectionsCache['${id}']; render();">
-                                    <div class="poster-slot">${posterHtml}</div>
-                                    <div class="grid-card-details">${coll.name}</div>
-                                </div>`;
-                    }).join('') + `</div>`;
-                } else {
-                    let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
-                    let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>`;
 
-                    bodyContent = `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
-                            <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2>
-                            ${smallFilterBtn}
+                let mediaBodyContent = '';
+
+                if (currentMediaMode === 'movies') {
+                    let watchedMovies = [...customWatchedHistory];
+                    if (watchedSortMode === 'alpha') {
+                        watchedMovies.sort((a, b) => a.title.localeCompare(b.title));
+                    } else if (watchedSortMode === 'year_desc') {
+                        watchedMovies.sort((a, b) => parseNumericYear(b) - parseNumericYear(a));
+                    } else if (watchedSortMode === 'year_asc') {
+                        watchedMovies.sort((a, b) => parseNumericYear(a) - parseNumericYear(b));
+                    } 
+                    
+                    let downloadedMovies = myCollection.filter(m => m.hasFile === true);
+                    let comingSoonMovies = myCollection.filter(m => !m.hasFile);
+                    let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
+                    let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
+                    
+                    let sortingControlsHtml = `
+                        <div class="filter-scroller" style="margin-bottom:15px;">
+                            <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode === 'recent' ? 'active-pill' : ''}">📅 Date Logged</div>
+                            <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode === 'alpha' ? 'active-pill' : ''}">🔤 Title A-Z</div>
+                            <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode === 'year_desc' ? 'active-pill' : ''}">⏳ Year (New-Old)</div>
+                            <div onclick="switchWatchedSort('year_asc')" class="filter-pill ${watchedSortMode === 'year_asc' ? 'active-pill' : ''}">⏳ Year (Old-New)</div>
                         </div>
-                        ${inlineCollapsibleFilterHtml}
-                        ` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
-                        let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
+                    `;
+                    
+                    let panelDisplayMode = filtersExpanded ? 'flex' : 'none';
+                    let inlineCollapsibleFilterHtml = `<div class="collapsible-filter-panel" style="display: ${panelDisplayMode};">${sortingControlsHtml}</div>`;
+                    
+                    let staticMainTabsHtml = `
+                        <div class="stats-grid">
+                            <div onclick="switchSubTab('watched')" class="stat-card ${currentSubTab === 'watched' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#a855f7;">${watchedMovies.length}</div><div class="stat-lbl">Watched</div></div>
+                            <div onclick="switchSubTab('downloaded')" class="stat-card ${currentSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedMovies.length}</div><div class="stat-lbl">Downloaded</div></div>
+                            <div onclick="switchSubTab('comingsoon')" class="stat-card ${currentSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonMovies.length}</div><div class="stat-lbl">Coming Soon</div></div>
+                            <div onclick="switchSubTab('collections')" class="stat-card ${currentSubTab === 'collections' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#f59e0b;">${Object.keys(myCollectionsCache).length}</div><div class="stat-lbl">Collections</div></div>
+                        </div>
+                    `;
+                    
+                    let tabBodyContent = '';
+                    if (currentSubTab === 'collections') {
+                        tabBodyContent = `<div style="margin-top:16px; margin-bottom:16px;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Collections</h2></div><div class="movie-grid">` + Object.keys(myCollectionsCache).map(id => {
+                            let coll = myCollectionsCache[id];
+                            let posterHtml = coll.posterPath ? 
+                                `<img src="${coll.posterPath}" class="grid-poster-img" style="object-fit:cover; width:100%; height:100%;">` : 
+                                `<div style="background:#fef3c7; color:#d97706; font-weight:800; font-size:30px; display:flex; align-items:center; justify-content:center; height:100%;">📁</div>`;
+                            return `<div class="movie-card" onclick="activeCollection = myCollectionsCache['${id}']; render();">
+                                        <div class="poster-slot">${posterHtml}</div>
+                                        <div class="grid-card-details">${coll.name}</div>
+                                    </div>`;
+                        }).join('') + `</div>`;
+                    } else {
+                        let configGearClassStr = filtersExpanded ? 'btn-toggle-filters active-filters-on' : 'btn-toggle-filters';
+                        let smallFilterBtn = `<button onclick="toggleFilterPanel()" class="${configGearClassStr}" style="width:28px !important; height:28px !important; border-radius:8px !important; padding:0; min-width:28px;"><svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>`;
+
+                        tabBodyContent = `
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
+                                <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">Library (${filteredCollection.length})</h2>
+                                ${smallFilterBtn}
+                            </div>
+                            ${inlineCollapsibleFilterHtml}
+                            ` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
+                            let isAcFetch = activeTorrents.some(t => t.name && t.name.toLowerCase().replace(/[\s._-]/g, '').includes(m.title.toLowerCase().replace(/[\s._-]/g, '')));
+                            let cleanYearNumeric = parseNumericYear(m);
+                            let displayYearLabel = (cleanYearNumeric > 0 && !m.title.includes(String(cleanYearNumeric))) ? `, ${cleanYearNumeric}` : '';
+                            return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
+                        }).join('')}</div>`);
+                    }
+                    mediaBodyContent = staticMainTabsHtml + tabBodyContent;
+
+                } else if (currentMediaMode === 'shows') {
+                    let downloadedShows = myShows.filter(m => m.hasFile === true);
+                    let comingSoonShows = myShows.filter(m => !m.hasFile);
+                    let filteredShows = currentShowSubTab === 'downloaded' ? downloadedShows : comingSoonShows;
+                    
+                    let staticMainTabsHtml = `
+                        <div class="stats-grid">
+                            <div onclick="switchShowSubTab('downloaded')" class="stat-card ${currentShowSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedShows.length}</div><div class="stat-lbl">Downloaded</div></div>
+                            <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
+                        </div>
+                    `;
+                    
+                    let tabBodyContent = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
+                            <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">TV Library (${filteredShows.length})</h2>
+                        </div>
+                        ` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map((m) => {
                         let cleanYearNumeric = parseNumericYear(m);
                         let displayYearLabel = (cleanYearNumeric > 0 && !m.title.includes(String(cleanYearNumeric))) ? `, ${cleanYearNumeric}` : '';
-                        return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}">${isAcFetch ? `<div class="downloading-badge">⬇️ Active</div>`:''}<div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
+                        return `<div class="movie-card movie-trigger" data-pool="shows" data-id="${m.id}"><div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
                     }).join('')}</div>`);
+                    
+                    mediaBodyContent = staticMainTabsHtml + tabBodyContent;
+
+                } else if (currentMediaMode === 'foryou') {
+                    let subTabHtml = `
+                        <div class="stats-grid" style="margin-bottom: 16px;">
+                            <div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab === 'movies' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">Movies</div></div>
+                            <div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab === 'shows' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">TV Shows</div></div>
+                        </div>
+                    `;
+
+                    if (currentForYouSubTab === 'movies') {
+                        mediaBodyContent = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                    } else {
+                        mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
+                    }
                 }
-                body = staticMainTabsHtml + bodyContent;
-            
-            } else if (currentTab === 'shows') {
-                let downloadedShows = myShows.filter(m => m.hasFile === true);
-                let comingSoonShows = myShows.filter(m => !m.hasFile);
-                let filteredShows = currentShowSubTab === 'downloaded' ? downloadedShows : comingSoonShows;
-                
-                let staticMainTabsHtml = `
-                    <div class="stats-grid">
-                        <div onclick="switchShowSubTab('downloaded')" class="stat-card ${currentShowSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${downloadedShows.length}</div><div class="stat-lbl">Downloaded</div></div>
-                        <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
-                    </div>
-                `;
-                
-                let bodyContent = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;">
-                        <h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">TV Library (${filteredShows.length})</h2>
-                    </div>
-                    ` + (isRadarrLoading ? `<div style="text-align:center; font-size:12px; padding:40px; color:#64748b; font-weight:600;">Syncing Library...</div>` : `<div class="movie-grid">${filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map((m) => {
-                    let cleanYearNumeric = parseNumericYear(m);
-                    let displayYearLabel = (cleanYearNumeric > 0 && !m.title.includes(String(cleanYearNumeric))) ? `, ${cleanYearNumeric}` : '';
-                    return `<div class="movie-card movie-trigger" data-pool="shows" data-id="${m.id}"><div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
-                }).join('')}</div>`);
-                
-                body = staticMainTabsHtml + bodyContent;
+
+                body = mediaSubNavHtml + mediaBodyContent;
                 
             } else if (currentTab === 'smarthome') {
                 let lights = haEntities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
@@ -2113,7 +2149,6 @@
                     </div>
                 `;
                 
-                // NEW FAMILY EVENTS CARD HTML
                 let eventsContentDisplay = eventsExpanded ? 'block' : 'none';
                 let eventsChevron = eventsExpanded ? '▲' : '▼';
                 let eventsHtml = '';
@@ -2166,19 +2201,6 @@
                 ${lightsCardHtml}
                 `;
 
-            } else if (currentTab === 'foryou') {
-                let subTabHtml = `
-                    <div class="stats-grid" style="margin-bottom: 16px;">
-                        <div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab === 'movies' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">Movies</div></div>
-                        <div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab === 'shows' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">TV Shows</div></div>
-                    </div>
-                `;
-
-                if (currentForYouSubTab === 'movies') {
-                    body = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('refreshing recommendations...');">refresh</button>`;
-                } else {
-                    body = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('refreshing recommendations...');">refresh</button>`;
-                }
             } else if (currentTab === 'downloads') {
                 let activeGroup = activeTorrents.filter(t => t.speed !== 'Queued');
                 let inactiveGroup = activeTorrents.filter(t => t.speed === 'Queued');
@@ -2473,7 +2495,7 @@
                 </div>`;
             }
             
-            let searchContainerHtml = currentTab === 'foryou' ? `
+            let searchContainerHtml = currentTab === 'media' ? `
                 <div class="search-container-box">
                     <input type="text" id="search-input" class="search-input-field" placeholder="Search any movie or show..." onkeyup="if(event.key === 'Enter') triggerUniversalSearch(this.value)" value="${existingSearchVal}">
                     <button id="search-clear-trigger" onclick="clearSearchInput()" class="clear-search-btn" style="display: ${clearBtnStyle};">✕</button>
