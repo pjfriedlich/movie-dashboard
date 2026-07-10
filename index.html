@@ -217,7 +217,6 @@
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
-
         window.changeMonth = function(dir) {
             displayMonth += dir;
             if (displayMonth > 11) { displayMonth = 0; displayYear++; }
@@ -289,6 +288,7 @@
             toastEl.classList.add('toast-show-active');
             setTimeout(() => { toastEl.classList.remove('toast-show-active'); }, 3000);
         }
+
         function switchMediaMode(targetMode) {
             currentMediaMode = targetMode;
             localStorage.setItem('app_current_media_mode', targetMode);
@@ -2185,6 +2185,54 @@
                     }).join('');
                 } else {
                     jfHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No ${jfHistoryView ? 'history' : 'active media streams'}.</div>`;
+                }
+
+                // --- NEW HOME ASSISTANT EXTERNAL TV TRACKING ---
+                if (!jfHistoryView) {
+                    let tvEntityId = localStorage.getItem('ha_tv_entity') || 'media_player.chromecast';
+                    let haTvState = haEntities.find(e => e.entity_id === tvEntityId);
+                    
+                    if (haTvState && ['playing', 'paused', 'on'].includes(haTvState.state)) {
+                        let appName = haTvState.attributes.app_name || haTvState.attributes.app_id || haTvState.attributes.source || 'Smart TV App';
+                        
+                        // Ignore Jellyfin so we don't double-log it, and ignore idle home screens
+                        if (!appName.toLowerCase().includes('jellyfin') && !['idle', 'standby', 'android tv launcher'].includes(appName.toLowerCase())) {
+                            let isPlaying = haTvState.state === 'playing';
+                            
+                            let niceName = appName;
+                            let icon = '📺';
+                            let iconBg = '#e2e8f0';
+                            
+                            let rawAppLower = appName.toLowerCase();
+                            if (rawAppLower.includes('netflix') || rawAppLower === 'com.netflix.ninja') { niceName = 'Netflix'; icon = 'N'; iconBg = '#fecaca'; }
+                            else if (rawAppLower.includes('disney') || rawAppLower === 'com.disney.disneyplus') { niceName = 'Disney+'; icon = '✨'; iconBg = '#bfdbfe'; }
+                            else if (rawAppLower.includes('youtube')) { niceName = 'YouTube'; icon = '▶️'; iconBg = '#fecaca'; }
+                            else if (rawAppLower.includes('prime') || rawAppLower.includes('amazon')) { niceName = 'Prime Video'; icon = '📦'; iconBg = '#bfdbfe'; }
+                            else if (rawAppLower.includes('hulu')) { niceName = 'Hulu'; icon = '🟩'; iconBg = '#bbf7d0'; }
+                            else if (rawAppLower.includes('max') || rawAppLower.includes('hbo')) { niceName = 'Max'; icon = '🟣'; iconBg = '#e9d5ff'; }
+                            else if (rawAppLower.includes('spotify')) { niceName = 'Spotify'; icon = '🎧'; iconBg = '#bbf7d0'; }
+                            else if (rawAppLower.includes('plex')) { niceName = 'Plex'; icon = '▶️'; iconBg = '#fef08a'; }
+                            
+                            // If HA pulls the media title (works for Cast/YouTube sometimes), use it. Otherwise fallback.
+                            let mediaTitle = haTvState.attributes.media_title || `Streaming on ${niceName}`;
+                            
+                            let haStreamHtml = `
+                            <div style="display:flex; gap:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid #cbd5e1; margin-bottom:8px; border-left: 4px solid #94a3b8;">
+                                <div style="width:40px; height:60px; border-radius:6px; background:${iconBg}; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:20px;">${icon}</div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">▶ ${isPlaying ? 'Playing' : haTvState.state} on TV</div>
+                                    <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${mediaTitle}</div>
+                                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:4px;">Home Assistant Source</div>
+                                </div>
+                            </div>`;
+                            
+                            if (jfHtml.includes('No active media streams')) {
+                                jfHtml = haStreamHtml;
+                            } else {
+                                jfHtml = haStreamHtml + jfHtml;
+                            }
+                        }
+                    }
                 }
 
                 let jfCardHtml = `
