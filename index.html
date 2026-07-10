@@ -161,6 +161,7 @@
                 <div><strong>🗓️ Date:</strong> <span id="event-modal-date"></span></div>
                 <div><strong>📍 Location:</strong> <span id="event-modal-location"></span></div>
                 <div><strong>🎟️ Price:</strong> <span id="event-modal-price" style="font-weight:800; color:#10b981;"></span></div>
+                <div id="event-modal-desc" style="margin-top:12px; font-size:13px; line-height:1.5; color:#475569;"></div>
                 
                 <a id="event-modal-link" href="#" target="_blank" style="margin-top: 16px; background:linear-gradient(90deg, #10b981 0%, #059669 100%); color:#ffffff; text-align:center; padding:16px; border-radius:12px; font-weight:800; text-transform:uppercase; text-decoration:none; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">Purchase Tickets</a>
             </div>
@@ -185,14 +186,6 @@
     <script>
         let letterboxdData = {};
         
-        fetch('/letterboxd_likes.json') 
-          .then(response => response.json())
-          .then(data => { 
-              letterboxdData = data; 
-              if (typeof syncFeeds === 'function') syncFeeds(); 
-          })
-          .catch(err => console.error("Error loading JSON:", err));
-
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
         if (!localStorage.getItem('ha_tv_entity')) localStorage.setItem('ha_tv_entity', 'media_player.chromecast');
@@ -244,6 +237,25 @@
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
+        fetch('/letterboxd_likes.json') 
+          .then(response => response.json())
+          .then(data => { 
+              letterboxdData = data; 
+              friendRowData = [];
+              Object.values(data).forEach(userLists => {
+                  if (userLists.highly_rated) {
+                      userLists.highly_rated.forEach(movie => {
+                          if (!friendRowData.find(m => m.title === movie.title)) {
+                              friendRowData.push({ id: movie.title, title: movie.title, rating: movie.rating, mediaType: 'movie' });
+                          }
+                      });
+                  }
+              });
+              if (typeof syncFeeds === 'function') syncFeeds(); 
+              render();
+          })
+          .catch(err => console.error("Error loading JSON:", err));
+
         window.changeMonth = function(dir) {
             displayMonth += dir;
             if (displayMonth > 11) { displayMonth = 0; displayYear++; }
@@ -388,12 +400,13 @@
             render();
         };
 
-        window.openEventModal = function(title, date, time, location, price, url, source) {
+        window.openEventModal = function(title, date, time, location, price, url, source, description) {
             document.getElementById('event-modal-source').innerText = source;
             document.getElementById('event-modal-title').innerText = title;
             document.getElementById('event-modal-date').innerText = time ? `${date} • ${time}` : date;
             document.getElementById('event-modal-location').innerText = location;
             document.getElementById('event-modal-price').innerText = price;
+            document.getElementById('event-modal-desc').innerHTML = description || 'No summary available.';
             
             let linkBtn = document.getElementById('event-modal-link');
             if (url && url !== 'undefined' && url !== '') {
@@ -683,6 +696,19 @@
                         });
                     }
                 }
+            } else if (pool === 'jf') {
+                let session = jfActiveSessions.find(s => String(s.Id) === String(id));
+                if (session && session.NowPlayingItem) {
+                    let jfUrl = localStorage.getItem('jf_url') ? localStorage.getItem('jf_url').replace(/\/$/, "") : '';
+                    activeItem = {
+                        id: session.NowPlayingItem.Id,
+                        title: session.NowPlayingItem.Name,
+                        overview: session.NowPlayingItem.Overview,
+                        year: session.NowPlayingItem.ProductionYear,
+                        posterPath: jfUrl ? `${jfUrl}/Items/${session.NowPlayingItem.Id}/Images/Primary` : '',
+                        mediaType: session.NowPlayingItem.Type === 'Movie' ? 'movie' : 'tv'
+                    };
+                }
             }
             if (activeItem) {
                 modalOpen = true;
@@ -776,7 +802,8 @@
                                         rawDate: eventDate, source: (ev.type ? ev.type.replace('_', ' ') : 'Event') + ' (SeatGeek)', title: ev.short_title || ev.title,
                                         date: eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
                                         time: eventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-                                        price: ev.stats?.lowest_price ? `$${ev.stats.lowest_price}+` : 'Tickets', location: ev.venue ? `${ev.venue.name} (${ev.venue.display_location})` : 'NYC Area', url: ev.url || ''
+                                        price: ev.stats?.lowest_price ? `$${ev.stats.lowest_price}+` : 'Tickets', location: ev.venue ? `${ev.venue.name} (${ev.venue.display_location})` : 'NYC Area', url: ev.url || '',
+                                        description: ev.description || ''
                                     };
                                 }));
                             }
@@ -798,7 +825,8 @@
                                         rawDate: eventDate, source: (ev.classifications?.[0]?.segment?.name || 'Event') + ' (Ticketmaster)', title: ev.name,
                                         date: eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
                                         time: eventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-                                        price: ev.priceRanges?.[0] ? `$${ev.priceRanges[0].min}+` : 'Tickets', location: venueName, url: ev.url || ''
+                                        price: ev.priceRanges?.[0] ? `$${ev.priceRanges[0].min}+` : 'Tickets', location: venueName, url: ev.url || '',
+                                        description: ev.info || ev.description || ev.pleaseNote || ''
                                     };
                                 }));
                             }
@@ -955,7 +983,6 @@
                 return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
-        
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -1056,9 +1083,45 @@
                     <h2 style="font-size:12px; color:#64748b; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px;">Smart Home Hub</h2>
                     <button onclick="fetchHAEntities(); fetchMediaCalendars(); fetchSportsScores(); fetchFamilyEvents(); showAppNotification('Syncing Hub Data...');" class="btn-sync-pill">Refresh</button>
                 </div>
-                <div class="card-box"><div class="card-header" onclick="toggleEventsPanel()"><h3>NYC & Long Island Events</h3><span class="card-chevron">${eventsExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${eventsExpanded?'block':'none'};">${familyEventsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No events found.</div>':familyEventsData.map(ev=>`<div class="event-item" onclick="openEventModal('${ev.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${ev.date}', '${ev.time}', '${ev.location.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${ev.price}', '${ev.url}', '${ev.source}')" style="cursor:pointer;"><span class="event-source">${ev.source}</span><h4 class="event-title">${ev.title}</h4><div class="event-meta"><span>🗓️ ${ev.date}</span><span style="font-weight:800; color:#10b981;">${ev.price}</span></div></div>`).join('')}</div></div>
-                <div class="card-box"><div class="card-header" onclick="toggleStreamPanel()"><h3>Live Media Streams</h3><span class="card-chevron">${streamExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${streamExpanded?'block':'none'};">${jfActiveSessions.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No streams active.</div>':jfActiveSessions.map(s=>`<div>${s.NowPlayingItem?.Name || 'Playing'} on ${s.Client}</div>`).join('')}</div></div>
-                <div class="card-box"><div class="card-header" onclick="toggleSportsPanel()"><h3>Live MLB Scores</h3><span class="card-chevron">${sportsExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${sportsExpanded?'block':'none'};">${sportsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No games currently scheduled.</div>':sportsData.map(g=>`<div onclick="openSportsModal('${g.id}')" style="padding:12px; border:1px solid #cbd5e1; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; ${g.isMets?'background:#fff7ed;':''}"><div style="flex:1;"><div><span style="font-weight:800;">${g.awayTeam}</span> ${g.awayScore||''}</div><div><span style="font-weight:800;">${g.homeTeam}</span> ${g.homeScore||''}</div></div><div style="font-size:10px; font-weight:800; color:${g.isLive?'#ef4444':'#64748b'};">${g.status}</div></div>`).join('')}</div></div>
+                <div class="card-box"><div class="card-header" onclick="toggleEventsPanel()"><h3>NYC & Long Island Events</h3><span class="card-chevron">${eventsExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${eventsExpanded?'block':'none'};">${familyEventsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No events found.</div>':familyEventsData.map(ev=>`<div class="event-item" onclick="openEventModal('${ev.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${ev.date}', '${ev.time}', '${ev.location.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${ev.price}', '${ev.url}', '${ev.source}', '${(ev.description||'').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '<br>')}')" style="cursor:pointer;"><span class="event-source">${ev.source}</span><h4 class="event-title">${ev.title}</h4><div class="event-meta"><span>🗓️ ${ev.date}</span><span style="font-weight:800; color:#10b981;">${ev.price}</span></div></div>`).join('')}</div></div>
+                <div class="card-box">
+                    <div class="card-header" onclick="toggleStreamPanel()"><h3>Live Media Streams</h3><span class="card-chevron">${streamExpanded?'▲':'▼'}</span></div>
+                    <div class="card-content" style="display:${streamExpanded?'block':'none'};">
+                        ${jfActiveSessions.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No streams active.</div>':jfActiveSessions.map(s=>{
+                            let jfUrl = localStorage.getItem('jf_url') ? localStorage.getItem('jf_url').replace(/\/$/, "") : '';
+                            let posterUrl = jfUrl ? `${jfUrl}/Items/${s.NowPlayingItem?.Id}/Images/Primary` : '';
+                            return `<div class="movie-trigger" data-pool="jf" data-id="${s.Id}" style="display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #e2e8f0; cursor:pointer;">
+                                <img src="${posterUrl}" style="width:50px; height:75px; border-radius:6px; object-fit:cover; background:#cbd5e1;">
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${s.NowPlayingItem?.Name || 'Playing'}</span>
+                                    <span style="font-size:11px; color:#64748b;">${s.Client}</span>
+                                    <span style="font-size:10px; font-weight:800; color:${s.streamHealth?.includes('🔴') ? '#ef4444' : s.streamHealth?.includes('🟡') ? '#f59e0b' : '#10b981'};">${s.streamHealth || 'Direct Play'}</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                <div class="card-box">
+                    <div class="card-header" onclick="toggleSportsPanel()"><h3>Live MLB Scores</h3><span class="card-chevron">${sportsExpanded?'▲':'▼'}</span></div>
+                    <div class="card-content" style="display:${sportsExpanded?'block':'none'};">
+                        ${sportsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No games currently scheduled.</div>':sportsData.map(g=>`
+                        <div onclick="openSportsModal('${g.id}')" style="padding:12px; border:1px solid #cbd5e1; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:${g.isMets?'#fff7ed':'#ffffff'}; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                            <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <img src="${g.awayLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.awayTeam}</span>
+                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.awayScore||''}</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <img src="${g.homeLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.homeTeam}</span>
+                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.homeScore||''}</span>
+                                </div>
+                            </div>
+                            <div style="font-size:10px; font-weight:800; text-transform:uppercase; text-align:right; color:${g.isLive?'#ef4444':'#64748b'}; width:60px;">${g.status}</div>
+                        </div>`).join('')}
+                    </div>
+                </div>
                 <div class="card-box"><div class="card-header" onclick="toggleCalendarPanel()"><h3>Upcoming Schedule</h3><span class="card-chevron">${calendarExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${calendarExpanded?'block':'none'};">${renderCalendarHTML()}</div></div>
                 <div class="card-box"><div class="card-header" onclick="toggleRemotePanel()"><h3>TV Remote (${tvName})</h3><span class="card-chevron">${remoteExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${remoteExpanded?'block':'none'};"><div class="dpad-grid"><div></div><button class="dpad-btn" onclick="sendTvCmd('DPAD_UP')">U</button><div></div><button class="dpad-btn" onclick="sendTvCmd('DPAD_LEFT')">L</button><button class="dpad-btn dpad-ok" onclick="sendTvCmd('DPAD_CENTER')">OK</button><button class="dpad-btn" onclick="sendTvCmd('DPAD_RIGHT')">R</button><div></div><button class="dpad-btn" onclick="sendTvCmd('DPAD_DOWN')">D</button><div></div></div></div></div>
                 <div class="card-box"><div class="card-header" onclick="toggleLightsPanel()"><h3>Lights & Plugs</h3><span class="card-chevron">${lightsExpanded?'▲':'▼'}</span></div><div class="card-content" style="display:${lightsExpanded?'block':'none'};">${lightsHtml}</div></div>
@@ -1105,6 +1168,17 @@
                 }
                 extraRatingsHtml += `</div>`;
 
+                let actionButtons = '';
+                if (activeItem.mediaType === 'movie') {
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="showAppNotification('Added to Radarr!')">Add to Radarr</button>`;
+                } else if (activeItem.mediaType === 'tv') {
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="showAppNotification('Added to Sonarr!')">Add to Sonarr</button>`;
+                }
+                actionButtons += `
+                    <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="showAppNotification('Playing on Jellyfin...')">Play on Jellyfin</button>
+                    <button class="btn-action" style="background:#10b981;" onclick="showAppNotification('Watchlist Updated!')">Toggle Watchlist</button>
+                `;
+
                 modal = `
                 <div class="modal-overlay">
                     <div class="modal-bg" style="background-image:url('${activeItem.posterPath || ''}');"></div><div class="modal-bg-tint"></div>
@@ -1120,6 +1194,7 @@
                             </div>
                         </div>
                         <div class="detail-synopsis-box"><h4>Summary</h4><div>${activeItem.overview || 'No synopsis found.'}</div></div>
+                        <div class="detail-footer-actions">${actionButtons}</div>
                     </div>
                 </div>`;
             } else if (activeCollection) {
