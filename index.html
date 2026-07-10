@@ -289,7 +289,6 @@
             toastEl.classList.add('toast-show-active');
             setTimeout(() => { toastEl.classList.remove('toast-show-active'); }, 3000);
         }
-
         function switchMediaMode(targetMode) {
             currentMediaMode = targetMode;
             localStorage.setItem('app_current_media_mode', targetMode);
@@ -611,20 +610,51 @@
 
         async function fetchFamilyEvents() {
             try {
+                let sgKey = localStorage.getItem('seatgeek_key');
+                if (!sgKey) {
+                    familyEventsData = [];
+                    isEventsLoading = false;
+                    return;
+                }
+                
                 isEventsLoading = true;
                 if(currentTab === 'smarthome') render(); 
                 
-                // --- UPDATE THIS URL TO MATCH YOUR FLASK BACKEND ON THE PI ---
-                let url = 'http://192.168.1.190:5000/api/family-events'; 
-                let res = await fetch(url);
+                let today = new Date();
+                let futureCutoff = new Date();
+                futureCutoff.setDate(today.getDate() + 45);
                 
+                let startStr = today.toISOString().split('T')[0];
+                let endStr = futureCutoff.toISOString().split('T')[0];
+                
+                let url = `https://api.seatgeek.com/2/events?client_id=${sgKey.trim()}&lat=40.75&lon=-73.80&range=35mi&datetime_local.gte=${startStr}&datetime_local.lte=${endStr}&per_page=40&sort=datetime_local.asc`;
+                
+                let res = await fetch(url);
                 if (res.ok) {
-                    familyEventsData = await res.json();
+                    let data = await res.json();
+                    if (data.events) {
+                        familyEventsData = data.events.map(ev => {
+                            let eventDate = new Date(ev.datetime_local);
+                            let formattedDate = eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                            let formattedTime = eventDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                            let cleanCategory = ev.type ? ev.type.replace('_', ' ') : 'Event';
+                            let dynamicPriceLabel = ev.stats?.lowest_price ? `$${ev.stats.lowest_price}+` : 'Tickets';
+                            
+                            return {
+                                source: cleanCategory,
+                                title: ev.short_title || ev.title,
+                                date: formattedDate,
+                                time: formattedTime,
+                                price: dynamicPriceLabel,
+                                location: ev.venue ? `${ev.venue.name} (${ev.venue.display_location})` : 'NYC Area'
+                            };
+                        });
+                    }
                 } else {
-                    console.error("Failed to fetch family events", res.status);
+                    console.error("Failed to query SeatGeek endpoint matrix", res.status);
                 }
             } catch (e) {
-                console.error("Family Events Fetch Error:", e);
+                console.error("SeatGeek API Execution Error:", e);
             } finally {
                 isEventsLoading = false;
                 if (currentTab === 'smarthome') render();
@@ -1727,7 +1757,6 @@
                 return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
-
         function renderTorrentCard(t) {
             let menuDisplay = (String(openMenuHash) === String(t.id)) ? 'flex' : 'none';
             
@@ -2182,7 +2211,7 @@
                 if (isEventsLoading && familyEventsData.length === 0) {
                     eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Fetching local events...</div>`;
                 } else if (familyEventsData.length === 0) {
-                    eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No family events currently found.</div>`;
+                    eventsHtml = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No local events currently found.</div>`;
                 } else {
                     eventsHtml = `<div style="max-height:300px; overflow-y:auto; padding-right:8px; display:flex; flex-direction:column; gap:8px;">` + familyEventsData.map(ev => `
                         <div class="event-item">
@@ -2201,7 +2230,7 @@
                     <div class="card-box" style="border-color:#10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.08);">
                         <div class="card-header" onclick="toggleEventsPanel()">
                             <div class="card-header-title">
-                                <h3 style="color:#059669;">Local Family Events</h3>
+                                <h3 style="color:#059669;">NYC & Long Island Events</h3>
                                 <button onclick="event.stopPropagation(); fetchFamilyEvents();" style="background:none; border:none; color:#10b981; font-size:10px; font-weight:800; text-transform:uppercase; cursor:pointer; padding:4px;">Refresh</button>
                             </div>
                             <span class="card-chevron" style="color:#10b981;">${eventsChevron}</span>
@@ -2241,8 +2270,9 @@
                     <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb" placeholder="user1\nuser2\nuser3">${localStorage.getItem('lb_links')||''}</textarea></div>
                     <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                     <div class="form-group"><label>OMDb API Key (for Ratings)</label><input type="password" id="in_omdb" value="${localStorage.getItem('omdb_key')||''}"></div>
+                    <div class="form-group"><label>SeatGeek Client ID</label><input type="text" id="in_seatgeek" placeholder="Paste SeatGeek Client ID here..." value="${localStorage.getItem('seatgeek_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); localStorage.setItem('seatgeek_key', document.getElementById('in_seatgeek').value.trim()); showAppNotification('Saved Configuration!'); syncRadarrLibrary(); syncSonarrLibrary(); fetchHAEntities(); syncFeeds(); loadDiscoverTracks(); syncDownloadQueue(); fetchDiskSpace(); fetchMediaCalendars();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
