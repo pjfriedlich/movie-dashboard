@@ -983,6 +983,148 @@
                 return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
+        
+        window.toggleWatchlist = function() {
+            if (!activeItem) return;
+            if (activeItem.mediaType === 'movie') {
+                let existsIdx = myCollection.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
+                if (existsIdx >= 0) {
+                    myCollection.splice(existsIdx, 1);
+                    showAppNotification('Removed from Watchlist');
+                } else {
+                    myCollection.push({ ...activeItem, hasFile: false });
+                    showAppNotification('Added to Watchlist');
+                }
+                localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            } else {
+                let existsIdx = myShows.findIndex(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
+                if (existsIdx >= 0) {
+                    myShows.splice(existsIdx, 1);
+                    showAppNotification('Removed from Watchlist');
+                } else {
+                    myShows.push({ ...activeItem, hasFile: false });
+                    showAppNotification('Added to Watchlist');
+                }
+                localStorage.setItem('local_shows', JSON.stringify(myShows));
+            }
+            render();
+        };
+
+        window.addToRadarr = async function() {
+            let u = localStorage.getItem('radarr_url');
+            let k = localStorage.getItem('radarr_key');
+            if (!u || !k) return showAppNotification('Radarr not configured in settings.');
+            showAppNotification('Adding to Radarr...');
+            try {
+                u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
+                
+                let rootFolderRes = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`);
+                let rootFolders = await rootFolderRes.json();
+                let rootFolderPath = rootFolders.length > 0 ? rootFolders[0].path : '';
+
+                let profileRes = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`);
+                let profiles = await profileRes.json();
+                let qualityProfileId = profiles.length > 0 ? profiles[0].id : 1;
+
+                let payload = {
+                    title: activeItem.title,
+                    tmdbId: parseInt(activeItem.tmdbId || activeItem.id, 10),
+                    qualityProfileId: qualityProfileId,
+                    rootFolderPath: rootFolderPath,
+                    monitored: true,
+                    addOptions: { searchForMovie: true }
+                };
+
+                let res = await fetch(`${u}/api/v3/movie?apiKey=${k}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok || res.status === 201) {
+                    showAppNotification('Successfully Added to Radarr!');
+                    let existsIdx = myCollection.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
+                    if(existsIdx < 0) {
+                        myCollection.push({ ...activeItem, hasFile: false });
+                        localStorage.setItem('local_collection', JSON.stringify(myCollection));
+                        render();
+                    }
+                } else {
+                    let err = await res.json();
+                    showAppNotification('Radarr Error: ' + (err[0]?.errorMessage || res.statusText));
+                }
+            } catch (e) { showAppNotification('Failed to connect to Radarr'); }
+        };
+
+        window.addToSonarr = async function() {
+            let u = localStorage.getItem('sonarr_url');
+            let k = localStorage.getItem('sonarr_key');
+            if (!u || !k) return showAppNotification('Sonarr not configured in settings.');
+            showAppNotification('Adding to Sonarr...');
+            try {
+                u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
+                
+                let tvdbId = activeItem.tvdbId;
+                if (!tvdbId) {
+                    let tmdbKey = localStorage.getItem('tmdb_key');
+                    if (tmdbKey) {
+                        let extRes = await fetch(`https://api.themoviedb.org/3/tv/${activeItem.tmdbId || activeItem.id}/external_ids?api_key=${tmdbKey.trim()}`);
+                        let extData = await extRes.json();
+                        tvdbId = extData.tvdb_id;
+                    }
+                }
+                if (!tvdbId) return showAppNotification('Missing TVDB ID for Sonarr');
+
+                let rootFolderRes = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`);
+                let rootFolders = await rootFolderRes.json();
+                let rootFolderPath = rootFolders.length > 0 ? rootFolders[0].path : '';
+
+                let profileRes = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`);
+                let profiles = await profileRes.json();
+                let qualityProfileId = profiles.length > 0 ? profiles[0].id : 1;
+
+                let payload = {
+                    title: activeItem.title,
+                    tvdbId: parseInt(tvdbId, 10),
+                    qualityProfileId: qualityProfileId,
+                    rootFolderPath: rootFolderPath,
+                    monitored: true,
+                    addOptions: { searchForMissingEpisodes: true }
+                };
+
+                let res = await fetch(`${u}/api/v3/series?apiKey=${k}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok || res.status === 201) {
+                    showAppNotification('Successfully Added to Sonarr!');
+                    let existsIdx = myShows.findIndex(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
+                    if(existsIdx < 0) {
+                        myShows.push({ ...activeItem, tvdbId: tvdbId, hasFile: false });
+                        localStorage.setItem('local_shows', JSON.stringify(myShows));
+                        render();
+                    }
+                } else {
+                    let err = await res.json();
+                    showAppNotification('Sonarr Error: ' + (err[0]?.errorMessage || res.statusText));
+                }
+            } catch (e) { showAppNotification('Failed to connect to Sonarr'); }
+        };
+
+        window.playOnJellyfin = function() {
+            let u = localStorage.getItem('jf_url');
+            if (!u) return showAppNotification('Jellyfin URL not configured.');
+            u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
+            
+            if (activeItem.id && String(activeItem.id).length > 15 && !activeItem.tmdbId) { 
+                window.open(`${u}/web/index.html#!/details?id=${activeItem.id}`, '_blank');
+            } else {
+                window.open(`${u}/web/index.html#!/search.html?query=${encodeURIComponent(activeItem.title)}`, '_blank');
+            }
+            showAppNotification('Opening Jellyfin...');
+        };
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -1169,14 +1311,22 @@
                 extraRatingsHtml += `</div>`;
 
                 let actionButtons = '';
+                let isWatchlisted = false;
+                
                 if (activeItem.mediaType === 'movie') {
-                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="showAppNotification('Added to Radarr!')">Add to Radarr</button>`;
+                    isWatchlisted = myCollection.some(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
                 } else if (activeItem.mediaType === 'tv') {
-                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="showAppNotification('Added to Sonarr!')">Add to Sonarr</button>`;
+                    isWatchlisted = myShows.some(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToSonarr()">Add to Sonarr</button>`;
+                } else {
+                    isWatchlisted = myCollection.some(m => String(m.title) === String(activeItem.title)) || myShows.some(s => String(s.title) === String(activeItem.title));
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
                 }
+                
                 actionButtons += `
-                    <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="showAppNotification('Playing on Jellyfin...')">Play on Jellyfin</button>
-                    <button class="btn-action" style="background:#10b981;" onclick="showAppNotification('Watchlist Updated!')">Toggle Watchlist</button>
+                    <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="playOnJellyfin()">Play on Jellyfin</button>
+                    <button class="btn-action" style="background:${isWatchlisted ? '#ef4444' : '#10b981'};" onclick="toggleWatchlist()">${isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}</button>
                 `;
 
                 modal = `
@@ -1261,4 +1411,4 @@
         setInterval(() => { if (currentTab === 'smarthome' && typeof syncJfSessions === 'function') syncJfSessions(); }, 3000);
     </script>
 </body>
-</html>
+</html> 
