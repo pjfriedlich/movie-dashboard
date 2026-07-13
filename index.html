@@ -766,16 +766,18 @@
                 activeItem = (tvTracks[track] || []).find(m => String(m.id) === String(id));
             } else if (pool === 'search') {
                 activeItem = searchResultsData.find(m => String(m.id) === String(id));
-            } else if (pool === 'library' || pool === 'watched_track') {
+            } else if (pool === 'library') {
                 activeItem = myCollection.find(m => String(m.id) === String(id));
+            } else if (pool === 'watched_track') {
+                activeItem = customWatchedHistory.find(m => String(m.id) === String(id));
             } else if (pool === 'shows') {
                 activeItem = myShows.find(m => String(m.id) === String(id));
             } else if (pool === 'friend') {
-                activeItem = friendRowData.find(m => String(m.title) === String(id));
+                activeItem = friendRowData.find(m => String(m.id) === String(id) || String(m.title) === String(id));
                 if(activeItem && activeItem.mediaType === 'movie' && !activeItem.tmdbId) {
                     let tmdbKey = localStorage.getItem('tmdb_key');
                     if (tmdbKey) {
-                        fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&query=${encodeURIComponent(activeItem.title)}`)
+                        fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(activeItem.title)}`)
                         .then(r=>r.json()).then(d=>{
                             if(d.results && d.results[0]) {
                                 activeItem.tmdbId = d.results[0].id;
@@ -1249,17 +1251,15 @@
                     <div class="card-content" style="display:${sportsExpanded?'block':'none'};">
                         ${sportsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No games currently scheduled.</div>':sportsData.map(g=>`
                         <div onclick="openSportsModal('${g.id}')" style="padding:12px; border:1px solid #cbd5e1; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:${g.isMets?'#fff7ed':'#ffffff'}; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                            <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <img src="${g.awayLogo}" style="width:24px; height:24px; object-fit:contain;">
-                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.awayTeam}</span>
-                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.awayScore||''}</span>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <img src="${g.homeLogo}" style="width:24px; height:24px; object-fit:contain;">
-                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.homeTeam}</span>
-                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.homeScore||''}</span>
-                                </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <img src="${g.awayLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.awayTeam}</span>
+                                <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.awayScore||''}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <img src="${g.homeLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.homeTeam}</span>
+                                <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.homeScore||''}</span>
                             </div>
                             <div style="font-size:10px; font-weight:800; text-transform:uppercase; text-align:right; color:${g.isLive?'#ef4444':'#64748b'}; width:60px;">${g.status}</div>
                         </div>`).join('')}
