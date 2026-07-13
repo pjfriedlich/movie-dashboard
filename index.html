@@ -986,27 +986,28 @@
         
         window.toggleWatchlist = function() {
             if (!activeItem) return;
-            if (activeItem.mediaType === 'movie') {
-                let existsIdx = myCollection.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
-                if (existsIdx >= 0) {
-                    myCollection.splice(existsIdx, 1);
-                    showAppNotification('Removed from Watchlist');
-                } else {
-                    myCollection.push({ ...activeItem, hasFile: false });
-                    showAppNotification('Added to Watchlist');
-                }
-                localStorage.setItem('local_collection', JSON.stringify(myCollection));
+            
+            let existsIdx = customWatchedHistory.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
+            if (existsIdx >= 0) {
+                customWatchedHistory.splice(existsIdx, 1);
+                
+                let cacheIdIdx = localWatchedCache.findIndex(id => id === String(activeItem.tmdbId || activeItem.id));
+                if (cacheIdIdx >= 0) localWatchedCache.splice(cacheIdIdx, 1);
+                
+                let cacheTitleIdx = localWatchedCache.findIndex(id => id === String(activeItem.title).toLowerCase().trim());
+                if (cacheTitleIdx >= 0) localWatchedCache.splice(cacheTitleIdx, 1);
+
+                showAppNotification('Removed from Watched List');
             } else {
-                let existsIdx = myShows.findIndex(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
-                if (existsIdx >= 0) {
-                    myShows.splice(existsIdx, 1);
-                    showAppNotification('Removed from Watchlist');
-                } else {
-                    myShows.push({ ...activeItem, hasFile: false });
-                    showAppNotification('Added to Watchlist');
-                }
-                localStorage.setItem('local_shows', JSON.stringify(myShows));
+                customWatchedHistory.push({ ...activeItem, hasFile: false });
+                if(activeItem.tmdbId || activeItem.id) localWatchedCache.push(String(activeItem.tmdbId || activeItem.id));
+                if(activeItem.title) localWatchedCache.push(String(activeItem.title).toLowerCase().trim());
+                
+                showAppNotification('Added to Watched List');
             }
+            
+            localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
+            localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             render();
         };
 
@@ -1311,22 +1312,19 @@
                 extraRatingsHtml += `</div>`;
 
                 let actionButtons = '';
-                let isWatchlisted = false;
+                let isWatched = customWatchedHistory.some(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
                 
                 if (activeItem.mediaType === 'movie') {
-                    isWatchlisted = myCollection.some(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
                     actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
                 } else if (activeItem.mediaType === 'tv') {
-                    isWatchlisted = myShows.some(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
                     actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToSonarr()">Add to Sonarr</button>`;
                 } else {
-                    isWatchlisted = myCollection.some(m => String(m.title) === String(activeItem.title)) || myShows.some(s => String(s.title) === String(activeItem.title));
                     actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
                 }
                 
                 actionButtons += `
                     <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="playOnJellyfin()">Play on Jellyfin</button>
-                    <button class="btn-action" style="background:${isWatchlisted ? '#ef4444' : '#10b981'};" onclick="toggleWatchlist()">${isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}</button>
+                    <button class="btn-action" style="background:${isWatched ? '#ef4444' : '#10b981'};" onclick="toggleWatchlist()">${isWatched ? 'Remove from Watched List' : 'Add to Watched List'}</button>
                 `;
 
                 modal = `
