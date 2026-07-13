@@ -185,6 +185,7 @@
     
     <script>
         let letterboxdData = {};
+        window.foreignMoviesData = [];
         
         if (!localStorage.getItem('ha_key')) localStorage.setItem('ha_key', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlYjk0MmQ3NDBlZjk0MDA5OWZkNzY0MzMwNDhhNDdiYSIsImlhdCI6MTc4MzEwMTMwMiwiZXhwIjoyMDk4NDYxMzAyfQ.ProliPwwlQ6ulHMPXwuU463BRhZEgMzKmQi8_CEUyUU');
         if (!localStorage.getItem('ha_url')) localStorage.setItem('ha_url', 'http://100.101.236.76:8123');
@@ -237,21 +238,34 @@
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
+        window.syncFeeds = function() {
+            let lbLinks = localStorage.getItem('lb_links') || '';
+            let configuredUsers = lbLinks.split('\n').map(u => u.trim().toLowerCase()).filter(u => u);
+            friendRowData = [];
+            if (letterboxdData) {
+                Object.entries(letterboxdData).forEach(([user, userLists]) => {
+                    if (configuredUsers.includes(user.toLowerCase()) && userLists.highly_rated) {
+                        userLists.highly_rated.forEach(movie => {
+                            if (!friendRowData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
+                                friendRowData.push({ 
+                                    id: movie.title, 
+                                    title: movie.title, 
+                                    rating: movie.rating || '0.0', 
+                                    posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''),
+                                    mediaType: 'movie' 
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        };
+
         fetch('/letterboxd_likes.json') 
           .then(response => response.json())
           .then(data => { 
               letterboxdData = data; 
-              friendRowData = [];
-              Object.values(data).forEach(userLists => {
-                  if (userLists.highly_rated) {
-                      userLists.highly_rated.forEach(movie => {
-                          if (!friendRowData.find(m => m.title === movie.title)) {
-                              friendRowData.push({ id: movie.title, title: movie.title, rating: movie.rating, mediaType: 'movie' });
-                          }
-                      });
-                  }
-              });
-              if (typeof syncFeeds === 'function') syncFeeds(); 
+              window.syncFeeds();
               render();
           })
           .catch(err => console.error("Error loading JSON:", err));
@@ -649,19 +663,20 @@
             const mapT = m => ({ id: m.id, tmdbId: m.id, title: m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'0.0', overview: m.overview, mediaType: 'tv', year: m.first_air_date?m.first_air_date.split('-')[0]:'' });
 
             try {
-                let [act, com, dram, adv, sci, m60, m70, m80, m90, m00, m10, m20, tvAct, tvCom, tvDram, t60, t70, t80, t90, t00, t10, t20] = await Promise.all([
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=28&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=35&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=18&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=12&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=878&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1960-01-01&primary_release_date.lte=1969-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1970-01-01&primary_release_date.lte=1979-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1980-01-01&primary_release_date.lte=1989-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2020-01-01&primary_release_date.lte=2026-12-31&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                let [act, com, dram, adv, sci, m60, m70, m80, m90, m00, m10, m20, foreignMovies, tvAct, tvCom, tvDram, t60, t70, t80, t90, t00, t10, t20] = await Promise.all([
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=28&with_original_language=en&region=US&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=35&with_original_language=en&region=US&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=18&with_original_language=en&region=US&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=12&with_original_language=en&region=US&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=878&with_original_language=en&region=US&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1960-01-01&primary_release_date.lte=1969-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1970-01-01&primary_release_date.lte=1979-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1980-01-01&primary_release_date.lte=1989-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&primary_release_date.gte=2020-01-01&primary_release_date.lte=2026-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
+                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&without_original_language=en&sort_by=popularity.desc&page=${pageIdx}`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=10759&page=${pageIdx}`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=35&page=${pageIdx}`).then(r=>r.json()),
                     fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tmdbKey}&with_genres=18&page=${pageIdx}`).then(r=>r.json()),
@@ -686,6 +701,7 @@
                 movieTracks["2000s"] = m00.results ? m00.results.map(mapM) : [];
                 movieTracks["2010s"] = m10.results ? m10.results.map(mapM) : [];
                 movieTracks["2020s"] = m20.results ? m20.results.map(mapM) : [];
+                window.foreignMoviesData = foreignMovies.results ? foreignMovies.results.map(mapM) : [];
 
                 tvTracks["Action"] = tvAct.results ? tvAct.results.map(mapT) : [];
                 tvTracks["Comedy"] = tvCom.results ? tvCom.results.map(mapT) : [];
@@ -722,7 +738,11 @@
         function launchModalFromAttributes(pool, id, track) {
             activeItem = null;
             if (pool === 'discover_movie') {
-                activeItem = (movieTracks[track] || []).find(m => String(m.id) === String(id));
+                if (track === 'Foreign Cinema') {
+                    activeItem = (window.foreignMoviesData || []).find(m => String(m.id) === String(id));
+                } else {
+                    activeItem = (movieTracks[track] || []).find(m => String(m.id) === String(id));
+                }
             } else if (pool === 'discover_tv') {
                 activeItem = (tvTracks[track] || []).find(m => String(m.id) === String(id));
             } else if (pool === 'search') {
@@ -1062,7 +1082,6 @@
             localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
             render();
         };
-
         window.addToRadarr = async function() {
             let u = localStorage.getItem('radarr_url');
             let k = localStorage.getItem('radarr_key');
@@ -1178,6 +1197,7 @@
             }
             showAppNotification('Opening Jellyfin...');
         };
+
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
             let existingSearchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
@@ -1262,7 +1282,7 @@
                 } else if (currentMediaMode === 'foryou') {
                     let subTabHtml = `<div class="stats-grid" style="margin-bottom: 16px;"><div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab === 'movies' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">Movies</div></div><div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab === 'shows' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">TV Shows</div></div></div>`;
                     if (currentForYouSubTab === 'movies') {
-                        mediaBodyContent = subTabHtml + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + `<hr class="section-divider"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); syncFeeds(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
+                        mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + renderRow("Friends' Watchlist Picks", friendRowData, true, 'friend') + Object.entries(movieTracks).map(([title, movies]) => renderRow(title, movies, false, 'discover_movie')).join('') + renderRow("Foreign Cinema", window.foreignMoviesData || [], false, 'discover_movie') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); window.syncFeeds(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                     } else {
                         mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                     }
@@ -1364,7 +1384,7 @@
                     <div class="form-group"><label>SeatGeek Client ID</label><input type="text" id="in_seatgeek" placeholder="Paste SeatGeek Client ID here..." value="${localStorage.getItem('seatgeek_key')||''}"></div>
                     <div class="form-group"><label>Ticketmaster API Key</label><input type="password" id="in_ticketmaster" placeholder="Paste Ticketmaster Key here..." value="${localStorage.getItem('ticketmaster_key')||''}"></div>
                     <hr class="section-divider">
-                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); localStorage.setItem('seatgeek_key', document.getElementById('in_seatgeek').value.trim()); localStorage.setItem('ticketmaster_key', document.getElementById('in_ticketmaster').value.trim()); showAppNotification('Saved Configuration!'); if(typeof loadDiscoverTracks==='function') loadDiscoverTracks(); if(typeof syncFeeds==='function') syncFeeds(); fetchMediaCalendars(); fetchHAEntities();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
+                    <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('ha_url', document.getElementById('in_ha_url').value.trim()); localStorage.setItem('ha_key', document.getElementById('in_ha_key').value.trim()); localStorage.setItem('ha_tv_entity', document.getElementById('in_ha_tv').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); localStorage.setItem('seatgeek_key', document.getElementById('in_seatgeek').value.trim()); localStorage.setItem('ticketmaster_key', document.getElementById('in_ticketmaster').value.trim()); showAppNotification('Saved Configuration!'); if(typeof loadDiscoverTracks==='function') loadDiscoverTracks(); window.syncFeeds(); fetchMediaCalendars(); fetchHAEntities();" class="btn-action" style="width:100%; box-sizing:border-box;">Save Settings</button>
                     <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                         <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Full App Backup</h4>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -1443,7 +1463,7 @@
 
         function safeInit() {
             try {
-                if (typeof syncFeeds === 'function') syncFeeds();
+                if (typeof window.syncFeeds === 'function') window.syncFeeds();
                 if (typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
                 if (currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
                 if (currentTab === 'media' && currentMediaMode === 'downloads' && typeof syncDownloadQueue === 'function') syncDownloadQueue();
