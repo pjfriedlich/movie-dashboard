@@ -240,12 +240,12 @@
         let displayYear = new Date().getFullYear();
         window.syncFeeds = function() {
             let lbLinks = localStorage.getItem('lb_links') || '';
-            let configuredUsers = lbLinks.split('\n').map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
+            let configuredUsers = lbLinks.split(/[\n, ]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
             friendRowData = [];
             if (letterboxdData) {
                 Object.entries(letterboxdData).forEach(([user, userLists]) => {
                     let cleanUser = user.trim().toLowerCase().replace('@', '');
-                    if (configuredUsers.includes(cleanUser) && userLists.highly_rated) {
+                    if ((configuredUsers.length === 0 || configuredUsers.includes(cleanUser)) && userLists.highly_rated) {
                         userLists.highly_rated.forEach(movie => {
                             if (!friendRowData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
                                 friendRowData.push({ 
@@ -259,6 +259,24 @@
                         });
                     }
                 });
+                
+                let tmdbKey = localStorage.getItem('tmdb_key');
+                if (tmdbKey) {
+                    friendRowData.forEach((m, idx) => {
+                        if (!m.tmdbId) {
+                            fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(m.title)}`)
+                            .then(r=>r.json()).then(d => {
+                                if(d.results && d.results[0]) {
+                                    friendRowData[idx].tmdbId = d.results[0].id;
+                                    friendRowData[idx].posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
+                                    friendRowData[idx].overview = d.results[0].overview;
+                                    friendRowData[idx].rating = d.results[0].vote_average ? d.results[0].vote_average.toFixed(1) : '0.0';
+                                    if (currentTab === 'media' && currentMediaMode === 'foryou') render();
+                                }
+                            }).catch(e=>{});
+                        }
+                    });
+                }
             }
         };
 
@@ -400,7 +418,7 @@
             localStorage.setItem('app_current_media_mode', targetMode);
             if (targetMode === 'foryou') {
                 if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); 
-                if(typeof syncFeeds === 'function') syncFeeds(); 
+                if(typeof window.syncFeeds === 'function') window.syncFeeds(); 
                 showAppNotification('Refreshing For You...');
             } else if (targetMode === 'downloads') {
                 if(typeof syncDownloadQueue === 'function') syncDownloadQueue();
@@ -415,7 +433,7 @@
             render(); 
             if (targetTab === 'smarthome') { fetchHAEntities(); syncJfSessions(); fetchMediaCalendars(); fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
             if (targetTab === 'media') {
-                if (currentMediaMode === 'foryou') { if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); if(typeof syncFeeds === 'function') syncFeeds(); showAppNotification('Refreshing For You...'); }
+                if (currentMediaMode === 'foryou') { if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks(); if(typeof window.syncFeeds === 'function') window.syncFeeds(); showAppNotification('Refreshing For You...'); }
                 if (currentMediaMode === 'downloads') { if(typeof syncDownloadQueue === 'function') syncDownloadQueue(); showAppNotification('Refreshing Downloads...'); }
             }
             
@@ -781,6 +799,33 @@
                         posterPath: jfUrl ? `${jfUrl}/Items/${session.NowPlayingItem.Id}/Images/Primary` : '',
                         mediaType: session.NowPlayingItem.Type === 'Movie' ? 'movie' : 'tv'
                     };
+                }
+            } else if (pool === 'calendar') {
+                let calEv = calendarEvents.find(e => String(e.id) === String(id));
+                if (calEv) {
+                    activeItem = {
+                        id: calEv.tmdbId || calEv.id,
+                        tmdbId: calEv.tmdbId,
+                        tvdbId: calEv.tvdbId,
+                        title: calEv.searchTitle || calEv.title.replace(/^(🍿|💻|💿|📺)\s*/, ''),
+                        posterPath: calEv.posterPath,
+                        mediaType: calEv.mediaType || (calEv.id.startsWith('rad') ? 'movie' : 'tv'),
+                        year: calEv.date ? calEv.date.getFullYear() : '',
+                        overview: `Scheduled for: ${calEv.date ? calEv.date.toLocaleDateString() : 'Unknown'}`
+                    };
+                    
+                    let tmdbKey = localStorage.getItem('tmdb_key');
+                    if (tmdbKey && activeItem.tmdbId) {
+                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType}/${activeItem.tmdbId}?api_key=${tmdbKey.trim()}`)
+                        .then(r=>r.json()).then(d => {
+                            if (d && !d.status_code) { 
+                                activeItem.overview = d.overview || activeItem.overview;
+                                activeItem.rating = d.vote_average ? d.vote_average.toFixed(1) : '0.0';
+                                if (d.poster_path) activeItem.posterPath = 'https://image.tmdb.org/t/p/w500' + d.poster_path;
+                                if (modalOpen) render();
+                            }
+                        });
+                    }
                 }
             }
             if (activeItem) {
@@ -1204,15 +1249,17 @@
                     <div class="card-content" style="display:${sportsExpanded?'block':'none'};">
                         ${sportsData.length===0?'<div style="text-align:center; padding:20px; font-size:12px;">No games currently scheduled.</div>':sportsData.map(g=>`
                         <div onclick="openSportsModal('${g.id}')" style="padding:12px; border:1px solid #cbd5e1; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; background:${g.isMets?'#fff7ed':'#ffffff'}; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <img src="${g.awayLogo}" style="width:24px; height:24px; object-fit:contain;">
-                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.awayTeam}</span>
-                                <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.awayScore||''}</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <img src="${g.homeLogo}" style="width:24px; height:24px; object-fit:contain;">
-                                <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.homeTeam}</span>
-                                <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.homeScore||''}</span>
+                            <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <img src="${g.awayLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.awayTeam}</span>
+                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.awayScore||''}</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <img src="${g.homeLogo}" style="width:24px; height:24px; object-fit:contain;">
+                                    <span style="font-weight:800; font-size:14px; color:#0f172a;">${g.homeTeam}</span>
+                                    <span style="font-weight:800; font-size:14px; margin-left:auto; padding-right:12px;">${g.homeScore||''}</span>
+                                </div>
                             </div>
                             <div style="font-size:10px; font-weight:800; text-transform:uppercase; text-align:right; color:${g.isLive?'#ef4444':'#64748b'}; width:60px;">${g.status}</div>
                         </div>`).join('')}
