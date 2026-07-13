@@ -1145,14 +1145,16 @@
 
                 if (currentMediaMode === 'movies') {
                     let watchedMovies = [...customWatchedHistory];
-                    if (watchedSortMode === 'alpha') { watchedMovies.sort((a, b) => a.title.localeCompare(b.title)); }
-                    else if (watchedSortMode === 'year_desc') { watchedMovies.sort((a, b) => parseNumericYear(b) - parseNumericYear(a)); }
-                    else if (watchedSortMode === 'year_asc') { watchedMovies.sort((a, b) => parseNumericYear(a) - parseNumericYear(b)); } 
-                    
                     let downloadedMovies = myCollection.filter(m => m.hasFile === true);
                     let comingSoonMovies = myCollection.filter(m => !m.hasFile);
+                    
                     let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
                     let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
+                    
+                    if (watchedSortMode === 'alpha') { filteredCollection.sort((a, b) => (a.title || '').localeCompare(b.title || '')); }
+                    else if (watchedSortMode === 'year_desc') { filteredCollection.sort((a, b) => parseNumericYear(b) - parseNumericYear(a)); }
+                    else if (watchedSortMode === 'year_asc') { filteredCollection.sort((a, b) => parseNumericYear(a) - parseNumericYear(b)); } 
+                    else { filteredCollection.reverse(); } 
                     
                     let sortingControlsHtml = `
                         <div class="filter-scroller" style="margin-bottom:15px;">
@@ -1190,7 +1192,7 @@
                             ${inlineCollapsibleFilterHtml}
                             <div class="movie-grid">${filteredCollection.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredCollection.map((m) => {
                                 let cleanYearNumeric = parseNumericYear(m);
-                                let displayYearLabel = (cleanYearNumeric > 0 && !m.title.includes(String(cleanYearNumeric))) ? `, ${cleanYearNumeric}` : '';
+                                let displayYearLabel = (cleanYearNumeric > 0 && !(m.title||'').includes(String(cleanYearNumeric))) ? `, ${cleanYearNumeric}` : '';
                                 return `<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}"><div class="poster-slot">${m.posterPath ? `<img class="grid-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}</div><div class="grid-card-details">${m.title}${displayYearLabel}</div></div>`;
                             }).join('')}</div>`;
                     }
