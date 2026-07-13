@@ -238,6 +238,14 @@
 
         let displayMonth = new Date().getMonth();
         let displayYear = new Date().getFullYear();
+        window.isItemMatch = function(item1, item2) {
+            if (!item1 || !item2) return false;
+            if (item1.tmdbId && item2.tmdbId && String(item1.tmdbId) === String(item2.tmdbId)) return true;
+            if (item1.id && item2.id && String(item1.id) === String(item2.id)) return true;
+            if (item1.title && item2.title && String(item1.title).toLowerCase().trim() === String(item2.title).toLowerCase().trim()) return true;
+            return false;
+        };
+
         window.syncFeeds = function() {
             let lbLinks = localStorage.getItem('lb_links') || '';
             let configuredUsers = lbLinks.split(/[\n,\s]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
@@ -1135,18 +1143,10 @@
                 if (currentMediaMode === 'movies') {
                     let watchedMovies = [...customWatchedHistory];
                     let downloadedMovies = myCollection.filter(m => m.hasFile === true);
-                    
-                    let comingSoonMovies = [];
-                    let seenIds = new Set();
-                    calendarEvents.forEach(ev => {
-                        if (ev.mediaType === 'movie' && ev.tmdbId && !seenIds.has(ev.tmdbId)) {
-                            seenIds.add(ev.tmdbId);
-                            comingSoonMovies.push({ id: ev.id, tmdbId: ev.tmdbId, title: ev.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: ev.posterPath, year: ev.date ? ev.date.getFullYear() : '' });
-                        }
-                    });
+                    let comingSoonMovies = myCollection.filter(m => !m.hasFile);
                     
                     let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
-                    let poolName = currentSubTab === 'comingsoon' ? 'calendar' : (currentSubTab === 'watched' ? 'watched_track' : 'library');
+                    let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
                     
                     if (watchedSortMode === 'alpha') { filteredCollection.sort((a, b) => (a.title || '').localeCompare(b.title || '')); }
                     else if (watchedSortMode === 'year_desc') { filteredCollection.sort((a, b) => parseNumericYear(b) - parseNumericYear(a)); }
@@ -1196,17 +1196,8 @@
                     mediaBodyContent = staticMainTabsHtml + tabBodyContent;
 
                 } else if (currentMediaMode === 'shows') {
-                    let comingSoonShows = [];
-                    let seenTvIds = new Set();
-                    calendarEvents.forEach(ev => {
-                        if (ev.mediaType === 'tv' && ev.tvdbId && !seenTvIds.has(ev.tvdbId)) {
-                            seenTvIds.add(ev.tvdbId);
-                            comingSoonShows.push({ id: ev.id, tmdbId: ev.tmdbId, tvdbId: ev.tvdbId, title: ev.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: ev.posterPath, year: ev.date ? ev.date.getFullYear() : '' });
-                        }
-                    });
-                    
+                    let comingSoonShows = myShows.filter(s => !s.hasFile);
                     let filteredShows = currentShowSubTab === 'downloaded' ? myShows.filter(s => s.hasFile) : comingSoonShows;
-                    let poolShows = currentShowSubTab === 'comingsoon' ? 'calendar' : 'shows';
                     
                     mediaBodyContent = `
                         <div class="stats-grid">
@@ -1214,7 +1205,7 @@
                             <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">TV Library (${filteredShows.length})</h2></div>
-                        <div class="movie-grid">` + (filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map(s => `<div class="movie-card movie-trigger" data-pool="${poolShows}" data-id="${s.id}"><div class="poster-slot"><img src="${s.posterPath || ''}" class="grid-poster-img"></div><div class="grid-card-details">${s.title}</div></div>`).join('')) + `</div>`;
+                        <div class="movie-grid">` + (filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map(s => `<div class="movie-card movie-trigger" data-pool="shows" data-id="${s.id}"><div class="poster-slot"><img src="${s.posterPath || ''}" class="grid-poster-img"></div><div class="grid-card-details">${s.title}</div></div>`).join('')) + `</div>`;
                 } else if (currentMediaMode === 'foryou') {
                     let subTabHtml = `<div class="stats-grid" style="margin-bottom: 16px;"><div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab === 'movies' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">Movies</div></div><div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab === 'shows' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">TV Shows</div></div></div>`;
                     if (currentForYouSubTab === 'movies') {
@@ -1342,7 +1333,7 @@
                 extraRatingsHtml += `</div>`;
 
                 let actionButtons = '';
-                let isWatched = customWatchedHistory.some(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
+                let isWatched = customWatchedHistory.some(m => window.isItemMatch(m, activeItem));
                 
                 if (activeItem.mediaType === 'movie') {
                     actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
