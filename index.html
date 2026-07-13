@@ -263,6 +263,58 @@
             render();
         };
 
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 B';
+            const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        window.syncDownloadQueue = async function() {
+            let rUrl = localStorage.getItem('radarr_url'); let rKey = localStorage.getItem('radarr_key');
+            let sUrl = localStorage.getItem('sonarr_url'); let sKey = localStorage.getItem('sonarr_key');
+            
+            try {
+                let rPromise = (rUrl && rKey) ? fetch(`${rUrl.replace(/\/$/, "")}/api/v3/queue?apiKey=${rKey}`).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]);
+                let sPromise = (sUrl && sKey) ? fetch(`${sUrl.replace(/\/$/, "")}/api/v3/queue?apiKey=${sKey}`).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]);
+                
+                let [rQueue, sQueue] = await Promise.all([rPromise, sPromise]);
+                
+                let combined = [];
+                if (rQueue.records) rQueue = rQueue.records;
+                if (sQueue.records) sQueue = sQueue.records;
+                
+                if(Array.isArray(rQueue)) combined.push(...rQueue.map(item => ({...item, clientType: 'radarr'})));
+                if(Array.isArray(sQueue)) combined.push(...sQueue.map(item => ({...item, clientType: 'sonarr'})));
+                
+                activeTorrents = combined.map(t => {
+                    let totalSize = t.size || 0;
+                    let sizeLeft = t.sizeleft || 0;
+                    let downloaded = totalSize - sizeLeft;
+                    let pct = totalSize > 0 ? ((downloaded / totalSize) * 100).toFixed(1) : 0;
+                    
+                    let title = t.title || (t.movie ? t.movie.title : (t.series ? t.series.title : 'Unknown'));
+                    let status = t.status || t.trackedDownloadState || 'Downloading';
+                    let timeleft = t.timeleft || '';
+                    
+                    return {
+                        id: t.id,
+                        title: title,
+                        totalSize: totalSize,
+                        downloaded: downloaded,
+                        percent: pct,
+                        status: status,
+                        timeleft: timeleft,
+                        client: t.clientType
+                    };
+                });
+            } catch(e) { console.error(e); }
+            
+            if (currentTab === 'media' && currentMediaMode === 'downloads') {
+                render();
+            }
+        };
+
         function renderCalendarHTML() {
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             let firstDay = new Date(displayYear, displayMonth, 1).getDay();
@@ -1215,7 +1267,29 @@
                         mediaBodyContent = subTabHtml + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([title, shows]) => renderRow(title, shows, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                     }
                 } else if (currentMediaMode === 'downloads') {
-                    mediaBodyContent = `<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Downloads Tab Refreshing...</div>`;
+                    if (activeTorrents.length === 0) {
+                        mediaBodyContent = `<div style="text-align:center; padding:30px; color:#64748b; font-size:13px; font-weight:800; text-transform:uppercase;">No Active Downloads</div>`;
+                    } else {
+                        mediaBodyContent = `<div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">` + activeTorrents.map(t => {
+                            let statusColor = t.status.toLowerCase() === 'downloading' ? '#8b5cf6' : (t.status.toLowerCase().includes('completed') ? '#10b981' : '#f59e0b');
+                            return `
+                            <div class="torrent-card">
+                                <div class="torrent-title">${t.title}</div>
+                                <div class="torrent-meta" style="margin-bottom:8px;">
+                                    <span>${formatBytes(t.downloaded)} / ${formatBytes(t.totalSize)} • ${t.percent}%</span>
+                                    <span style="background:#1e293b; color:#fff; padding:2px 6px; border-radius:4px; font-size:9px;">${t.client}</span>
+                                </div>
+                                <div class="torrent-progress-bg">
+                                    <div class="torrent-progress-fill" style="width:${t.percent}%; background:${statusColor};"></div>
+                                </div>
+                                <div class="torrent-meta" style="margin-top:8px;">
+                                    <span style="color:${statusColor}; font-weight:800; text-transform:capitalize;">${t.status}</span>
+                                    <span>${t.timeleft ? '⏳ ' + t.timeleft : ''}</span>
+                                </div>
+                            </div>`;
+                        }).join('') + `</div>`;
+                    }
+                    mediaBodyContent += `<button class="refresh-pill" onclick="syncDownloadQueue(); showAppNotification('Refreshing Downloads...');">refresh</button>`;
                 }
                 body = mediaSubNavHtml + mediaBodyContent;
 
@@ -1372,6 +1446,7 @@
                 if (typeof syncFeeds === 'function') syncFeeds();
                 if (typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
                 if (currentTab === 'smarthome') { fetchSportsScores(); fetchLocalWeather(); fetchFamilyEvents(); }
+                if (currentTab === 'media' && currentMediaMode === 'downloads' && typeof syncDownloadQueue === 'function') syncDownloadQueue();
             } catch (e) { console.error(e); }
         }
 
