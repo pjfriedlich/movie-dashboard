@@ -240,43 +240,53 @@
         let displayYear = new Date().getFullYear();
         window.syncFeeds = function() {
             let lbLinks = localStorage.getItem('lb_links') || '';
-            let configuredUsers = lbLinks.split(/[\n, \t]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
-            friendRowData = [];
+            let configuredUsers = lbLinks.split(/[\n,\s]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
+            let newFriendData = [];
+            
             if (letterboxdData) {
-                Object.entries(letterboxdData).forEach(([user, userLists]) => {
-                    let cleanUser = user.trim().toLowerCase().replace('@', '');
-                    if ((configuredUsers.length === 0 || configuredUsers.includes(cleanUser)) && userLists.highly_rated) {
+                let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(item => [item.username || item.user, item]) : Object.entries(letterboxdData);
+                
+                iterable.forEach(([user, userLists]) => {
+                    if (!user) return;
+                    let cleanUser = String(user).trim().toLowerCase().replace('@', '');
+                    if ((configuredUsers.length === 0 || configuredUsers.includes(cleanUser)) && userLists && userLists.highly_rated) {
                         userLists.highly_rated.forEach(movie => {
-                            if (!friendRowData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
-                                friendRowData.push({ 
-                                    id: movie.title, 
-                                    title: movie.title, 
-                                    rating: movie.rating || '0.0', 
-                                    posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''),
-                                    mediaType: 'movie' 
-                                });
+                            if (!newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
+                                let existing = friendRowData.find(m => m.title.toLowerCase() === movie.title.toLowerCase());
+                                if (existing && existing.tmdbId) {
+                                    newFriendData.push(existing);
+                                } else {
+                                    newFriendData.push({ 
+                                        id: movie.title, 
+                                        title: movie.title, 
+                                        rating: movie.rating || '0.0', 
+                                        posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''),
+                                        mediaType: 'movie' 
+                                    });
+                                }
                             }
                         });
                     }
                 });
-                
-                let tmdbKey = localStorage.getItem('tmdb_key');
-                if (tmdbKey) {
-                    friendRowData.forEach((m, idx) => {
-                        if (!m.tmdbId) {
-                            fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(m.title)}`)
-                            .then(r=>r.json()).then(d => {
-                                if(d.results && d.results[0]) {
-                                    friendRowData[idx].tmdbId = d.results[0].id;
-                                    friendRowData[idx].posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
-                                    friendRowData[idx].overview = d.results[0].overview;
-                                    friendRowData[idx].rating = d.results[0].vote_average ? d.results[0].vote_average.toFixed(1) : '0.0';
-                                    if (currentTab === 'media' && currentMediaMode === 'foryou') render();
-                                }
-                            }).catch(e=>{});
-                        }
-                    });
-                }
+            }
+            friendRowData = newFriendData;
+            
+            let tmdbKey = localStorage.getItem('tmdb_key');
+            if (tmdbKey) {
+                friendRowData.forEach((m, idx) => {
+                    if (!m.tmdbId) {
+                        fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey.trim()}&query=${encodeURIComponent(m.title)}`)
+                        .then(r=>r.json()).then(d => {
+                            if(d.results && d.results[0]) {
+                                friendRowData[idx].tmdbId = d.results[0].id;
+                                friendRowData[idx].posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
+                                friendRowData[idx].overview = d.results[0].overview;
+                                friendRowData[idx].rating = d.results[0].vote_average ? d.results[0].vote_average.toFixed(1) : '0.0';
+                                if (currentTab === 'media' && currentMediaMode === 'foryou') render();
+                            }
+                        }).catch(e=>{});
+                    }
+                });
             }
         };
 
@@ -813,12 +823,13 @@
                         posterPath: calEv.posterPath,
                         mediaType: calEv.mediaType || (calEv.id.startsWith('rad') ? 'movie' : 'tv'),
                         year: calEv.date ? calEv.date.getFullYear() : '',
+                        rating: '0.0', 
                         overview: `Scheduled for: ${calEv.date ? calEv.date.toLocaleDateString() : 'Unknown'}`
                     };
                     
                     let tmdbKey = localStorage.getItem('tmdb_key');
                     if (tmdbKey && activeItem.tmdbId) {
-                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType}/${activeItem.tmdbId}?api_key=${tmdbKey.trim()}`)
+                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType === 'tv' ? 'tv' : 'movie'}/${activeItem.tmdbId}?api_key=${tmdbKey.trim()}`)
                         .then(r=>r.json()).then(d => {
                             if (d && !d.status_code) { 
                                 activeItem.overview = d.overview || activeItem.overview;
@@ -826,7 +837,7 @@
                                 if (d.poster_path) activeItem.posterPath = 'https://image.tmdb.org/t/p/w500' + d.poster_path;
                                 if (modalOpen) render();
                             }
-                        });
+                        }).catch(e=>{});
                     }
                 }
             }
@@ -851,12 +862,12 @@
         function getFriendBadgeHtml() {
             if (!activeItem || !activeItem.title) return '';
             let badges = [];
-            let cleanLabelPayload = {};
-            Object.keys(letterboxdData).forEach(k => cleanLabelPayload[k.toLowerCase()] = k);
-
-            for (let [user, data] of Object.entries(letterboxdData)) {
-                if (data.highly_rated && data.highly_rated.some(m => String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
-                    badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+            if (letterboxdData) {
+                let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(item => [item.username || item.user, item]) : Object.entries(letterboxdData);
+                for (let [user, data] of iterable) {
+                    if (data && data.highly_rated && data.highly_rated.some(m => String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
+                        badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+                    }
                 }
             }
             return badges.length > 0 ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${badges.join('')}</div>` : '';
@@ -1103,148 +1114,6 @@
                 return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
             }).join('') + `</div></div>`;
         }
-        
-        window.toggleWatchlist = function() {
-            if (!activeItem) return;
-            
-            let existsIdx = customWatchedHistory.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
-            if (existsIdx >= 0) {
-                customWatchedHistory.splice(existsIdx, 1);
-                
-                let cacheIdIdx = localWatchedCache.findIndex(id => id === String(activeItem.tmdbId || activeItem.id));
-                if (cacheIdIdx >= 0) localWatchedCache.splice(cacheIdIdx, 1);
-                
-                let cacheTitleIdx = localWatchedCache.findIndex(id => id === String(activeItem.title).toLowerCase().trim());
-                if (cacheTitleIdx >= 0) localWatchedCache.splice(cacheTitleIdx, 1);
-
-                showAppNotification('Removed from Watched List');
-            } else {
-                customWatchedHistory.push({ ...activeItem, hasFile: false });
-                if(activeItem.tmdbId || activeItem.id) localWatchedCache.push(String(activeItem.tmdbId || activeItem.id));
-                if(activeItem.title) localWatchedCache.push(String(activeItem.title).toLowerCase().trim());
-                
-                showAppNotification('Added to Watched List');
-            }
-            
-            localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
-            localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
-            render();
-        };
-        window.addToRadarr = async function() {
-            let u = localStorage.getItem('radarr_url');
-            let k = localStorage.getItem('radarr_key');
-            if (!u || !k) return showAppNotification('Radarr not configured in settings.');
-            showAppNotification('Adding to Radarr...');
-            try {
-                u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
-                
-                let rootFolderRes = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`);
-                let rootFolders = await rootFolderRes.json();
-                let rootFolderPath = rootFolders.length > 0 ? rootFolders[0].path : '';
-
-                let profileRes = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`);
-                let profiles = await profileRes.json();
-                let qualityProfileId = profiles.length > 0 ? profiles[0].id : 1;
-
-                let payload = {
-                    title: activeItem.title,
-                    tmdbId: parseInt(activeItem.tmdbId || activeItem.id, 10),
-                    qualityProfileId: qualityProfileId,
-                    rootFolderPath: rootFolderPath,
-                    monitored: true,
-                    addOptions: { searchForMovie: true }
-                };
-
-                let res = await fetch(`${u}/api/v3/movie?apiKey=${k}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (res.ok || res.status === 201) {
-                    showAppNotification('Successfully Added to Radarr!');
-                    let existsIdx = myCollection.findIndex(m => String(m.id) === String(activeItem.id) || (m.tmdbId && String(m.tmdbId) === String(activeItem.tmdbId)));
-                    if(existsIdx < 0) {
-                        myCollection.push({ ...activeItem, hasFile: false });
-                        localStorage.setItem('local_collection', JSON.stringify(myCollection));
-                        render();
-                    }
-                } else {
-                    let err = await res.json();
-                    showAppNotification('Radarr Error: ' + (err[0]?.errorMessage || res.statusText));
-                }
-            } catch (e) { showAppNotification('Failed to connect to Radarr'); }
-        };
-
-        window.addToSonarr = async function() {
-            let u = localStorage.getItem('sonarr_url');
-            let k = localStorage.getItem('sonarr_key');
-            if (!u || !k) return showAppNotification('Sonarr not configured in settings.');
-            showAppNotification('Adding to Sonarr...');
-            try {
-                u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
-                
-                let tvdbId = activeItem.tvdbId;
-                if (!tvdbId) {
-                    let tmdbKey = localStorage.getItem('tmdb_key');
-                    if (tmdbKey) {
-                        let extRes = await fetch(`https://api.themoviedb.org/3/tv/${activeItem.tmdbId || activeItem.id}/external_ids?api_key=${tmdbKey.trim()}`);
-                        let extData = await extRes.json();
-                        tvdbId = extData.tvdb_id;
-                    }
-                }
-                if (!tvdbId) return showAppNotification('Missing TVDB ID for Sonarr');
-
-                let rootFolderRes = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`);
-                let rootFolders = await rootFolderRes.json();
-                let rootFolderPath = rootFolders.length > 0 ? rootFolders[0].path : '';
-
-                let profileRes = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`);
-                let profiles = await profileRes.json();
-                let qualityProfileId = profiles.length > 0 ? profiles[0].id : 1;
-
-                let payload = {
-                    title: activeItem.title,
-                    tvdbId: parseInt(tvdbId, 10),
-                    qualityProfileId: qualityProfileId,
-                    rootFolderPath: rootFolderPath,
-                    monitored: true,
-                    addOptions: { searchForMissingEpisodes: true }
-                };
-
-                let res = await fetch(`${u}/api/v3/series?apiKey=${k}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (res.ok || res.status === 201) {
-                    showAppNotification('Successfully Added to Sonarr!');
-                    let existsIdx = myShows.findIndex(s => String(s.id) === String(activeItem.id) || (s.tmdbId && String(s.tmdbId) === String(activeItem.tmdbId)));
-                    if(existsIdx < 0) {
-                        myShows.push({ ...activeItem, tvdbId: tvdbId, hasFile: false });
-                        localStorage.setItem('local_shows', JSON.stringify(myShows));
-                        render();
-                    }
-                } else {
-                    let err = await res.json();
-                    showAppNotification('Sonarr Error: ' + (err[0]?.errorMessage || res.statusText));
-                }
-            } catch (e) { showAppNotification('Failed to connect to Sonarr'); }
-        };
-
-        window.playOnJellyfin = function() {
-            let u = localStorage.getItem('jf_url');
-            if (!u) return showAppNotification('Jellyfin URL not configured.');
-            u = u.replace(/\/$/, ""); if (!u.startsWith('http')) u = 'http://' + u;
-            
-            if (activeItem.id && String(activeItem.id).length > 15 && !activeItem.tmdbId) { 
-                window.open(`${u}/web/index.html#!/details?id=${activeItem.id}`, '_blank');
-            } else {
-                window.open(`${u}/web/index.html#!/search.html?query=${encodeURIComponent(activeItem.title)}`, '_blank');
-            }
-            showAppNotification('Opening Jellyfin...');
-        };
 
         function render() {
             let out = document.getElementById('view-root'), body = '', modal = '';
@@ -1266,10 +1135,18 @@
                 if (currentMediaMode === 'movies') {
                     let watchedMovies = [...customWatchedHistory];
                     let downloadedMovies = myCollection.filter(m => m.hasFile === true);
-                    let comingSoonMovies = myCollection.filter(m => !m.hasFile);
+                    
+                    let comingSoonMovies = [];
+                    let seenIds = new Set();
+                    calendarEvents.forEach(ev => {
+                        if (ev.mediaType === 'movie' && ev.tmdbId && !seenIds.has(ev.tmdbId)) {
+                            seenIds.add(ev.tmdbId);
+                            comingSoonMovies.push({ id: ev.id, tmdbId: ev.tmdbId, title: ev.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: ev.posterPath, year: ev.date ? ev.date.getFullYear() : '' });
+                        }
+                    });
                     
                     let filteredCollection = currentSubTab === 'watched' ? watchedMovies : (currentSubTab === 'downloaded' ? downloadedMovies : comingSoonMovies);
-                    let poolName = currentSubTab === 'watched' ? 'watched_track' : 'library';
+                    let poolName = currentSubTab === 'comingsoon' ? 'calendar' : (currentSubTab === 'watched' ? 'watched_track' : 'library');
                     
                     if (watchedSortMode === 'alpha') { filteredCollection.sort((a, b) => (a.title || '').localeCompare(b.title || '')); }
                     else if (watchedSortMode === 'year_desc') { filteredCollection.sort((a, b) => parseNumericYear(b) - parseNumericYear(a)); }
@@ -1319,14 +1196,25 @@
                     mediaBodyContent = staticMainTabsHtml + tabBodyContent;
 
                 } else if (currentMediaMode === 'shows') {
-                    let filteredShows = currentShowSubTab === 'downloaded' ? myShows.filter(s => s.hasFile) : myShows.filter(s => !s.hasFile);
+                    let comingSoonShows = [];
+                    let seenTvIds = new Set();
+                    calendarEvents.forEach(ev => {
+                        if (ev.mediaType === 'tv' && ev.tvdbId && !seenTvIds.has(ev.tvdbId)) {
+                            seenTvIds.add(ev.tvdbId);
+                            comingSoonShows.push({ id: ev.id, tmdbId: ev.tmdbId, tvdbId: ev.tvdbId, title: ev.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: ev.posterPath, year: ev.date ? ev.date.getFullYear() : '' });
+                        }
+                    });
+                    
+                    let filteredShows = currentShowSubTab === 'downloaded' ? myShows.filter(s => s.hasFile) : comingSoonShows;
+                    let poolShows = currentShowSubTab === 'comingsoon' ? 'calendar' : 'shows';
+                    
                     mediaBodyContent = `
                         <div class="stats-grid">
                             <div onclick="switchShowSubTab('downloaded')" class="stat-card ${currentShowSubTab === 'downloaded' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#10b981;">${myShows.filter(s => s.hasFile).length}</div><div class="stat-lbl">Downloaded</div></div>
-                            <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${myShows.filter(s => !s.hasFile).length}</div><div class="stat-lbl">Coming Soon</div></div>
+                            <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab === 'comingsoon' ? 'active-sub-tab' : ''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; margin-bottom:12px;"><h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin:0; font-weight:800; padding-left:4px; letter-spacing:0.5px;">TV Library (${filteredShows.length})</h2></div>
-                        <div class="movie-grid">` + (filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map(s => `<div class="movie-card movie-trigger" data-pool="shows" data-id="${s.id}"><div class="poster-slot"><img src="${s.posterPath || ''}" class="grid-poster-img"></div><div class="grid-card-details">${s.title}</div></div>`).join('')) + `</div>`;
+                        <div class="movie-grid">` + (filteredShows.length === 0 ? `<div style="grid-column:span 2; text-align:center; padding:35px; color:#64748b; font-size:12px;">Empty category.</div>` : filteredShows.map(s => `<div class="movie-card movie-trigger" data-pool="${poolShows}" data-id="${s.id}"><div class="poster-slot"><img src="${s.posterPath || ''}" class="grid-poster-img"></div><div class="grid-card-details">${s.title}</div></div>`).join('')) + `</div>`;
                 } else if (currentMediaMode === 'foryou') {
                     let subTabHtml = `<div class="stats-grid" style="margin-bottom: 16px;"><div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab === 'movies' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">Movies</div></div><div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab === 'shows' ? 'active-sub-tab' : ''}"><div class="stat-lbl" style="font-size:12px; margin:0; font-weight:800;">TV Shows</div></div></div>`;
                     if (currentForYouSubTab === 'movies') {
