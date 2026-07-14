@@ -107,7 +107,6 @@
         let myCollectionsCache = JSON.parse(localStorage.getItem('my_collections_cache')) || {};
         let movieTracks = { "Action": [], "Comedy": [], "Drama": [], "Adventure": [], "Sci-Fi": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [], "2010s": [], "2020s": [] };
         let tvTracks = { "Action": [], "Comedy": [], "Drama": [], "1960s": [], "1970s": [], "1980s": [], "1990s": [], "2000s": [], "2010s": [], "2020s": [] };
-
         window.isItemMatch = function(a, b) {
             if(!a || !b) return false;
             if(a.tmdbId && b.tmdbId && String(a.tmdbId) === String(b.tmdbId)) return true;
@@ -157,6 +156,21 @@
             }
         };
 
+        fetch('./letterboxd_likes.json') 
+          .then(response => {
+              if (!response.ok) throw new Error("Network response was not ok");
+              return response.json();
+          })
+          .then(data => { 
+              letterboxdData = data; 
+              window.syncFeeds();
+              render();
+          })
+          .catch(err => {
+              console.error("Error loading JSON:", err);
+              setTimeout(() => showAppNotification('Missing letterboxd_likes.json file in folder!'), 2000);
+          });
+
         function switchMode(m) { 
             currentMediaMode = m; 
             localStorage.setItem('mode_tab', m); 
@@ -179,6 +193,7 @@
         function showAppNotification(txt) { let b = document.getElementById('app-toast-banner'); if(!b) return; b.innerText = txt; b.classList.add('toast-show-active'); setTimeout(() => b.classList.remove('toast-show-active'), 3000); }
         function formatBytes(b) { if(!+b) return '0 B'; let k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(b) / Math.log(k)); return `${parseFloat((b / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`; }
         function parseNumericYear(i) { if(!i) return 0; let v = i.realYear || i.year; return v ? parseInt(String(v).replace(/\D/g, ""), 10) || 0 : 0; }
+
         window.syncJellyfinLibrary = async function() {
             let u = localStorage.getItem('jf_url'); let k = localStorage.getItem('jf_key');
             if(!u || !k) return; u = u.trim().replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
@@ -539,9 +554,9 @@
             } else if (currentMediaMode === 'foryou') {
                 let tabs = `<div class="stats-grid"><div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab==='movies'?'active-sub-tab':''}"><div class="stat-lbl">Movies</div></div><div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab==='shows'?'active-sub-tab':''}"><div class="stat-lbl">TV Shows</div></div></div>`;
                 if(currentForYouSubTab === 'movies') {
-                    body = tabs + renderRow("Friends' Picks", friendRowData, true, 'friend') + Object.entries(movieTracks).map(([t, m]) => renderRow(t, m, false, 'discover_movie')).join('') + renderRow("Foreign Cinema", window.foreignMoviesData||[], false, 'Foreign Cinema') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); window.syncFeeds(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
+                    body = tabs + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + renderRow("Friends' Picks", friendRowData, true, 'friend') + Object.entries(movieTracks).map(([t, m]) => renderRow(t, m, false, 'discover_movie')).join('') + renderRow("Foreign Cinema", window.foreignMoviesData||[], false, 'Foreign Cinema') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); window.syncFeeds(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                 } else {
-                    body = tabs + Object.entries(tvTracks).map(([t, s]) => renderRow(t, s, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
+                    body = tabs + `<h2 style="font-size:12px; color:#94a3b8; text-transform:uppercase; margin-bottom:16px; padding-left:4px; letter-spacing:0.5px;">Curation Tracks</h2>` + Object.entries(tvTracks).map(([t, s]) => renderRow(t, s, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                 }
             } else if (currentMediaMode === 'downloads') {
                 body = activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b;">No active entries</div>` : `<div style="display:flex; flex-direction:column; gap:12px;">` + activeTorrents.map(t => {
