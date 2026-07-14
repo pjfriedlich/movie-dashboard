@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Media Tracker Dashboard</title>
-    <link rel="manifest" href="manifest.json?v=19">
+    <link rel="manifest" href="manifest.json?v=20">
     <style>
         html, body { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px 8px 125px 8px; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
         .header { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(15, 23, 42, 0.08); padding-bottom: 14px; margin-bottom: 20px; box-sizing: border-box; gap: 12px; }
@@ -89,7 +89,7 @@
         <button onclick="switchMode('settings')" class="nav-btn" id="nav-settings"><div class="nav-icon-wrapper"><svg class="nav-svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.16.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.16-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38, 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>Settings</button>
     </div>
     <script>
-        let letterboxdData = {}, friendRowData = [], activeTorrents = [], searchResultsData = [], calendarEvents = [];
+        let letterboxdData = null, friendRowData = [], activeTorrents = [], searchResultsData = [], calendarEvents = [];
         let jfLibraryMovies = [], jfLibraryShows = [];
         window.foreignMoviesData = [];
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendName = null;
@@ -117,54 +117,61 @@
 
         window.syncFeeds = function() {
             let lbLinks = localStorage.getItem('lb_links') || '';
-            let configuredUsers = lbLinks.split(/[\n,\s\t,]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
+            let configuredUsers = lbLinks.split(/[\n,\s\t]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
             let newFriendData = [];
             
-            if(letterboxdData) {
-                let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(i => [i.username || i.user, i]) : Object.entries(letterboxdData);
-                
-                iterable.forEach(([user, lists]) => {
-                    if (!user) return;
-                    let clean = String(user).trim().toLowerCase().replace('@', '');
-                    
-                    // Resilient Fallback: If settings usernames are missing or blank on this origin, load ALL users found in the json file automatically
-                    if(configuredUsers.length === 0 || configuredUsers.includes(clean)) {
-                        let moviesArray = lists.highly_rated || lists.movies || (Array.isArray(lists) ? lists : []);
-                        if (Array.isArray(moviesArray)) {
-                            moviesArray.forEach(movie => {
-                                if(movie && movie.title && !newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
-                                    newFriendData.push({ id: movie.title, title: movie.title, rating: movie.rating || '0.0', posterPath: movie.posterPath || '', mediaType: 'movie' });
+            try {
+                if(letterboxdData) {
+                    if (Array.isArray(letterboxdData) && letterboxdData.length > 0 && letterboxdData[0].title) {
+                        letterboxdData.forEach(movie => {
+                            if(movie && movie.title && !newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
+                                newFriendData.push({ id: movie.title, title: movie.title, rating: movie.rating || '0.0', posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''), mediaType: 'movie' });
+                            }
+                        });
+                    } else {
+                        let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(i => [i.username || i.user || 'Unknown', i]) : Object.entries(letterboxdData);
+                        iterable.forEach(([user, lists]) => {
+                            if (!user) user = 'Unknown';
+                            let clean = String(user).trim().toLowerCase().replace('@', '');
+                            if(configuredUsers.length === 0 || configuredUsers.includes(clean) || user === 'Unknown') {
+                                let moviesArray = (lists && lists.highly_rated) || (lists && lists.movies) || (Array.isArray(lists) ? lists : []);
+                                if (Array.isArray(moviesArray)) {
+                                    moviesArray.forEach(movie => {
+                                        if(movie && movie.title && !newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
+                                            newFriendData.push({ id: movie.title, title: movie.title, rating: movie.rating || '0.0', posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''), mediaType: 'movie' });
+                                        }
+                                    });
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
-                });
-                
-                friendRowData = newFriendData;
-                
-                let tk = localStorage.getItem('tmdb_key');
-                if(tk && friendRowData.length > 0) {
-                    friendRowData.forEach((m, idx) => {
-                        if (!m.tmdbId) {
-                            fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(m.title)}`)
-                            .then(r=>r.json()).then(d => {
-                                if(d.results && d.results[0]) {
-                                    friendRowData[idx].tmdbId = d.results[0].id;
-                                    friendRowData[idx].posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
-                                    friendRowData[idx].overview = d.results[0].overview;
-                                    friendRowData[idx].rating = d.results[0].vote_average ? d.results[0].vote_average.toFixed(1) : '0.0';
-                                    if(currentMediaMode === 'foryou') render();
-                                }
-                            }).catch(()=>{});
-                        }
-                    });
+                    friendRowData = newFriendData;
+                    
+                    let tk = localStorage.getItem('tmdb_key');
+                    if(tk && friendRowData.length > 0) {
+                        friendRowData.forEach((m, idx) => {
+                            if (!m.tmdbId && !m.fetching) {
+                                friendRowData[idx].fetching = true;
+                                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(m.title)}`)
+                                .then(r=>r.json()).then(d => {
+                                    if(d.results && d.results[0]) {
+                                        friendRowData[idx].tmdbId = d.results[0].id;
+                                        friendRowData[idx].posterPath = d.results[0].poster_path ? 'https://image.tmdb.org/t/p/w500'+d.results[0].poster_path : '';
+                                        friendRowData[idx].overview = d.results[0].overview;
+                                        friendRowData[idx].rating = d.results[0].vote_average ? d.results[0].vote_average.toFixed(1) : '0.0';
+                                        if(currentMediaMode === 'foryou') render();
+                                    }
+                                }).catch(()=>{});
+                            }
+                        });
+                    }
                 }
-            }
+            } catch(e) { console.error("Error formatting feed:", e); }
         };
 
         fetch('./letterboxd_data.json') 
           .then(response => {
-              if (!response.ok) throw new Error("Network response was not ok");
+              if (!response.ok) throw new Error("Network response not ok");
               return response.json();
           })
           .then(data => { 
@@ -173,8 +180,7 @@
               render();
           })
           .catch(err => {
-              console.error("Error loading JSON:", err);
-              setTimeout(() => showAppNotification('Missing letterboxd_data.json file in folder!'), 2000);
+              console.error("JSON missing or malformed:", err);
           });
 
         function switchMode(m) { 
@@ -216,20 +222,16 @@
                 if (data && data.Items) {
                     data.Items.forEach(item => {
                         let posterPath = `${u}/Items/${item.Id}/Images/Primary`;
-                        let tmdbId = item.ProviderIds ? item.ProviderIds.Tmdb : null;
-                        let tvdbId = item.ProviderIds ? item.ProviderIds.Tvdb : null;
-                        
                         let mappedItem = {
-                            id: item.Id, tmdbId: tmdbId, tvdbId: tvdbId, title: item.Name, year: item.ProductionYear, overview: item.Overview, posterPath: posterPath, mediaType: item.Type === 'Movie' ? 'movie' : 'tv', hasFile: true
+                            id: item.Id, tmdbId: item.ProviderIds ? item.ProviderIds.Tmdb : null, tvdbId: item.ProviderIds ? item.ProviderIds.Tvdb : null, 
+                            title: item.Name, year: item.ProductionYear, overview: item.Overview, posterPath: posterPath, mediaType: item.Type === 'Movie' ? 'movie' : 'tv', hasFile: true
                         };
-                        
-                        if (item.Type === 'Movie') movies.push(mappedItem);
-                        else if (item.Type === 'Series') shows.push(mappedItem);
+                        if (item.Type === 'Movie') movies.push(mappedItem); else shows.push(mappedItem);
                     });
                 }
                 jfLibraryMovies = movies; jfLibraryShows = shows;
                 if (currentMediaMode === 'movies' || currentMediaMode === 'shows') render();
-            } catch(e) { console.error("Jellyfin Library Sync Error", e); }
+            } catch(e) {}
         };
         window.syncDownloadQueue = async function() {
             let rUrl = localStorage.getItem('radarr_url'), rKey = localStorage.getItem('radarr_key');
@@ -260,40 +262,31 @@
             let dEnd = new Date(); dEnd.setMonth(dEnd.getMonth() + 3);
             let endStr = `${dEnd.getFullYear()}-${String(dEnd.getMonth() + 1).padStart(2,'0')}-01`;
             let newEvents = []; 
-            if (rUrl && rKey) {
-                try {
-                    let res = await fetch(`${rUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${rKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
-                    let movies = await res.json();
+            try {
+                if (rUrl && rKey) {
+                    let movies = await fetch(`${rUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${rKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`).then(r=>r.json()).catch(()=>[]);
                     if (Array.isArray(movies)) {
                         movies.forEach(m => {
                             let posterObj = m.images?.find(i => i.coverType === 'poster') || m.images?.[0];
-                            let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
                             let relDate = m.inCinemas || m.digitalRelease || m.physicalRelease;
-                            if (relDate) newEvents.push({ id: 'rad_'+m.id, title: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: poster, date: new Date(relDate) });
+                            if (relDate) newEvents.push({ id: 'rad_'+m.id, title: m.title, tmdbId: m.tmdbId, mediaType: 'movie', posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '', date: new Date(relDate) });
                         });
                     }
-                } catch(e) {}
-            }
-            if (sUrl && sKey) {
-                try {
-                    let sRes = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`); 
-                    let sData = await sRes.json(); 
+                }
+                if (sUrl && sKey) {
+                    let sData = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/series?apiKey=${sKey.trim()}`).then(r=>r.json()).catch(()=>[]); 
                     let seriesMap = {};
                     if (Array.isArray(sData)) { sData.forEach(s => seriesMap[s.id] = s); }
-                    
-                    let res = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${sKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`);
-                    let eps = await res.json();
+                    let eps = await fetch(`${sUrl.trim().replace(/\/$/, "")}/api/v3/calendar?apiKey=${sKey.trim()}&start=${startStr}&end=${endStr}&unmonitored=false`).then(r=>r.json()).catch(()=>[]);
                     if (Array.isArray(eps)) {
                         eps.forEach(e => {
                             let sObj = seriesMap[e.seriesId] || e.series;
                             let posterObj = sObj?.images?.find(i => i.coverType === 'poster') || sObj?.images?.[0];
-                            let poster = posterObj ? (posterObj.remoteUrl || posterObj.url) : '';
-                            let dt = new Date(e.airDateUtc || e.airDate);
-                            newEvents.push({ id: 'son_'+e.id, title: sObj ? sObj.title : 'Unknown', tmdbId: sObj?.tmdbId, tvdbId: sObj?.tvdbId, mediaType: 'tv', posterPath: poster, date: dt });
+                            newEvents.push({ id: 'son_'+e.id, title: sObj ? sObj.title : 'Unknown', tmdbId: sObj?.tmdbId, tvdbId: sObj?.tvdbId, mediaType: 'tv', posterPath: posterObj ? (posterObj.remoteUrl || posterObj.url) : '', date: new Date(e.airDateUtc || e.airDate) });
                         });
                     }
-                } catch(e) {}
-            }
+                }
+            } catch(e) {}
             calendarEvents = newEvents;
             if (currentMediaMode === 'movies' || currentMediaMode === 'shows') render();
         }
@@ -303,46 +296,166 @@
             let idx = Math.floor(Math.random() * 5) + 1;
             const mM = m => ({ id: m.id, tmdbId: m.id, title: m.title, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'0.0', overview: m.overview, mediaType: 'movie', year: m.release_date?m.release_date.split('-')[0]:'' });
             const mT = m => ({ id: m.id, tmdbId: m.id, title: m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '', rating: m.vote_average?m.vote_average.toFixed(1):'0.0', overview: m.overview, mediaType: 'tv', year: m.first_air_date?m.first_air_date.split('-')[0]:'' });
+            
+            const safeFetch = async (url) => { try { let r = await fetch(url); return await r.json(); } catch(e) { return { results: [] }; } };
+
+            let [act, com, dram, adv, sci, m60, m70, m80, m90, m00, m10, m20, foreignMovies, tvAct, tvCom, tvDram, t60, t70, t80, t90, t00, t10, t20] = await Promise.all([
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=28&with_original_language=en&region=US&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=35&with_original_language=en&region=US&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=18&with_original_language=en&region=US&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=12&with_original_language=en&region=US&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=878&with_original_language=en&region=US&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1960-01-01&primary_release_date.lte=1969-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1970-01-01&primary_release_date.lte=1979-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1980-01-01&primary_release_date.lte=1989-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2020-01-01&primary_release_date.lte=2026-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&without_original_language=en&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=10759&with_origin_country=US|GB&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=35&with_origin_country=US|GB&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=18&with_origin_country=US|GB&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1960-01-01&first_air_date.lte=1969-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1970-01-01&first_air_date.lte=1979-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1980-01-01&first_air_date.lte=1989-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1990-01-01&first_air_date.lte=1999-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2000-01-01&first_air_date.lte=2009-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2010-01-01&first_air_date.lte=2019-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`),
+                safeFetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2020-01-01&first_air_date.lte=2026-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`)
+            ]);
+
+            movieTracks["Action"] = act.results?act.results.map(mM):[]; movieTracks["Comedy"] = com.results?com.results.map(mM):[];
+            movieTracks["Drama"] = dram.results?dram.results.map(mM):[]; movieTracks["Adventure"] = adv.results?adv.results.map(mM):[];
+            movieTracks["Sci-Fi"] = sci.results?sci.results.map(mM):[]; movieTracks["1960s"] = m60.results?m60.results.map(mM):[];
+            movieTracks["1970s"] = m70.results?m70.results.map(mM):[]; movieTracks["1980s"] = m80.results?m80.results.map(mM):[];
+            movieTracks["1990s"] = m90.results?m90.results.map(mM):[]; movieTracks["2000s"] = m00.results?m00.results.map(mM):[];
+            movieTracks["2010s"] = m10.results?m10.results.map(mM):[]; movieTracks["2020s"] = m20.results?m20.results.map(mM):[];
+            window.foreignMoviesData = foreignMovies.results?foreignMovies.results.map(mM):[];
+            tvTracks["Action"] = tvAct.results?tvAct.results.map(mT):[]; tvTracks["Comedy"] = tvCom.results?tvCom.results.map(mT):[];
+            tvTracks["Drama"] = tvDram.results?tvDram.results.map(mT):[]; tvTracks["1960s"] = t60.results?t60.results.map(mT):[];
+            tvTracks["1970s"] = t70.results?t70.results.map(mT):[]; tvTracks["1980s"] = t80.results?t80.results.map(mT):[];
+            tvTracks["1990s"] = t90.results?t90.results.map(mT):[]; tvTracks["2000s"] = t00.results?t00.results.map(mT):[];
+            tvTracks["2010s"] = t10.results?t10.results.map(mT):[]; tvTracks["2020s"] = t20.results?t20.results.map(mT):[];
+            
+            if(currentMediaMode === 'foryou') render();
+        }
+
+        async function triggerUniversalSearch(q) {
+            let tk = localStorage.getItem('tmdb_key'); if(!tk || !q.trim()) return;
             try {
-                let [act, com, dram, adv, sci, m60, m70, m80, m90, m00, m10, m20, foreignMovies, tvAct, tvCom, tvDram, t60, t70, t80, t90, t00, t10, t20] = await Promise.all([
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=28&with_original_language=en&region=US&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=35&with_original_language=en&region=US&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=18&with_original_language=en&region=US&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=12&with_original_language=en&region=US&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&with_genres=878&with_original_language=en&region=US&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1960-01-01&primary_release_date.lte=1969-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1970-01-01&primary_release_date.lte=1979-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1980-01-01&primary_release_date.lte=1989-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&primary_release_date.gte=2020-01-01&primary_release_date.lte=2026-12-31&with_original_language=en&region=US&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${tk}&without_original_language=en&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=10759&with_origin_country=US|GB&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=35&with_origin_country=US|GB&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&with_genres=18&with_origin_country=US|GB&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1960-01-01&first_air_date.lte=1969-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1970-01-01&first_air_date.lte=1979-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1980-01-01&first_air_date.lte=1989-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=1990-01-01&first_air_date.lte=1999-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2000-01-01&first_air_date.lte=2009-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2010-01-01&first_air_date.lte=2019-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json()),
-                    fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${tk}&first_air_date.gte=2020-01-01&first_air_date.lte=2026-12-31&with_origin_country=US|GB&sort_by=popularity.desc&page=${idx}`).then(r=>r.json())
-                ]);
-                movieTracks["Action"] = act.results?act.results.map(mM):[]; movieTracks["Comedy"] = com.results?com.results.map(mM):[];
-                movieTracks["Drama"] = dram.results?dram.results.map(mM):[]; movieTracks["Adventure"] = adv.results?adv.results.map(mM):[];
-                movieTracks["Sci-Fi"] = sci.results?sci.results.map(mM):[]; movieTracks["1960s"] = m60.results?m60.results.map(mM):[];
-                movieTracks["1970s"] = m70.results?m70.results.map(mM):[]; movieTracks["1980s"] = m80.results?m80.results.map(mM):[];
-                movieTracks["1990s"] = m90.results?m90.results.map(mM):[]; movieTracks["2000s"] = m00.results?m00.results.map(mM):[];
-                movieTracks["2010s"] = m10.results?m10.results.map(mM):[]; movieTracks["2020s"] = m20.results?m20.results.map(mM):[];
-                window.foreignMoviesData = foreignMovies.results?foreignMovies.results.map(mM):[];
-                tvTracks["Action"] = tvAct.results?tvAct.results.map(mT):[]; tvTracks["Comedy"] = tvCom.results?tvCom.results.map(mT):[];
-                tvTracks["Drama"] = tvDram.results?tvDram.results.map(mT):[]; tvTracks["1960s"] = t60.results?t60.results.map(mT):[];
-                tvTracks["1970s"] = t70.results?t70.results.map(mT):[]; tvTracks["1980s"] = t80.results?t80.results.map(mT):[];
-                tvTracks["1990s"] = t90.results?t90.results.map(mT):[]; tvTracks["2000s"] = t00.results?t00.results.map(mT):[];
-                tvTracks["2010s"] = t10.results?t10.results.map(mT):[]; tvTracks["2020s"] = t20.results?t20.results.map(mT):[];
+                let res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${tk.trim()}&query=${encodeURIComponent(q)}`);
+                let d = await res.json();
+                searchResultsData = (d.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').map(m => ({
+                    id: m.id, tmdbId: m.id, title: m.title || m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '',
+                    mediaType: m.media_type, year: (m.release_date || m.first_air_date || '').split('-')[0], overview: m.overview, rating: m.vote_average?m.vote_average.toFixed(1):'0.0'
+                }));
                 render();
             } catch(e){}
+        }
+
+        function launchModalFromAttributes(pool, id, track) {
+            activeItem = null;
+            if (pool === 'discover_movie') { activeItem = track === 'Foreign Cinema' ? (window.foreignMoviesData || []).find(m => String(m.id) === String(id)) : (movieTracks[track] || []).find(m => String(m.id) === String(id)); } 
+            else if (pool === 'discover_tv') { activeItem = (tvTracks[track] || []).find(m => String(m.id) === String(id)); } 
+            else if (pool === 'search') { activeItem = searchResultsData.find(m => String(m.id) === String(id)); } 
+            else if (pool === 'library') { activeItem = jfLibraryMovies.find(m => String(m.id) === String(id)) || myCollection.find(m => String(m.id) === String(id)); } 
+            else if (pool === 'watched_track') { activeItem = customWatchedHistory.find(m => String(m.id) === String(id)); } 
+            else if (pool === 'shows') { activeItem = jfLibraryShows.find(m => String(m.id) === String(id)) || myShows.find(m => String(m.id) === String(id)); } 
+            else if (pool === 'friend') { activeItem = friendRowData.find(m => String(m.id) === String(id) || String(m.title) === String(id)); } 
+            else if (pool === 'calendar') {
+                let calEv = calendarEvents.find(e => String(e.id) === String(id));
+                if (calEv) {
+                    activeItem = { id: calEv.tmdbId || calEv.id, tmdbId: calEv.tmdbId, tvdbId: calEv.tvdbId, title: calEv.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: calEv.posterPath, mediaType: calEv.mediaType || (calEv.id.startsWith('rad') ? 'movie' : 'tv'), year: calEv.date ? calEv.date.getFullYear() : '', rating: '0.0', overview: `Scheduled for: ${calEv.date ? calEv.date.toLocaleDateString() : 'Unknown'}` };
+                    let tk = localStorage.getItem('tmdb_key');
+                    if (tk && activeItem.tmdbId) {
+                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType === 'tv' ? 'tv' : 'movie'}/${activeItem.tmdbId}?api_key=${tk.trim()}`).then(r=>r.json()).then(d => {
+                            if (d && !d.status_code) { 
+                                activeItem.overview = d.overview || activeItem.overview; activeItem.rating = d.vote_average ? d.vote_average.toFixed(1) : '0.0';
+                                if (d.poster_path) activeItem.posterPath = 'https://image.tmdb.org/t/p/w500' + d.poster_path;
+                                if (modalOpen) render();
+                            }
+                        }).catch(()=>{});
+                    }
+                }
+            }
+            if(activeItem) {
+                modalOpen = true; render();
+                let ok = localStorage.getItem('omdb_key');
+                if(ok && !activeItem.omdbRatings) {
+                    let yr = parseNumericYear(activeItem);
+                    fetch(`https://www.omdbapi.com/?apikey=${ok.trim()}&t=${encodeURIComponent(activeItem.title)}${yr ? '&y='+yr : ''}`).then(r=>r.json()).then(d => {
+                        if (d.Response !== "False" && d.Ratings) { activeItem.omdbRatings = d.Ratings; if(modalOpen) render(); }
+                    }).catch(()=>{});
+                }
+            }
+        }
+
+        window.toggleWatchlist = function() {
+            if(!activeItem) return;
+            let idx = customWatchedHistory.findIndex(m => window.isItemMatch(m, activeItem));
+            if(idx >= 0) {
+                customWatchedHistory.splice(idx, 1);
+                let cId = localWatchedCache.findIndex(id => id === String(activeItem.tmdbId || activeItem.id)); if(cId >= 0) localWatchedCache.splice(cId, 1);
+                let cTl = localWatchedCache.findIndex(id => id === String(activeItem.title).toLowerCase().trim()); if(cTl >= 0) localWatchedCache.splice(cTl, 1);
+                showAppNotification('Removed from Watched List');
+            } else {
+                customWatchedHistory.push({...activeItem, hasFile: false});
+                if(activeItem.tmdbId || activeItem.id) localWatchedCache.push(String(activeItem.tmdbId || activeItem.id));
+                if(activeItem.title) localWatchedCache.push(String(activeItem.title).toLowerCase().trim());
+                showAppNotification('Added to Watched List');
+            }
+            localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
+            localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
+            render();
+        };
+
+        window.addToRadarr = async function() {
+            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if(!u || !k) return showAppNotification('Config Radarr first.');
+            try {
+                u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
+                let rf = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`).then(r=>r.json()), rPath = rf.length > 0 ? rf[0].path : '';
+                let qp = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`).then(r=>r.json()), qId = qp.length > 0 ? qp[0].id : 1;
+                let res = await fetch(`${u}/api/v3/movie?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: activeItem.title, tmdbId: parseInt(activeItem.tmdbId || activeItem.id, 10), qualityProfileId: qId, rootFolderPath: rPath, monitored: true, addOptions: { searchForMovie: true } })});
+                if(res.ok || res.status === 201) { showAppNotification('Added to Radarr!'); if(!myCollection.some(m => window.isItemMatch(m, activeItem))) { myCollection.push({...activeItem, hasFile: false}); localStorage.setItem('local_collection', JSON.stringify(myCollection)); render(); } }
+                else { let err = await res.json(); showAppNotification('Radarr Error: ' + (err[0]?.errorMessage || res.statusText)); }
+            } catch(e){ showAppNotification('Radarr Link Failed'); }
+        };
+
+        window.addToSonarr = async function() {
+            let u = localStorage.getItem('sonarr_url'), k = localStorage.getItem('sonarr_key'); if(!u || !k) return showAppNotification('Config Sonarr first.');
+            try {
+                u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
+                let tvdbId = activeItem.tvdbId;
+                if(!tvdbId) {
+                    let tmk = localStorage.getItem('tmdb_key');
+                    if(tmk) { let ext = await fetch(`https://api.themoviedb.org/3/tv/${activeItem.tmdbId || activeItem.id}/external_ids?api_key=${tmk.trim()}`).then(r=>r.json()); tvdbId = ext.tvdb_id; }
+                }
+                if(!tvdbId) return showAppNotification('Missing TVDB ID');
+                let rf = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`).then(r=>r.json()), rPath = rf.length > 0 ? rf[0].path : '';
+                let qp = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`).then(r=>r.json()), qId = qp.length > 0 ? qp[0].id : 1;
+                let res = await fetch(`${u}/api/v3/series?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: activeItem.title, tvdbId: parseInt(tvdbId, 10), qualityProfileId: qId, rootFolderPath: rPath, monitored: true, addOptions: { searchForMissingEpisodes: true } })});
+                if(res.ok || res.status === 201) { showAppNotification('Added to Sonarr!'); if(!myShows.some(s => window.isItemMatch(s, activeItem))) { myShows.push({...activeItem, tvdbId: tvdbId, hasFile: false}); localStorage.setItem('local_shows', JSON.stringify(myShows)); render(); } }
+                else { let err = await res.json(); showAppNotification('Sonarr Error: ' + (err[0]?.errorMessage || res.statusText)); }
+            } catch(e){ showAppNotification('Sonarr Link Failed'); }
+        };
+
+        window.playOnJellyfin = function() {
+            let u = localStorage.getItem('jf_url'); if(!u) return showAppNotification('Jellyfin URL missing.');
+            u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
+            if(activeItem.id && String(activeItem.id).length > 15 && !activeItem.tmdbId) window.open(`${u}/web/index.html#!/details?id=${activeItem.id}`, '_blank');
+            else window.open(`${u}/web/index.html#!/search.html?query=${encodeURIComponent(activeItem.title)}`, '_blank');
+        };
+
+        function renderRow(title, movies, isFriend = false, pool = 'discover_movie') {
+            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
+            if (displayList.length === 0) return '';
+            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '📦'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
+                let lookupKey = m.id || m.tmdbId || m.title;
+                let cleanYearNumeric = parseNumericYear(m);
+                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
+                return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
+            }).join('') + `</div></div>`;
         }
 
         function render() {
@@ -476,29 +589,28 @@
                     if(im) extra += `<span style="background:#f5c518; color:#000; padding:3px 8px; border-radius:6px; font-weight:800; font-size:11px;">IMDb ${im.Value}</span>`;
                 }
                 extra += `</div>`;
+                
                 let getFriendBadgeHtmlLocal = function() {
                     let badges = [];
-                    if (letterboxdData) {
-                        let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(item => [item.username || item.user, item]) : Object.entries(letterboxdData);
-                        for (let [user, data] of iterable) {
-                            if (data && data.highly_rated && data.highly_rated.some(m => String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
-                                badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+                    try {
+                        if (letterboxdData) {
+                            let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(i => [i.username || i.user || 'Unknown', i]) : Object.entries(letterboxdData);
+                            for (let [user, data] of iterable) {
+                                let arr = (data && data.highly_rated) || (data && data.movies) || (Array.isArray(data) ? data : []);
+                                if (Array.isArray(arr) && arr.some(m => m && m.title && String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
+                                    if(user !== 'Unknown') badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+                                }
                             }
                         }
-                    }
+                    } catch(e) {}
                     return badges.length > 0 ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${badges.join('')}</div>` : '';
                 };
 
                 let isW = customWatchedHistory.some(m => window.isItemMatch(m, activeItem));
-                
                 let actionButtons = '';
-                if (activeItem.mediaType === 'movie') {
-                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
-                } else if (activeItem.mediaType === 'tv') {
-                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToSonarr()">Add to Sonarr</button>`;
-                } else {
-                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
-                }
+                if (activeItem.mediaType === 'movie') { actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`; } 
+                else if (activeItem.mediaType === 'tv') { actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToSonarr()">Add to Sonarr</button>`; } 
+                else { actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`; }
                 actionButtons += `
                     <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="playOnJellyfin()">Stream on Player</button>
                     <button class="btn-action" style="background:${isW?'#ef4444':'#10b981'};" onclick="toggleWatchlist()">${isW?'Remove from Watched Matrix':'Add to Watched History'}</button>
