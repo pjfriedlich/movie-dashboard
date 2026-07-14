@@ -117,27 +117,33 @@
 
         window.syncFeeds = function() {
             let lbLinks = localStorage.getItem('lb_links') || '';
-            let configuredUsers = lbLinks.split(/[\n,\s\t]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
+            let configuredUsers = lbLinks.split(/[\n,\s\t,]+/).map(u => u.trim().toLowerCase().replace('@', '')).filter(u => u);
             let newFriendData = [];
             
             if(letterboxdData) {
                 let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(i => [i.username || i.user, i]) : Object.entries(letterboxdData);
+                
                 iterable.forEach(([user, lists]) => {
                     if (!user) return;
                     let clean = String(user).trim().toLowerCase().replace('@', '');
-                    if((configuredUsers.length === 0 || configuredUsers.includes(clean)) && lists && lists.highly_rated) {
-                        lists.highly_rated.forEach(movie => {
-                            if(!newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
-                                newFriendData.push({ id: movie.title, title: movie.title, rating: movie.rating || '0.0', posterPath: movie.posterPath || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : ''), mediaType: 'movie' });
-                            }
-                        });
+                    
+                    // Resilient Fallback: If settings usernames are missing or blank on this origin, load ALL users found in the json file automatically
+                    if(configuredUsers.length === 0 || configuredUsers.includes(clean)) {
+                        let moviesArray = lists.highly_rated || lists.movies || (Array.isArray(lists) ? lists : []);
+                        if (Array.isArray(moviesArray)) {
+                            moviesArray.forEach(movie => {
+                                if(movie && movie.title && !newFriendData.find(m => m.title.toLowerCase() === movie.title.toLowerCase())) {
+                                    newFriendData.push({ id: movie.title, title: movie.title, rating: movie.rating || '0.0', posterPath: movie.posterPath || '', mediaType: 'movie' });
+                                }
+                            });
+                        }
                     }
                 });
                 
                 friendRowData = newFriendData;
                 
                 let tk = localStorage.getItem('tmdb_key');
-                if(tk) {
+                if(tk && friendRowData.length > 0) {
                     friendRowData.forEach((m, idx) => {
                         if (!m.tmdbId) {
                             fetch(`https://api.themoviedb.org/3/search/movie?api_key=${tk.trim()}&query=${encodeURIComponent(m.title)}`)
@@ -214,27 +220,17 @@
                         let tvdbId = item.ProviderIds ? item.ProviderIds.Tvdb : null;
                         
                         let mappedItem = {
-                            id: item.Id,
-                            tmdbId: tmdbId,
-                            tvdbId: tvdbId,
-                            title: item.Name,
-                            year: item.ProductionYear,
-                            overview: item.Overview,
-                            posterPath: posterPath,
-                            mediaType: item.Type === 'Movie' ? 'movie' : 'tv',
-                            hasFile: true
+                            id: item.Id, tmdbId: tmdbId, tvdbId: tvdbId, title: item.Name, year: item.ProductionYear, overview: item.Overview, posterPath: posterPath, mediaType: item.Type === 'Movie' ? 'movie' : 'tv', hasFile: true
                         };
                         
                         if (item.Type === 'Movie') movies.push(mappedItem);
                         else if (item.Type === 'Series') shows.push(mappedItem);
                     });
                 }
-                jfLibraryMovies = movies;
-                jfLibraryShows = shows;
+                jfLibraryMovies = movies; jfLibraryShows = shows;
                 if (currentMediaMode === 'movies' || currentMediaMode === 'shows') render();
             } catch(e) { console.error("Jellyfin Library Sync Error", e); }
         };
-
         window.syncDownloadQueue = async function() {
             let rUrl = localStorage.getItem('radarr_url'), rKey = localStorage.getItem('radarr_key');
             let sUrl = localStorage.getItem('sonarr_url'), sKey = localStorage.getItem('sonarr_key');
@@ -347,137 +343,6 @@
                 tvTracks["2010s"] = t10.results?t10.results.map(mT):[]; tvTracks["2020s"] = t20.results?t20.results.map(mT):[];
                 render();
             } catch(e){}
-        }
-
-        async function triggerUniversalSearch(q) {
-            let tk = localStorage.getItem('tmdb_key'); if(!tk || !q.trim()) return;
-            try {
-                let res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${tk.trim()}&query=${encodeURIComponent(q)}`);
-                let d = await res.json();
-                searchResultsData = (d.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').map(m => ({
-                    id: m.id, tmdbId: m.id, title: m.title || m.name, posterPath: m.poster_path ? 'https://image.tmdb.org/t/p/w500'+m.poster_path : '',
-                    mediaType: m.media_type, year: (m.release_date || m.first_air_date || '').split('-')[0], overview: m.overview, rating: m.vote_average?m.vote_average.toFixed(1):'0.0'
-                }));
-                render();
-            } catch(e){}
-        }
-
-        function launchModalFromAttributes(pool, id, track) {
-            activeItem = null;
-            if (pool === 'discover_movie') {
-                activeItem = track === 'Foreign Cinema' ? (window.foreignMoviesData || []).find(m => String(m.id) === String(id)) : (movieTracks[track] || []).find(m => String(m.id) === String(id));
-            } else if (pool === 'discover_tv') {
-                activeItem = (tvTracks[track] || []).find(m => String(m.id) === String(id));
-            } else if (pool === 'search') {
-                activeItem = searchResultsData.find(m => String(m.id) === String(id));
-            } else if (pool === 'library') {
-                activeItem = jfLibraryMovies.find(m => String(m.id) === String(id)) || myCollection.find(m => String(m.id) === String(id));
-            } else if (pool === 'watched_track') {
-                activeItem = customWatchedHistory.find(m => String(m.id) === String(id));
-            } else if (pool === 'shows') {
-                activeItem = jfLibraryShows.find(m => String(m.id) === String(id)) || myShows.find(m => String(m.id) === String(id));
-            } else if (pool === 'friend') {
-                activeItem = friendRowData.find(m => String(m.id) === String(id) || String(m.title) === String(id));
-            } else if (pool === 'calendar') {
-                let calEv = calendarEvents.find(e => String(e.id) === String(id));
-                if (calEv) {
-                    activeItem = {
-                        id: calEv.tmdbId || calEv.id, tmdbId: calEv.tmdbId, tvdbId: calEv.tvdbId,
-                        title: calEv.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: calEv.posterPath,
-                        mediaType: calEv.mediaType || (calEv.id.startsWith('rad') ? 'movie' : 'tv'),
-                        year: calEv.date ? calEv.date.getFullYear() : '', rating: '0.0', 
-                        overview: `Scheduled for: ${calEv.date ? calEv.date.toLocaleDateString() : 'Unknown'}`
-                    };
-                    let tk = localStorage.getItem('tmdb_key');
-                    if (tk && activeItem.tmdbId) {
-                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType === 'tv' ? 'tv' : 'movie'}/${activeItem.tmdbId}?api_key=${tk.trim()}`)
-                        .then(r=>r.json()).then(d => {
-                            if (d && !d.status_code) { 
-                                activeItem.overview = d.overview || activeItem.overview;
-                                activeItem.rating = d.vote_average ? d.vote_average.toFixed(1) : '0.0';
-                                if (d.poster_path) activeItem.posterPath = 'https://image.tmdb.org/t/p/w500' + d.poster_path;
-                                if (modalOpen) render();
-                            }
-                        }).catch(()=>{});
-                    }
-                }
-            }
-            if(activeItem) {
-                modalOpen = true; render();
-                let ok = localStorage.getItem('omdb_key');
-                if(ok && !activeItem.omdbRatings) {
-                    let yr = parseNumericYear(activeItem);
-                    fetch(`https://www.omdbapi.com/?apikey=${ok.trim()}&t=${encodeURIComponent(activeItem.title)}${yr ? '&y='+yr : ''}`).then(r=>r.json()).then(d => {
-                        if (d.Response !== "False" && d.Ratings) { activeItem.omdbRatings = d.Ratings; if(modalOpen) render(); }
-                    }).catch(()=>{});
-                }
-            }
-        }
-        window.toggleWatchlist = function() {
-            if(!activeItem) return;
-            let idx = customWatchedHistory.findIndex(m => window.isItemMatch(m, activeItem));
-            if(idx >= 0) {
-                customWatchedHistory.splice(idx, 1);
-                let cId = localWatchedCache.findIndex(id => id === String(activeItem.tmdbId || activeItem.id)); if(cId >= 0) localWatchedCache.splice(cId, 1);
-                let cTl = localWatchedCache.findIndex(id => id === String(activeItem.title).toLowerCase().trim()); if(cTl >= 0) localWatchedCache.splice(cTl, 1);
-                showAppNotification('Removed from Watched List');
-            } else {
-                customWatchedHistory.push({...activeItem, hasFile: false});
-                if(activeItem.tmdbId || activeItem.id) localWatchedCache.push(String(activeItem.tmdbId || activeItem.id));
-                if(activeItem.title) localWatchedCache.push(String(activeItem.title).toLowerCase().trim());
-                showAppNotification('Added to Watched List');
-            }
-            localStorage.setItem('custom_watched_history', JSON.stringify(customWatchedHistory));
-            localStorage.setItem('local_watched_cache', JSON.stringify(localWatchedCache));
-            render();
-        };
-
-        window.addToRadarr = async function() {
-            let u = localStorage.getItem('radarr_url'), k = localStorage.getItem('radarr_key'); if(!u || !k) return showAppNotification('Config Radarr first.');
-            try {
-                u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
-                let rf = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`).then(r=>r.json()), rPath = rf.length > 0 ? rf[0].path : '';
-                let qp = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`).then(r=>r.json()), qId = qp.length > 0 ? qp[0].id : 1;
-                let res = await fetch(`${u}/api/v3/movie?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: activeItem.title, tmdbId: parseInt(activeItem.tmdbId || activeItem.id, 10), qualityProfileId: qId, rootFolderPath: rPath, monitored: true, addOptions: { searchForMovie: true } })});
-                if(res.ok || res.status === 201) { showAppNotification('Added to Radarr!'); if(!myCollection.some(m => window.isItemMatch(m, activeItem))) { myCollection.push({...activeItem, hasFile: false}); localStorage.setItem('local_collection', JSON.stringify(myCollection)); render(); } }
-                else { let err = await res.json(); showAppNotification('Radarr Error: ' + (err[0]?.errorMessage || res.statusText)); }
-            } catch(e){ showAppNotification('Radarr Link Failed'); }
-        };
-
-        window.addToSonarr = async function() {
-            let u = localStorage.getItem('sonarr_url'), k = localStorage.getItem('sonarr_key'); if(!u || !k) return showAppNotification('Config Sonarr first.');
-            try {
-                u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
-                let tvdbId = activeItem.tvdbId;
-                if(!tvdbId) {
-                    let tmk = localStorage.getItem('tmdb_key');
-                    if(tmk) { let ext = await fetch(`https://api.themoviedb.org/3/tv/${activeItem.tmdbId || activeItem.id}/external_ids?api_key=${tmk.trim()}`).then(r=>r.json()); tvdbId = ext.tvdb_id; }
-                }
-                if(!tvdbId) return showAppNotification('Missing TVDB ID');
-                let rf = await fetch(`${u}/api/v3/rootfolder?apiKey=${k}`).then(r=>r.json()), rPath = rf.length > 0 ? rf[0].path : '';
-                let qp = await fetch(`${u}/api/v3/qualityprofile?apiKey=${k}`).then(r=>r.json()), qId = qp.length > 0 ? qp[0].id : 1;
-                let res = await fetch(`${u}/api/v3/series?apiKey=${k}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: activeItem.title, tvdbId: parseInt(tvdbId, 10), qualityProfileId: qId, rootFolderPath: rPath, monitored: true, addOptions: { searchForMissingEpisodes: true } })});
-                if(res.ok || res.status === 201) { showAppNotification('Added to Sonarr!'); if(!myShows.some(s => window.isItemMatch(s, activeItem))) { myShows.push({...activeItem, tvdbId: tvdbId, hasFile: false}); localStorage.setItem('local_shows', JSON.stringify(myShows)); render(); } }
-                else { let err = await res.json(); showAppNotification('Sonarr Error: ' + (err[0]?.errorMessage || res.statusText)); }
-            } catch(e){ showAppNotification('Sonarr Link Failed'); }
-        };
-
-        window.playOnJellyfin = function() {
-            let u = localStorage.getItem('jf_url'); if(!u) return showAppNotification('Jellyfin URL missing.');
-            u = u.replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
-            if(activeItem.id && String(activeItem.id).length > 15 && !activeItem.tmdbId) window.open(`${u}/web/index.html#!/details?id=${activeItem.id}`, '_blank');
-            else window.open(`${u}/web/index.html#!/search.html?query=${encodeURIComponent(activeItem.title)}`, '_blank');
-        };
-
-        function renderRow(title, movies, isFriend = false, pool = 'discover_movie') {
-            let displayList = movies.filter(m => !localWatchedCache.includes(String(m.title).toLowerCase().trim()) && (!m.tmdbId || !localWatchedCache.includes(String(m.tmdbId))));
-            if (displayList.length === 0) return '';
-            return `<div class="row-container"><h3 class="row-title">${isFriend ? '🔥' : '📦'} ${title}</h3><div class="scroll-row">` + displayList.map((m) => {
-                let lookupKey = m.id || m.tmdbId || m.title;
-                let cleanYearNumeric = parseNumericYear(m);
-                let displayMeta = cleanYearNumeric > 0 ? cleanYearNumeric : '';
-                return `<div class="scroll-card movie-trigger" data-pool="${pool}" data-id="${lookupKey}" data-track="${title}"><div class="scroll-poster">${m.posterPath ? `<img class="scroll-poster-img" src="${m.posterPath}">` : `<div style="font-weight:bold; font-size:10px; padding:12px;">${m.title}</div>`}<span class="rating-badge">${m.rating}</span></div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${displayMeta}</div></div></div>`;
-            }).join('') + `</div></div>`;
         }
 
         function render() {
