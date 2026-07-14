@@ -90,6 +90,7 @@
     </div>
     <script>
         let letterboxdData = {}, friendRowData = [], activeTorrents = [], searchResultsData = [], calendarEvents = [];
+        let jfLibraryMovies = [], jfLibraryShows = [];
         window.foreignMoviesData = [];
         let modalOpen = false, activeItem = null, activeCollection = null, activeFriendName = null;
         let currentMediaMode = localStorage.getItem('mode_tab') || 'movies';
@@ -156,7 +157,20 @@
             }
         };
 
-        function switchMode(m) { currentMediaMode = m; localStorage.setItem('mode_tab', m); searchResultsData = []; if(m==='downloads') syncDownloadQueue(); render(); }
+        function switchMode(m) { 
+            currentMediaMode = m; 
+            localStorage.setItem('mode_tab', m); 
+            searchResultsData = []; 
+            if(m === 'downloads') {
+                if(typeof syncDownloadQueue === 'function') syncDownloadQueue();
+            } else if (m === 'movies' || m === 'shows') {
+                if(typeof window.syncJellyfinLibrary === 'function') window.syncJellyfinLibrary();
+            } else if (m === 'foryou') {
+                if(typeof window.syncFeeds === 'function') window.syncFeeds(); 
+                if(typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
+            }
+            render(); 
+        }
         function switchSubTab(s) { currentSubTab = s; localStorage.setItem('sub_tab', s); render(); }
         function switchShowSubTab(s) { currentShowSubTab = s; localStorage.setItem('show_sub_tab', s); render(); }
         function switchForYouSubTab(s) { currentForYouSubTab = s; localStorage.setItem('foryou_sub_tab', s); render(); }
@@ -165,6 +179,47 @@
         function showAppNotification(txt) { let b = document.getElementById('app-toast-banner'); if(!b) return; b.innerText = txt; b.classList.add('toast-show-active'); setTimeout(() => b.classList.remove('toast-show-active'), 3000); }
         function formatBytes(b) { if(!+b) return '0 B'; let k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(b) / Math.log(k)); return `${parseFloat((b / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`; }
         function parseNumericYear(i) { if(!i) return 0; let v = i.realYear || i.year; return v ? parseInt(String(v).replace(/\D/g, ""), 10) || 0 : 0; }
+        window.syncJellyfinLibrary = async function() {
+            let u = localStorage.getItem('jf_url'); let k = localStorage.getItem('jf_key');
+            if(!u || !k) return; u = u.trim().replace(/\/$/, ""); if(!u.startsWith('http')) u = 'http://' + u;
+            try {
+                let usersRes = await fetch(`${u}/Users?api_key=${k.trim()}`);
+                let users = await usersRes.json();
+                let userId = users.length > 0 ? users[0].Id : '';
+                
+                let url = userId ? `${u}/Users/${userId}/Items?api_key=${k.trim()}&Recursive=true&IncludeItemTypes=Movie,Series&Fields=ProviderIds,Overview,ProductionYear` : `${u}/Items?api_key=${k.trim()}&Recursive=true&IncludeItemTypes=Movie,Series&Fields=ProviderIds,Overview,ProductionYear`;
+                
+                let res = await fetch(url);
+                let data = await res.json();
+                let movies = [], shows = [];
+                if (data && data.Items) {
+                    data.Items.forEach(item => {
+                        let posterPath = `${u}/Items/${item.Id}/Images/Primary`;
+                        let tmdbId = item.ProviderIds ? item.ProviderIds.Tmdb : null;
+                        let tvdbId = item.ProviderIds ? item.ProviderIds.Tvdb : null;
+                        
+                        let mappedItem = {
+                            id: item.Id,
+                            tmdbId: tmdbId,
+                            tvdbId: tvdbId,
+                            title: item.Name,
+                            year: item.ProductionYear,
+                            overview: item.Overview,
+                            posterPath: posterPath,
+                            mediaType: item.Type === 'Movie' ? 'movie' : 'tv',
+                            hasFile: true
+                        };
+                        
+                        if (item.Type === 'Movie') movies.push(mappedItem);
+                        else if (item.Type === 'Series') shows.push(mappedItem);
+                    });
+                }
+                jfLibraryMovies = movies;
+                jfLibraryShows = shows;
+                if (currentMediaMode === 'movies' || currentMediaMode === 'shows') render();
+            } catch(e) { console.error("Jellyfin Library Sync Error", e); }
+        };
+
         window.syncDownloadQueue = async function() {
             let rUrl = localStorage.getItem('radarr_url'), rKey = localStorage.getItem('radarr_key');
             let sUrl = localStorage.getItem('sonarr_url'), sKey = localStorage.getItem('sonarr_key');
@@ -301,13 +356,36 @@
             } else if (pool === 'search') {
                 activeItem = searchResultsData.find(m => String(m.id) === String(id));
             } else if (pool === 'library') {
-                activeItem = myCollection.find(m => String(m.id) === String(id));
+                activeItem = jfLibraryMovies.find(m => String(m.id) === String(id)) || myCollection.find(m => String(m.id) === String(id));
             } else if (pool === 'watched_track') {
                 activeItem = customWatchedHistory.find(m => String(m.id) === String(id));
             } else if (pool === 'shows') {
-                activeItem = myShows.find(m => String(m.id) === String(id));
+                activeItem = jfLibraryShows.find(m => String(m.id) === String(id)) || myShows.find(m => String(m.id) === String(id));
             } else if (pool === 'friend') {
                 activeItem = friendRowData.find(m => String(m.id) === String(id) || String(m.title) === String(id));
+            } else if (pool === 'calendar') {
+                let calEv = calendarEvents.find(e => String(e.id) === String(id));
+                if (calEv) {
+                    activeItem = {
+                        id: calEv.tmdbId || calEv.id, tmdbId: calEv.tmdbId, tvdbId: calEv.tvdbId,
+                        title: calEv.title.replace(/^(🍿|💻|💿|📺)\s*/, ''), posterPath: calEv.posterPath,
+                        mediaType: calEv.mediaType || (calEv.id.startsWith('rad') ? 'movie' : 'tv'),
+                        year: calEv.date ? calEv.date.getFullYear() : '', rating: '0.0', 
+                        overview: `Scheduled for: ${calEv.date ? calEv.date.toLocaleDateString() : 'Unknown'}`
+                    };
+                    let tk = localStorage.getItem('tmdb_key');
+                    if (tk && activeItem.tmdbId) {
+                        fetch(`https://api.themoviedb.org/3/${activeItem.mediaType === 'tv' ? 'tv' : 'movie'}/${activeItem.tmdbId}?api_key=${tk.trim()}`)
+                        .then(r=>r.json()).then(d => {
+                            if (d && !d.status_code) { 
+                                activeItem.overview = d.overview || activeItem.overview;
+                                activeItem.rating = d.vote_average ? d.vote_average.toFixed(1) : '0.0';
+                                if (d.poster_path) activeItem.posterPath = 'https://image.tmdb.org/t/p/w500' + d.poster_path;
+                                if (modalOpen) render();
+                            }
+                        }).catch(()=>{});
+                    }
+                }
             }
             if(activeItem) {
                 modalOpen = true; render();
@@ -400,11 +478,11 @@
                 </div></div></div>
             ` : '';
 
-            let searchRow = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map(m => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.id}"><div class="scroll-poster">${m.posterPath?`<img class="scroll-poster-img" src="${m.posterPath}">`:''}</div><div class="card-details"><div class="card-title">${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
+            let searchRow = searchResultsData.length > 0 ? `<div class="row-container"><h3 class="row-title">🎬 Search Results</h3><div class="scroll-row">` + searchResultsData.map(m => `<div class="scroll-card movie-trigger" data-pool="search" data-id="${m.id}"><div class="scroll-poster">${m.posterPath?`<img class="scroll-poster-img" src="${m.posterPath}">`:''}</div><div class="card-details"><div class="card-title">${m.isPerson ? '👤 ' : ''}${m.title}</div><div class="card-meta">${m.year}</div></div></div>`).join('') + `</div></div><hr class="section-divider">` : '';
 
             if(currentMediaMode === 'movies') {
                 let watchedMovies = [...customWatchedHistory];
-                let downloadedMovies = myCollection.filter(m => m.hasFile === true);
+                let downloadedMovies = jfLibraryMovies;
                 
                 let comingSoonMovies = [];
                 let seenIds = new Set();
@@ -433,6 +511,7 @@
                         <div onclick="switchWatchedSort('recent')" class="filter-pill ${watchedSortMode==='recent'?'active-pill':''}">📅 Recent</div>
                         <div onclick="switchWatchedSort('alpha')" class="filter-pill ${watchedSortMode==='alpha'?'active-pill' :''}">🔤 Title A-Z</div>
                         <div onclick="switchWatchedSort('year_desc')" class="filter-pill ${watchedSortMode==='year_desc'?'active-pill':''}">⏳ Year (New)</div>
+                        <div onclick="switchWatchedSort('year_asc')" class="filter-pill ${watchedSortMode==='year_asc'?'active-pill':''}">⏳ Year (Old)</div>
                     </div>
                     <div class="movie-grid" style="margin-top:16px;">${filtered.map(m=>`<div class="movie-card movie-trigger" data-pool="${poolName}" data-id="${m.id}"><div class="poster-slot">${m.posterPath?`<img class="grid-poster-img" src="${m.posterPath}">`:''}</div><div class="grid-card-details">${m.title}</div></div>`).join('')}</div>
                 `;
@@ -446,7 +525,7 @@
                     }
                 });
 
-                let downloadedShows = myShows.filter(s => s.hasFile);
+                let downloadedShows = jfLibraryShows;
                 let filtered = currentShowSubTab === 'downloaded' ? downloadedShows : comingSoonShows;
                 let poolShows = currentShowSubTab === 'comingsoon' ? 'calendar' : 'shows';
                 
@@ -455,17 +534,35 @@
                         <div onclick="switchShowSubTab('downloaded')" class="stat-card ${currentShowSubTab==='downloaded'?'active-sub-tab':''}"><div class="stat-num" style="color:#10b981;">${downloadedShows.length}</div><div class="stat-lbl">Downloaded</div></div>
                         <div onclick="switchShowSubTab('comingsoon')" class="stat-card ${currentShowSubTab==='comingsoon'?'active-sub-tab':''}"><div class="stat-num" style="color:#3b82f6;">${comingSoonShows.length}</div><div class="stat-lbl">Coming Soon</div></div>
                     </div>
-                    <div class="movie-grid" style="margin-top:16px;">${filtered.map(s=>`<div class="movie-card movie-trigger" data-pool="${poolShows}" data-id="${s.id}"><div class="poster-slot"><img class="grid-poster-img" src="${s.posterPath||''}"></div><div class="grid-card-details">${s.title}</div></div>`).join('')}</div>
+                    <div class="movie-grid" style="margin-top:16px;">${filtered.map(s=>`<div class="movie-card movie-trigger" data-pool="${poolShows}" data-id="${s.id}"><div class="poster-slot"><img src="${s.posterPath||''}" class="grid-poster-img"></div><div class="grid-card-details">${s.title}</div></div>`).join('')}</div>
                 `;
             } else if (currentMediaMode === 'foryou') {
                 let tabs = `<div class="stats-grid"><div onclick="switchForYouSubTab('movies')" class="stat-card ${currentForYouSubTab==='movies'?'active-sub-tab':''}"><div class="stat-lbl">Movies</div></div><div onclick="switchForYouSubTab('shows')" class="stat-card ${currentForYouSubTab==='shows'?'active-sub-tab':''}"><div class="stat-lbl">TV Shows</div></div></div>`;
                 if(currentForYouSubTab === 'movies') {
-                    body = tabs + renderRow("Friends' Picks", friendRowData, true, 'friend') + Object.entries(movieTracks).map(([t, m]) => renderRow(t, m, false, 'discover_movie')).join('') + renderRow("Foreign Cinema", window.foreignMoviesData||[], false, 'discover_movie');
+                    body = tabs + renderRow("Friends' Picks", friendRowData, true, 'friend') + Object.entries(movieTracks).map(([t, m]) => renderRow(t, m, false, 'discover_movie')).join('') + renderRow("Foreign Cinema", window.foreignMoviesData||[], false, 'Foreign Cinema') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); window.syncFeeds(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                 } else {
-                    body = tabs + Object.entries(tvTracks).map(([t, s]) => renderRow(t, s, false, 'discover_tv')).join('');
+                    body = tabs + Object.entries(tvTracks).map(([t, s]) => renderRow(t, s, false, 'discover_tv')).join('') + `<button class="refresh-pill" onclick="loadDiscoverTracks(); showAppNotification('Refreshing Recommendations...');">refresh</button>`;
                 }
             } else if (currentMediaMode === 'downloads') {
-                body = activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b;">No active entries</div>` : `<div style="display:flex; flex-direction:column; gap:12px;">` + activeTorrents.map(t => `<div class="torrent-card"><div class="torrent-title">${t.title}</div><div class="torrent-meta"><span>${formatBytes(t.downloaded)} / ${formatBytes(t.totalSize)} • ${t.percent}%</span><span style="background:#1e293b; color:#fff; padding:2px 6px; border-radius:4px;">${t.client}</span></div><div class="torrent-progress-bg"><div class="torrent-progress-fill" style="width:${t.percent}%; background:#8b5cf6;"></div></div><div class="torrent-meta" style="margin-top:8px;"><span style="color:#8b5cf6; font-weight:800;">${t.status}</span><span>${t.timeleft?'⏳ '+t.timeleft:''}</span></div></div>`).join('') + `</div>`;
+                body = activeTorrents.length === 0 ? `<div style="text-align:center; padding:40px; color:#64748b;">No active entries</div>` : `<div style="display:flex; flex-direction:column; gap:12px;">` + activeTorrents.map(t => {
+                    let statusColor = t.status.toLowerCase() === 'downloading' ? '#8b5cf6' : (t.status.toLowerCase().includes('completed') ? '#10b981' : '#f59e0b');
+                    return `
+                    <div class="torrent-card">
+                        <div class="torrent-title">${t.title}</div>
+                        <div class="torrent-meta" style="margin-bottom:8px;">
+                            <span>${formatBytes(t.downloaded)} / ${formatBytes(t.totalSize)} • ${t.percent}%</span>
+                            <span style="background:#1e293b; color:#fff; padding:2px 6px; border-radius:4px;">${t.client}</span>
+                        </div>
+                        <div class="torrent-progress-bg">
+                            <div class="torrent-progress-fill" style="width:${t.percent}%; background:${statusColor};"></div>
+                        </div>
+                        <div class="torrent-meta" style="margin-top:8px;">
+                            <span style="color:${statusColor}; font-weight:800; text-transform:capitalize;">${t.status}</span>
+                            <span>${t.timeleft?'⏳ '+t.timeleft:''}</span>
+                        </div>
+                    </div>`;
+                }).join('') + `</div>`;
+                body += `<button class="refresh-pill" onclick="syncDownloadQueue(); showAppNotification('Refreshing Downloads...');">refresh</button>`;
             } else if (currentMediaMode === 'settings') {
                 body = `
                     <div class="settings-container">
@@ -474,10 +571,11 @@
                         <div class="form-group"><label>Sonarr URL</label><input type="text" id="in_sonarr_url" value="${localStorage.getItem('sonarr_url')||''}"></div>
                         <div class="form-group"><label>Sonarr Key</label><input type="password" id="in_sonarr_key" value="${localStorage.getItem('sonarr_key')||''}"></div>
                         <div class="form-group"><label>Jellyfin URL</label><input type="text" id="in_jf_url" value="${localStorage.getItem('jf_url')||''}"></div>
+                        <div class="form-group"><label>Jellyfin API Key</label><input type="password" id="in_jf_key" value="${localStorage.getItem('jf_key')||''}"></div>
                         <div class="form-group"><label>Letterboxd Usernames</label><textarea id="in_lb" placeholder="user1\\nuser2">${localStorage.getItem('lb_links')||''}</textarea></div>
                         <div class="form-group"><label>TMDB Key (v3)</label><input type="text" id="in_tmdb" value="${localStorage.getItem('tmdb_key')||''}"></div>
                         <div class="form-group"><label>OMDb Key</label><input type="password" id="in_omdb" value="${localStorage.getItem('omdb_key')||''}"></div>
-                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); showAppNotification('Saved Core Matrix Config!'); loadDiscoverTracks(); window.syncFeeds(); fetchMediaCalendars();" class="btn-action">Save Media Settings</button>
+                        <button onclick="localStorage.setItem('radarr_url', document.getElementById('in_radarr_url').value.trim()); localStorage.setItem('radarr_key', document.getElementById('in_radarr_key').value.trim()); localStorage.setItem('sonarr_url', document.getElementById('in_sonarr_url').value.trim()); localStorage.setItem('sonarr_key', document.getElementById('in_sonarr_key').value.trim()); localStorage.setItem('jf_url', document.getElementById('in_jf_url').value.trim()); localStorage.setItem('jf_key', document.getElementById('in_jf_key').value.trim()); localStorage.setItem('lb_links', document.getElementById('in_lb').value.trim()); localStorage.setItem('tmdb_key', document.getElementById('in_tmdb').value.trim()); localStorage.setItem('omdb_key', document.getElementById('in_omdb').value.trim()); showAppNotification('Saved Core Matrix Config!'); loadDiscoverTracks(); window.syncFeeds(); fetchMediaCalendars(); window.syncJellyfinLibrary();" class="btn-action">Save Media Settings</button>
                         <div style="margin-top: 20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #ffffff;">
                             <h4 style="margin-top:0; color: #0f172a; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">App Backup</h4>
                             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -498,21 +596,44 @@
                     if(im) extra += `<span style="background:#f5c518; color:#000; padding:3px 8px; border-radius:6px; font-weight:800; font-size:11px;">IMDb ${im.Value}</span>`;
                 }
                 extra += `</div>`;
+                let getFriendBadgeHtmlLocal = function() {
+                    let badges = [];
+                    if (letterboxdData) {
+                        let iterable = Array.isArray(letterboxdData) ? letterboxdData.map(item => [item.username || item.user, item]) : Object.entries(letterboxdData);
+                        for (let [user, data] of iterable) {
+                            if (data && data.highly_rated && data.highly_rated.some(m => String(m.title).toLowerCase() === String(activeItem.title).toLowerCase())) {
+                                badges.push(`<span style="background:#10b981; color:#ffffff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:800; text-transform:uppercase;">🔥 ${user} Loves This</span>`);
+                            }
+                        }
+                    }
+                    return badges.length > 0 ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${badges.join('')}</div>` : '';
+                };
+
                 let isW = customWatchedHistory.some(m => window.isItemMatch(m, activeItem));
+                
+                let actionButtons = '';
+                if (activeItem.mediaType === 'movie') {
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
+                } else if (activeItem.mediaType === 'tv') {
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToSonarr()">Add to Sonarr</button>`;
+                } else {
+                    actionButtons += `<button class="btn-action" style="background:#8b5cf6;" onclick="addToRadarr()">Add to Radarr</button>`;
+                }
+                actionButtons += `
+                    <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="playOnJellyfin()">Stream on Player</button>
+                    <button class="btn-action" style="background:${isW?'#ef4444':'#10b981'};" onclick="toggleWatchlist()">${isW?'Remove from Watched Matrix':'Add to Watched History'}</button>
+                `;
+
                 modal = `
                     <div class="modal-overlay"><div class="modal-bg" style="background-image:url('${activeItem.posterPath||''}');"></div><div class="modal-bg-tint"></div>
                         <div class="detail-close-trigger" onclick="closeM()">×</div>
                         <div class="detail-content-frame">
                             <div class="detail-main-row">
                                 <div class="detail-poster-wrapper"><img class="detail-poster-img" src="${activeItem.posterPath||''}"></div>
-                                <div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><p class="detail-sub-specs">${activeItem.year||''}</p>${extra}</div>
+                                <div class="detail-meta-block"><h3 class="detail-heading-title">${activeItem.title}</h3><p class="detail-sub-specs">${activeItem.year||''}</p>${extra}${getFriendBadgeHtmlLocal()}</div>
                             </div>
                             <div class="detail-synopsis-box"><h4>Summary</h4><div>${activeItem.overview||'No summary index generated.'}</div></div>
-                            <div class="detail-footer-actions">
-                                <button class="btn-action" style="background:#8b5cf6;" onclick="${activeItem.mediaType==='tv'?'addToSonarr()':'addToRadarr()'}">Send to Downloader</button>
-                                <button class="btn-action" style="background:linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);" onclick="playOnJellyfin()">Stream on Player</button>
-                                <button class="btn-action" style="background:${isW?'#ef4444':'#10b981'};" onclick="toggleWatchlist()">${isW?'Remove from Watched Matrix':'Add to Watched History'}</button>
-                            </div>
+                            <div class="detail-footer-actions">${actionButtons}</div>
                         </div>
                     </div>
                 `;
@@ -530,8 +651,40 @@
                 if (typeof window.syncFeeds === 'function') window.syncFeeds();
                 if (typeof loadDiscoverTracks === 'function') loadDiscoverTracks();
                 if (typeof fetchMediaCalendars === 'function') fetchMediaCalendars();
+                if (typeof window.syncJellyfinLibrary === 'function') window.syncJellyfinLibrary();
                 if (currentMediaMode === 'downloads' && typeof syncDownloadQueue === 'function') syncDownloadQueue();
             } catch (e) { console.error(e); }
+        }
+
+        function exportWatchedList() {
+            const backupPayload = {
+                watched: JSON.parse(localStorage.getItem('custom_watched_history') || '[]'),
+                cache: JSON.parse(localStorage.getItem('local_watched_cache') || '[]'),
+                collections: JSON.parse(localStorage.getItem('my_collections_cache') || '{}')
+            };
+            document.getElementById('migrationBox').value = JSON.stringify(backupPayload);
+            document.getElementById('migrationBox').select();
+            alert('All data exported! Copy the text inside the box now.');
+        }
+
+        function importWatchedList() {
+            const dataToImport = document.getElementById('migrationBox').value.trim();
+            if (!dataToImport) return alert('Please paste data into the box first.');
+            try {
+                let parsed = JSON.parse(dataToImport); 
+                if (Array.isArray(parsed)) {
+                    localStorage.setItem('custom_watched_history', dataToImport);
+                    let cacheArr = parsed.map(m => String(m.title).toLowerCase().trim());
+                    parsed.forEach(m => { if(m.tmdbId) cacheArr.push(String(m.tmdbId)); });
+                    localStorage.setItem('local_watched_cache', JSON.stringify(cacheArr));
+                } else {
+                    if (parsed.watched) localStorage.setItem('custom_watched_history', JSON.stringify(parsed.watched));
+                    if (parsed.cache) localStorage.setItem('local_watched_cache', JSON.stringify(parsed.cache));
+                    if (parsed.collections) localStorage.setItem('my_collections_cache', JSON.stringify(parsed.collections));
+                }
+                alert('Success! Data imported. Refreshing...');
+                location.reload();
+            } catch (e) { alert('Invalid format.'); }
         }
 
         render(); safeInit();
