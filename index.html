@@ -156,7 +156,7 @@
             }
         };
 
-        fetch('./letterboxd_likes.json') 
+        fetch('./letterboxd_data.json') 
           .then(response => {
               if (!response.ok) throw new Error("Network response was not ok");
               return response.json();
@@ -168,7 +168,7 @@
           })
           .catch(err => {
               console.error("Error loading JSON:", err);
-              setTimeout(() => showAppNotification('Missing letterboxd_likes.json file in folder!'), 2000);
+              setTimeout(() => showAppNotification('Missing letterboxd_data.json file in folder!'), 2000);
           });
 
         function switchMode(m) { 
